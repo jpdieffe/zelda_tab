@@ -40,6 +40,11 @@ try{
   await jj.locator('#tap-surface').click({position:{x:200,y:200}});
   await dad.waitForFunction(()=>!window.testGame.fairy.follow);
   console.log('Fairy touch relayed');
+  if(process.env.TEST_SAVE){
+    const state=await readFile(process.env.TEST_SAVE);
+    await dad.evaluate(bytes=>{testGame.emulator.gameManager.loadState(new Uint8Array(bytes));testGame.fairy.scene=null;},Array.from(state));
+    await dad.waitForFunction(()=>testGame.bridge.read().active);
+  }else{
   await dad.waitForTimeout(10000);
   // Input on the custom controller, then release; title advances to file select.
   await dad.locator('[data-key="3"]').click({delay:150});await dad.waitForTimeout(900);
@@ -82,6 +87,22 @@ try{
   }
   assert.equal(stable,6,'Opening scripted dialogue is fully complete');
   await writeFile(new URL('active-game.state',results),Buffer.from(await dad.evaluate(()=>Array.from(testGame.emulator.gameManager.getState()))));
+  }
+  await jj.waitForFunction(()=>document.getElementById('tablet-objective').textContent.includes('Leave the house'));
+  assert.ok(await dad.evaluate(()=>Number.isFinite(testGame.guidance.angle)),'House exit compass is active');
+  const surface=await jj.locator('#tap-surface').boundingBox();
+  const fly=async(x,y)=>{await jj.locator('#tap-surface').click({position:{x:x/256*surface.width,y:y/224*surface.height}});await dad.waitForTimeout(600);};
+  await fly(130,120);await fly(130,100);
+  await dad.evaluate(()=>{const f=testGame.fairy,burst=f.burst.bind(f);f.burst=(x,y)=>{window.lastBurst={x,y,wall:testGame.bridge.read().wallAt(x,y)};burst(x,y);};});
+  assert.equal(await dad.evaluate(()=>testGame.bridge.read().enemies.length),0);
+  await jj.locator('#fire').click({delay:50});
+  await dad.waitForFunction(()=>window.lastBurst?.wall,{},{timeout:3000});
+  console.log('Empty-room shot hit a real dungeon wall',await dad.evaluate(()=>window.lastBurst));
+  await shot(jj,'compass-and-free-shot.png');
+  await dad.locator('#options').click();await dad.locator('#toggle-guidance').click();
+  await jj.waitForFunction(()=>document.getElementById('tablet-objective').hidden);
+  await dad.locator('#toggle-guidance').click();await dad.locator('#close-options').click();
+  console.log('Compass objective and toggle relayed to tablet');
   await dad.evaluate(async()=>{
     const {ADDR:A}=await import('/zelda.js');const ram=testGame.bridge.ram,k=14;
     const x=(ram[A.linkX]|ram[A.linkX+1]<<8)+30,y=(ram[A.linkY]|ram[A.linkY+1]<<8)+30;

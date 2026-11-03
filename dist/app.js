@@ -1,11 +1,16 @@
 import { ROM_SHA256, ZeldaBridge, snapshotRam } from './zelda.js';
 import { Fairy, COOLDOWN } from './fairy.js';
+import { drawGuidance } from './guidance.js';
 import { Connection, roomCode, normalizeCode, validCode } from './network.js';
 import * as storage from './storage.js';
 
 const $=id=>document.getElementById(id);
 export const game={role:null,network:null,emulator:null,bridge:null,fairy:null,paused:false,ready:false,saving:false,loading:false};
-let gameLoader;
+let gameLoader,gameRom;
+game.guidanceEnabled=localStorage.getItem('guidance')!=='off';
+function updateGuideButton(){$('toggle-guidance').textContent='Story compass: '+(game.guidanceEnabled?'on':'off');}
+updateGuideButton();
+$('toggle-guidance').onclick=()=>{game.guidanceEnabled=!game.guidanceEnabled;localStorage.setItem('guidance',game.guidanceEnabled?'on':'off');updateGuideButton();sendState();};
 let wakeLock,toastTimer,autoSaveTimer,frameId,lastFrame=0,lastState=0,romUrl,stream,audioDestination,audioGains=[],phoneAudio=true,tabSound=false,wasHidden=false;
 const buttons=new Map();
 function show(id){document.querySelectorAll('.view').forEach(e=>e.hidden=e.id!==id);}
@@ -63,6 +68,7 @@ async function startGame(rom){
   if(game.emulator||window.EJS_emulator){show('controller');return;}
   if(!window.isSecureContext)throw new Error('Open the HTTPS website to use phone-to-tablet play.');
   await validateRom(rom);
+  gameRom=rom;
   game.role='dad';show('controller');await awake();
   try{hostNetwork();}catch(e){status('dad-status',e.message,true);}
   romUrl=URL.createObjectURL(new Blob([rom]));
@@ -97,7 +103,7 @@ async function onGameStarted(){
   // Let the runtime run a few frames before loading/locating RAM.
   await new Promise(resolve=>setTimeout(resolve,500));
   try{const saved=await storage.get('save');if(saved?.rom===ROM_SHA256){snapshotRam(saved.state);gm.loadState(saved.state);toast('Welcome back! Your last save is loaded.');}}catch{toast('Could not load the last save. Starting from the title screen.');}
-  game.bridge=new ZeldaBridge(gm);game.fairy=new Fairy();
+  game.bridge=new ZeldaBridge(gm,gameRom);game.fairy=new Fairy();
   let bridgeError;
   try{await game.bridge.connect();}catch(e){bridgeError=e;}
   game.ready=true;
@@ -129,13 +135,15 @@ function frame(now){
     ctx.imageSmoothingEnabled=false;ctx.drawImage(source,(source.width-width)/2,(source.height-height)/2,width,height,0,0,512,448);
     const world=game.bridge?.read();
     if(!game.paused)game.fairy.update(dt,world);
-    ctx.save();ctx.scale(2,2);game.fairy.draw(ctx,now);ctx.restore();
+    game.guidance=world?.guidance;
+    $('dad-objective').textContent=game.guidanceEnabled?(game.guidance?.label||'Story compass · waiting for the adventure'):'Story compass off';
+    ctx.save();ctx.scale(2,2);game.fairy.draw(ctx,now);if(game.guidanceEnabled)drawGuidance(ctx,world);ctx.restore();
     if(!$('peek-panel').hidden){const pc=$('peek-canvas').getContext('2d');pc.imageSmoothingEnabled=false;pc.drawImage($('broadcast'),0,0);}
     if(now-lastState>100){sendState();lastState=now;}
   }
   frameId=requestAnimationFrame(frame);
 }
-function sendState(){game.network?.send({type:'state',ready:game.ready,paused:game.paused,active:game.fairy?.active||false,bridge:Boolean(game.bridge?.ram),target:Boolean(game.fairy?.target),cooldown:game.fairy?.cooldown||0});}
+function sendState(){game.network?.send({type:'state',ready:game.ready,paused:game.paused,active:game.fairy?.active||false,bridge:Boolean(game.bridge?.ram),target:Boolean(game.fairy?.target),cooldown:game.fairy?.cooldown||0,objective:game.guidanceEnabled?game.guidance?.label||'':''});}
 function setPhoneAudio(enabled){
   if(enabled===phoneAudio)return;phoneAudio=enabled;
   const al=game.emulator?.gameManager.Module.AL?.currentCtx;
@@ -230,6 +238,7 @@ let tabletState=null,shotHintUntil=0,moveStamp=0,videoStamp=0,lastVideoTime=-1;
 function onTabletData(data){
   if(data.type==='state'){
     tabletState=data;
+    $('tablet-objective').textContent=data.objective||'';$('tablet-objective').hidden=!data.objective;
     $('fire').disabled=!data.ready||data.paused||!data.active||!data.bridge||data.cooldown>0;
     $('fire').classList.toggle('ready',data.target&&data.cooldown===0);
     if(data.paused){$('screen-message').hidden=false;$('screen-message').querySelector('p').textContent='A little rest. Dad will resume the adventure.';}
@@ -237,7 +246,7 @@ function onTabletData(data){
     if(Date.now()>shotHintUntil)$('fairy-hint').textContent=!data.bridge?'Fairy magic is unavailable — check Dad’s phone.':!data.active?'Waiting for Link’s adventure…':data.target?'A baddie is close! Send a spark!':'Tap anywhere to fly!';
   }
   if(data.type==='shot'){
-    $('fairy-hint').textContent=data.result==='closer'?'Fly a little closer to a baddie!':data.result==='fired'?'Nice one, JJ! ✦':'Your magic is recharging…';shotHintUntil=Date.now()+1500;
+    $('fairy-hint').textContent=data.result==='fired'?'Nice one, JJ! ✦':'Your magic is recharging…';shotHintUntil=Date.now()+1500;
   }
 }
 function moveFairy(e){

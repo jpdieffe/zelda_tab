@@ -11,3 +11,5 @@
 #emulator-stage{z-index:10;width:2px;height:1px;inset:0 auto auto 0;overflow:hidden}
 #emulator{transform:scale(.001953125);transform-origin:0 0}
 #broadcast{left:1px;top:0;width:1px;height:1px}
+
+.objective{flex:none;text-align:center;font-size:13px;line-height:1.4;color:var(--gold);background:#122a25;padding:6px 14px;border-bottom:1px solid var(--edge)}.phone-objective{font-size:11px;max-width:100%;padding:3px 8px;background:transparent;border:0}@media(orientation:landscape) and (max-height:500px){.objective{font-size:10px;padding:3px 8px}}

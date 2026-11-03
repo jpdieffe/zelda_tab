@@ -12,10 +12,16 @@ Hosted on GitHub Pages. No ChatGPT account or login is required.
 2. On the phone, choose **I'm Dad → Take the controls**. The included Zelda game starts automatically; there is no ZIP or ROM picker.
 3. On the tablet, choose **I'm JJ → Let's fly**, and enter the eight-character code on the phone. You can also tap the code on the phone to copy a direct pairing link.
 4. Turn both devices sideways. Tap the full-screen button. Press **START** on the phone once Zelda's title animation finishes, and create/select an ordinary game file.
-5. JJ taps or drags on the game picture to fly. The fairy follows Link until JJ chooses a destination, follows scrolling, and returns beside Link when the room changes. A faint ring shows its range. When an ordinary enemy is close, the fire button lights up.
+5. JJ taps or drags on the game picture to fly. The fairy follows Link until JJ chooses a destination, follows scrolling, and returns beside Link when the room changes. A faint ring shows its range. When an ordinary enemy is close, the fire button lights up and sparks home toward it. With no target, sparks fire in the fairy?s last flight direction (up before its first move), burst against walls, and can be fired just for fun.
 6. Tap **Sound on** on the tablet to move game sound there. Leave both browser tabs open and the phone unlocked. The app requests a screen wake lock where supported.
 
 No computer or home server is required after deployment. An internet connection is needed to load the app/emulator and reach PeerJS's public pairing service. After pairing, WebRTC streams game video/audio and control messages directly between devices. No TURN relay is configured. Guest Wi-Fi client isolation, VPNs, or networks that block direct peer connections can prevent pairing.
+
+## Story compass
+
+A small gold arrow beside Link points toward the next story destination outdoors. The objective appears above the game picture and on Dad?s controller. It updates from the current save?s inventory, pendants, crystals and story flags; reloading a save does not reset its progress. Turn it off in **More ? Story compass**.
+
+This is a destination compass, not turn-by-turn routing: take paths around cliffs and buildings. Inside Link?s house it points to the exit; it can also point to relevant NPCs in the current room. Other interiors display an objective hint, with no direction arrow. Dungeon keys, switches, stairs and puzzles still require exploration and the original **X** map. Cross-world objectives explain when to use the mirror or castle portal. The guide recommends one story order and skips completed milestones; it does not cover every optional item or side quest.
 
 ## Saving
 
@@ -37,7 +43,7 @@ All app assets use relative URLs so they work at the `/zelda_tab/` project path.
 - Each spark queues **1 damage unit** through the original game's pending-damage and recoil timers. Zelda itself handles health reduction, defeat, drops and room progression.
 - Targets are an explicit allowlist of ordinary enemies. NPCs, tutorial guards, switches, bosses and enemies with special damage requirements are excluded. This is deliberately a first-version limitation, not full enemy coverage.
 - Sprite state, health, invulnerability flags, floor, screen position, type, scene and distance are checked. A target is revalidated on impact. Dialogues, pause menus and room transitions disable shooting.
-- The fairy is an overlay tied to the emulator's live RAM, not a ROM patch. It is not persisted inside Zelda save states. Its projectiles do not test dungeon wall collision.
+- The fairy is an overlay tied to the emulator's live RAM, not a ROM patch. It is not persisted inside Zelda save states. Projectiles read live dungeon tile attributes and decode overworld collision through the bundled ROM?s tile tables. They sweep in small steps to stop at walls and closed doors, while flying over pits and water. Sparks at the screen boundary burst and disappear. They do not activate switches or damage scenery.
 - The included USA ROM is verified against SHA-256 `66871d66be19ad2c34c927d6b14cd8eb6fc3181965b6e517cb361f7316009cfb` before starting. Randomizers, ROM hacks and other regions need separate memory profiles.
 
 ## Development
@@ -56,16 +62,19 @@ Local preview: `http://localhost:4173`. HTTPS is required on real phones/tablets
 npm run test:browser
 ```
 
-The browser integration test starts the bundled game without selecting any file and uses the installed Windows Chrome executable. Set `CHROME_PATH` for another installation. Test screenshots and local save states go in ignored `test-results/`. They are never included in `dist/`. The Node tests cover bundled-ROM integrity, memory location, target filtering, native damage queuing, coordinate transforms, cooldown, and invalid inputs.
+The browser integration test starts the bundled game without selecting any file and uses the installed Windows Chrome executable. Set `CHROME_PATH` for another installation. Test screenshots and local save states go in ignored `test-results/`. They are never included in `dist/`. The Node tests cover bundled-ROM integrity, memory location, target filtering, native damage queuing, coordinate transforms, cooldown, free shots, wall sweeps, target loss, scrolling, dungeon floors, ROM collision decoding, story progression, compass coordinates, and invalid inputs. The browser test verifies an empty-room shot hitting a real house wall, compass text/toggle relaying to the tablet, and native enemy damage through the emulator.
 
 ## Implementation and references
 
 - `dist/app.js`: UI, automatic bundled-game loading, ROM validation, controller input, save states, audio routing and canvas streaming.
 - `dist/network.js`: PeerJS room pairing, WebRTC media/data, heartbeat and reconnection.
 - `dist/zelda.js`: verified USA RAM map and conservative damage adapter. It locates the 128 KiB live WRAM by matching a Snes9x save snapshot, excluding serialized copies, checking the live frame counter, then verifying a second snapshot. It never writes to an unverified memory address.
-- `dist/fairy.js`: movement, auto-targeting, projectiles and drawing.
+- `dist/fairy.js`: movement, auto-targeting, free shots, projectile sweeps, bursts and drawing.
+- `dist/collision.js`: live dungeon and overworld wall detection.
+- `dist/guidance.js`: story milestones, ROM entrance coordinates, objective hints and compass drawing.
 - [EmulatorJS 4.2.3](https://github.com/EmulatorJS/EmulatorJS/tree/v4.2.3) is loaded from its versioned CDN. [GameManager source](https://github.com/EmulatorJS/EmulatorJS/blob/v4.2.3/data/src/GameManager.js) documents the actual input and state interfaces used here.
 - [snesrev/zelda3 variables](https://github.com/snesrev/zelda3/blob/master/src/variables.h), [sprite damage handling](https://github.com/snesrev/zelda3/blob/master/src/sprite.c), and [sprite dispatch table](https://github.com/snesrev/zelda3/blob/master/src/sprite_main.c) were consulted to verify RAM addresses and target types.
+- Collision and guidance also use the original [tile detection](https://github.com/snesrev/zelda3/blob/master/src/tile_detect.c), [map progress masks](https://github.com/snesrev/zelda3/blob/master/src/messaging.c), and [ROM entrance/table layout](https://github.com/snesrev/zelda3/blob/master/assets/extract_resources.py).
 - [PeerJS](https://peerjs.com/client/getting-started) 1.5.5 is vendored with its license in `dist/vendor/`. EmulatorJS is GPL-3.0; Snes9x uses its own license and is fetched by EmulatorJS from its CDN. The Google Fonts stylesheet is optional; system font fallbacks are provided.
 
 Real Android performance, Wi-Fi latency, heat and audio behavior depend on the devices. Desktop browser integration testing cannot replace a session on the physical phone and tablet.

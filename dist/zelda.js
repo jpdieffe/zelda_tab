@@ -1,3 +1,5 @@
+import { wallAt } from './collision.js';
+import { readGuidance } from './guidance.js';
 // USA ALttP 1.0 only. Addresses verified against snesrev/zelda3 variables.h
 // and Sprite_GiveDamage / Sprite_MiniMoldorm_Recoil in sprite.c.
 export const ROM_SHA256 = '66871d66be19ad2c34c927d6b14cd8eb6fc3181965b6e517cb361f7316009cfb';
@@ -81,7 +83,7 @@ export function findRamCandidates(heap, ram, excludeStart = -1, excludeSize = 0)
 }
 
 export class ZeldaBridge {
-  constructor(manager) { this.manager = manager; this.pointer = null; }
+  constructor(manager, rom) { this.manager = manager; this.rom = rom; this.pointer = null; }
   get ram() {
     if (this.pointer === null) return null;
     // Recreate the view after possible WebAssembly memory growth.
@@ -109,7 +111,13 @@ export class ZeldaBridge {
     }
     throw new Error('Could not safely locate live game memory. Reload to retry fairy shots.');
   }
-  read() { return this.ram ? readWorld(this.ram) : null; }
+  read() {
+    const ram=this.ram;if(!ram)return null;
+    const world=readWorld(ram);
+    world.wallAt=(x,y)=>wallAt(ram,this.rom,x+world.cameraX,y+world.cameraY);
+    if(world.active)world.guidance=readGuidance(ram,this.rom);
+    return world;
+  }
   hit(target, fairy) { return this.ram ? applyHit(this.ram, target, fairy) : false; }
 }
 
