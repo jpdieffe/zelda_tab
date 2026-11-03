@@ -1,0 +1,11 @@
+node_modules/
+test-results/
+*.zip
+*.sfc
+*.smc
+*.srm
+*.state
+*.tar.gz
+.DS_Store
+.openai/
+.tools/
