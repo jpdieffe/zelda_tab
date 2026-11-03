@@ -122,6 +122,12 @@ try{
   await jj.locator('#tablet-sound').click();
   assert.equal(await jj.locator('#video').evaluate(v=>v.muted),false);
   assert.ok(await jj.locator('#video').evaluate(v=>v.srcObject.getAudioTracks().length));
+  await jj.locator('#kid-lock').click();
+  assert.equal(await jj.locator('#tablet-leave').isVisible(),false);
+  await dad.locator('#options').click();await dad.locator('#unlock-tablet').click();
+  await jj.waitForFunction(()=>!document.getElementById('tablet').classList.contains('kid-locked'));
+  await dad.locator('#close-options').click();
+  console.log('Dad remotely unlocked the tablet through WebRTC');
   await jj.locator('#tablet-leave').click();await dad.waitForTimeout(300);
   await jj.locator('#join').click();await jj.waitForFunction(()=>document.getElementById('video').readyState>=2,{},{timeout:20000});
   console.log('Tablet sound and reconnection verified');

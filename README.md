@@ -12,16 +12,32 @@ Hosted on GitHub Pages. No ChatGPT account or login is required.
 2. On the phone, choose **I'm Dad → Take the controls**. The included Zelda game starts automatically; there is no ZIP or ROM picker.
 3. On the tablet, choose **I'm JJ → Let's fly**, and enter the eight-character code on the phone. You can also tap the code on the phone to copy a direct pairing link.
 4. Turn both devices sideways. Tap the full-screen button. Press **START** on the phone once Zelda's title animation finishes, and create/select an ordinary game file.
-5. JJ taps or drags on the game picture to fly. The fairy follows Link until JJ chooses a destination, follows scrolling, and returns beside Link when the room changes. A faint ring shows its range. When an ordinary enemy is close, the fire button lights up and sparks home toward it. With no target, sparks fire in the fairy?s last flight direction (up before its first move), burst against walls, and can be fired just for fun.
+5. JJ taps or drags on the game picture to fly. The fairy follows Link until JJ chooses a destination, follows scrolling, and returns beside Link when the room changes. A faint ring shows its range. When an ordinary enemy is close, the fire button lights up and sparks home toward it. With no target, sparks fire in the fairy's last flight direction (up before its first move), burst against walls, and can be fired just for fun.
 6. Tap **Sound on** on the tablet to move game sound there. Leave both browser tabs open and the phone unlocked. The app requests a screen wake lock where supported.
 
 No computer or home server is required after deployment. An internet connection is needed to load the app/emulator and reach PeerJS's public pairing service. After pairing, WebRTC streams game video/audio and control messages directly between devices. No TURN relay is configured. Guest Wi-Fi client isolation, VPNs, or networks that block direct peer connections can prevent pairing.
 
+## Kid lock and Android setup
+
+On JJ's tablet, turn sound on, then tap **Kid lock**. It requests fullscreen and hides the normal toolbar, including Leave, Sound and Fullscreen. Long-press/right-click menus, selection, drag menus and page zoom/scroll gestures are suppressed on the play screen. Moving the fairy and firing still work. A same-page history guard catches ordinary Back navigation while locked. If Android exits browser fullscreen, **Restore fullscreen** brings the game back.
+
+Hold **Hold 3 sec to unlock** continuously to restore the parent controls; releasing, moving off the button, cancelling a touch, or switching apps cancels the hold. Dad can also use **More > Unlock JJ's tablet** on his paired phone.
+
+For the address bar and Android buttons:
+
+1. Open the game in Android Chrome, choose **Chrome menu > Add to Home screen > Install**, and launch the **Fairy Link** icon. The supplied app manifest requests fullscreen app display, with no address bar. The installed shortcut opens JJ's pairing screen. If Chrome only offers a browser shortcut, that shortcut may still show browser controls; use fullscreen plus the in-game lock.
+2. In Android Settings, search for **App pinning**, **Screen pinning** or **Pin app**. Enable it and require the device PIN/password when unpinning.
+3. Open Fairy Link, open Android's Recent apps/Overview, tap its app icon, and choose **Pin**. Exact names and gestures vary by tablet.
+
+Kid lock prevents accidents; a webpage cannot disable Android system navigation or guarantee that browser Back never leaves. App pinning supplies the system restriction. Parent hold/remote unlock only unlocks the game UI; Android's own unpin gesture and device PIN still apply. Installation does not make this game offline: internet is still required to load and pair. [Android's pinning instructions](https://support.google.com/android/answer/9455138?hl=en), [web app display modes](https://web.dev/articles/add-manifest).
+
+Run `node scripts/kid-lock-test.mjs` to verify lock controls, cancelled/short holds, Back navigation, fullscreen recovery, continued play, manifest parsing and icon loading. The two-device browser test also verifies unlocking from Dad's phone.
+
 ## Story compass
 
-A small gold arrow beside Link points toward the next story destination outdoors. The objective appears above the game picture and on Dad?s controller. It updates from the current save?s inventory, pendants, crystals and story flags; reloading a save does not reset its progress. Turn it off in **More ? Story compass**.
+A small gold arrow beside Link points toward the next story destination outdoors. The objective appears above the game picture and on Dad's controller. It updates from the current save's inventory, pendants, crystals and story flags; reloading a save does not reset its progress. Turn it off in **More > Story compass**.
 
-This is a destination compass, not turn-by-turn routing: take paths around cliffs and buildings. Inside Link?s house it points to the exit; it can also point to relevant NPCs in the current room. Other interiors display an objective hint, with no direction arrow. Dungeon keys, switches, stairs and puzzles still require exploration and the original **X** map. Cross-world objectives explain when to use the mirror or castle portal. The guide recommends one story order and skips completed milestones; it does not cover every optional item or side quest.
+This is a destination compass, not turn-by-turn routing: take paths around cliffs and buildings. Inside Link's house it points to the exit; it can also point to relevant NPCs in the current room. Other interiors display an objective hint, with no direction arrow. Dungeon keys, switches, stairs and puzzles still require exploration and the original **X** map. Cross-world objectives explain when to use the mirror or castle portal. The guide recommends one story order and skips completed milestones; it does not cover every optional item or side quest.
 
 ## Saving
 
@@ -43,7 +59,7 @@ All app assets use relative URLs so they work at the `/zelda_tab/` project path.
 - Each spark queues **1 damage unit** through the original game's pending-damage and recoil timers. Zelda itself handles health reduction, defeat, drops and room progression.
 - Targets are an explicit allowlist of ordinary enemies. NPCs, tutorial guards, switches, bosses and enemies with special damage requirements are excluded. This is deliberately a first-version limitation, not full enemy coverage.
 - Sprite state, health, invulnerability flags, floor, screen position, type, scene and distance are checked. A target is revalidated on impact. Dialogues, pause menus and room transitions disable shooting.
-- The fairy is an overlay tied to the emulator's live RAM, not a ROM patch. It is not persisted inside Zelda save states. Projectiles read live dungeon tile attributes and decode overworld collision through the bundled ROM?s tile tables. They sweep in small steps to stop at walls and closed doors, while flying over pits and water. Sparks at the screen boundary burst and disappear. They do not activate switches or damage scenery.
+- The fairy is an overlay tied to the emulator's live RAM, not a ROM patch. It is not persisted inside Zelda save states. Projectiles read live dungeon tile attributes and decode overworld collision through the bundled ROM's tile tables. They sweep in small steps to stop at walls and closed doors, while flying over pits and water. Sparks at the screen boundary burst and disappear. They do not activate switches or damage scenery.
 - The included USA ROM is verified against SHA-256 `66871d66be19ad2c34c927d6b14cd8eb6fc3181965b6e517cb361f7316009cfb` before starting. Randomizers, ROM hacks and other regions need separate memory profiles.
 
 ## Development

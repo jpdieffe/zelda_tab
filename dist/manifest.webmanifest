@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "JJ's Fairy Link",
+  "short_name": "Fairy Link",
+  "description": "JJ's big-screen fairy adventure with Dad.",
+  "start_url": "./?tablet=1",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#102c29",
+  "theme_color": "#102c29",
+  "icons": [
+    {"src":"./assets/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"./assets/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
+}

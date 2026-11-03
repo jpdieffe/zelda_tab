@@ -1,11 +1,13 @@
 import { ROM_SHA256, ZeldaBridge, snapshotRam } from './zelda.js';
 import { Fairy, COOLDOWN } from './fairy.js';
 import { drawGuidance } from './guidance.js';
+import { KidLock } from './kid-lock.js';
 import { Connection, roomCode, normalizeCode, validCode } from './network.js';
 import * as storage from './storage.js';
 
 const $=id=>document.getElementById(id);
 export const game={role:null,network:null,emulator:null,bridge:null,fairy:null,paused:false,ready:false,saving:false,loading:false};
+const kidLock=new KidLock(locked=>game.network?.send({type:'kid-lock-state',locked}));
 let gameLoader,gameRom;
 game.guidanceEnabled=localStorage.getItem('guidance')!=='off';
 function updateGuideButton(){$('toggle-guidance').textContent='Story compass: '+(game.guidanceEnabled?'on':'off');}
@@ -57,6 +59,7 @@ function hostNetwork(){
       if(data.type==='fire'&&game.ready&&!game.paused){const result=game.fairy.fire((target,fairy)=>game.bridge.hit(target,fairy));game.network.send({type:'shot',result});}
       if(data.type==='sound'){setPhoneAudio(!Boolean(data.enabled));}
       if(data.type==='video-retry')game.network.sendVideo();
+      if(data.type==='kid-lock-state')game.tabletLocked=Boolean(data.locked);
     },
     onConnected:()=>{game.network.send({type:'hello',ready:game.ready});sendState();},
     onDisconnected:()=>{releaseButtons();setPhoneAudio(true);},
@@ -196,6 +199,7 @@ function setPaused(paused){
 $('pause').onclick=()=>setPaused(!game.paused);
 $('peek').onclick=()=>{$('peek-panel').hidden=false;};$('close-peek').onclick=()=>{$('peek-panel').hidden=true;};
 $('options').onclick=()=>{releaseButtons();$('phone-options').hidden=false;};$('close-options').onclick=()=>{$('phone-options').hidden=true;};
+$('unlock-tablet').onclick=()=>{if(game.network?.connection?.open){game.network.send({type:'unlock-tablet'});toast('Unlock requested on JJ’s tablet.');}else toast('Pair JJ’s tablet first.');};
 $('new-pair').onclick=()=>{hostNetwork();$('phone-options').hidden=true;toast('New pairing code is ready. Enter it on JJ’s tablet.');};
 $('pair-info').onclick=async()=>{
   const url=new URL(location.href);url.hash='join='+game.network.code;
@@ -236,6 +240,7 @@ $('join-form').onsubmit=async e=>{
 };
 let tabletState=null,shotHintUntil=0,moveStamp=0,videoStamp=0,lastVideoTime=-1;
 function onTabletData(data){
+  if(data.type==='unlock-tablet')kidLock.unlock();
   if(data.type==='state'){
     tabletState=data;
     $('tablet-objective').textContent=data.objective||'';$('tablet-objective').hidden=!data.objective;
@@ -257,17 +262,17 @@ function moveFairy(e){
   clearTimeout(marker.timer);marker.timer=setTimeout(()=>marker.hidden=true,350);
 }
 const touches=new Set();
-$('tap-surface').onpointerdown=e=>{e.preventDefault();touches.add(e.pointerId);$('tap-surface').setPointerCapture(e.pointerId);moveFairy(e);};
+$('tap-surface').onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();touches.add(e.pointerId);$('tap-surface').setPointerCapture(e.pointerId);moveFairy(e);};
 $('tap-surface').onpointermove=e=>{if(touches.has(e.pointerId))moveFairy(e);};
 for(const name of ['onpointerup','onpointercancel','onlostpointercapture'])$('tap-surface')[name]=e=>touches.delete(e.pointerId);
-$('fire').onpointerdown=e=>{e.preventDefault();if($('fire').disabled)return;game.network?.send({type:'fire'});$('fire').disabled=true;navigator.vibrate?.(20);setTimeout(()=>{if(tabletState?.active&&!tabletState.paused&&tabletState.bridge)$('fire').disabled=false;},COOLDOWN);};
+$('fire').onpointerdown=e=>{e.preventDefault();if(e.button!==0||$('fire').disabled)return;game.network?.send({type:'fire'});$('fire').disabled=true;navigator.vibrate?.(20);setTimeout(()=>{if(tabletState?.active&&!tabletState.paused&&tabletState.bridge)$('fire').disabled=false;},COOLDOWN);};
 $('fire').onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&!$('fire').disabled){e.preventDefault();game.network?.send({type:'fire'});}};
 $('tablet-sound').onclick=async()=>{
   tabSound=!tabSound;$('video').muted=!tabSound;
   try{await $('video').play();$('tablet-sound').textContent=tabSound?'Sound off':'Sound on';game.network?.send({type:'sound',enabled:tabSound});}
   catch{tabSound=false;$('video').muted=true;toast('Tap again when the game picture arrives.');}
 };
-$('tablet-leave').onclick=()=>{game.network?.close();game.network=null;$('video').srcObject=null;show('jj-setup');};
+$('tablet-leave').onclick=()=>{if(kidLock.locked)return;game.network?.close();game.network=null;$('video').srcObject=null;show('jj-setup');};
 setInterval(()=>{
   if(game.role!=='jj'||$('tablet').hidden||!game.network?.connection?.open)return;
   if($('video').currentTime!==lastVideoTime){lastVideoTime=$('video').currentTime;videoStamp=Date.now();}
@@ -279,4 +284,4 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('pagehide',()=>{releaseButtons();game.network?.close();clearInterval(autoSaveTimer);cancelAnimationFrame(frameId);wakeLock?.release();});
 const joinHash=new URLSearchParams(location.hash.slice(1)).get('join');
-if(joinHash){game.role='jj';show('jj-setup');$('join-code').value=normalizeCode(joinHash);}
+if(joinHash||new URLSearchParams(location.search).get('tablet')==='1'){game.role='jj';show('jj-setup');if(joinHash)$('join-code').value=normalizeCode(joinHash);}
