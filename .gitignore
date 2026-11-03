@@ -2,6 +2,7 @@ node_modules/
 test-results/
 *.zip
 *.sfc
+!dist/assets/alttp-usa.sfc
 *.smc
 *.srm
 *.state

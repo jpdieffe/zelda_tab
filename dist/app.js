@@ -1,11 +1,11 @@
-import { unzipSync } from './vendor/fflate.js';
 import { ROM_SHA256, ZeldaBridge, snapshotRam } from './zelda.js';
 import { Fairy, COOLDOWN } from './fairy.js';
 import { Connection, roomCode, normalizeCode, validCode } from './network.js';
 import * as storage from './storage.js';
 
 const $=id=>document.getElementById(id);
-export const game={role:null,network:null,emulator:null,bridge:null,fairy:null,paused:false,ready:false,saving:false};
+export const game={role:null,network:null,emulator:null,bridge:null,fairy:null,paused:false,ready:false,saving:false,loading:false};
+let gameLoader;
 let wakeLock,toastTimer,autoSaveTimer,frameId,lastFrame=0,lastState=0,romUrl,stream,audioDestination,audioGains=[],phoneAudio=true,tabSound=false,wasHidden=false;
 const buttons=new Map();
 function show(id){document.querySelectorAll('.view').forEach(e=>e.hidden=e.id!==id);}
@@ -14,35 +14,32 @@ function status(id,message,error=false){$(id).textContent=message;$(id).classLis
 async function awake(){try{if('wakeLock' in navigator)wakeLock=await navigator.wakeLock.request('screen');}catch{}}
 async function fullScreen(){try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();await screen.orientation?.lock?.('landscape');}catch{toast('Turn your device sideways for the best view.');}await awake();}
 
-$('choose-dad').onclick=async()=>{game.role='dad';show('dad-setup');try{$('remembered').hidden=!(await storage.get('rom'));}catch{status('rom-status','Browser storage is unavailable. You can still choose a file; download saves before leaving.',true);}};
+$('choose-dad').onclick=launchBundledGame;
 $('choose-jj').onclick=()=>{game.role='jj';show('jj-setup');$('join-code').focus();};
-document.querySelectorAll('[data-home]').forEach(b=>b.onclick=()=>{game.network?.close();game.network=null;show('home');});
+document.querySelectorAll('[data-home]').forEach(b=>b.onclick=()=>{gameLoader?.abort();gameLoader=null;game.loading=false;game.network?.close();game.network=null;show('home');});
 $('about-toggle').onclick=()=>{$('about').hidden=!$('about').hidden;$('about-toggle').textContent=$('about').hidden?'How it works +':'How it works −';};
 $('phone-fullscreen').onclick=fullScreen;$('tablet-fullscreen').onclick=fullScreen;
-$('rom').onchange=async e=>{const file=e.target.files[0];if(file)await chooseRom(file);};
-$('remembered').onclick=async()=>{try{const rom=await storage.get('rom');if(rom)await startGame(rom);}catch(e){status('rom-status',e.message,true);}};
+$('retry-game').onclick=launchBundledGame;
 
 export async function validateRom(bytes){
   if(bytes.length%0x8000===512)bytes=bytes.slice(512);
   const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');
-  if(hash!==ROM_SHA256)throw new Error('Please use the original USA version of A Link to the Past. This fairy bridge does not support patched or other-region ROMs.');
+  if(hash!==ROM_SHA256)throw new Error('The game did not download correctly. Reload this page and try again.');
   return bytes;
 }
-async function chooseRom(file){
-  $('rom').disabled=true;status('rom-status','Checking your game…');
+async function launchBundledGame(){
+  if(game.loading)return;
+  game.role='dad';game.loading=true;show('dad-setup');$('retry-game').hidden=true;
+  status('rom-status','Opening Zelda…');
+  const request=new AbortController();gameLoader=request;
   try{
-    if(file.size>8*1024*1024)throw new Error('Choose the Zelda ROM or a ZIP containing just that game (under 8 MB).');
-    let bytes=new Uint8Array(await file.arrayBuffer());
-    if(file.name.toLowerCase().endsWith('.zip')){
-      const files=unzipSync(bytes,{filter:f=>/\.(sfc|smc)$/i.test(f.name)&&f.originalSize<=2*1024*1024});
-      const names=Object.keys(files);
-      if(names.length!==1)throw new Error('Please choose a ZIP containing exactly one .sfc or .smc game file.');
-      bytes=files[names[0]];
-    }
-    bytes=await validateRom(bytes);
-    try{await storage.put('rom',bytes);}catch{toast('Game loaded. This browser cannot remember it for next time.');}
+    const response=await fetch(new URL('./assets/alttp-usa.sfc',import.meta.url),{signal:request.signal});
+    if(!response.ok)throw new Error('Could not load Zelda. Check your connection and try again.');
+    const bytes=await validateRom(new Uint8Array(await response.arrayBuffer()));
+    if(request.signal.aborted)return;
     await startGame(bytes);
-  }catch(e){status('rom-status',e.message,true);$('rom').disabled=false;}
+  }catch(e){if(!request.signal.aborted){status('rom-status',e.message,true);$('retry-game').hidden=false;}}
+  finally{if(gameLoader===request){gameLoader=null;game.loading=false;}}
 }
 
 function hostNetwork(){
@@ -63,7 +60,7 @@ function hostNetwork(){
 }
 
 async function startGame(rom){
-  if(game.emulator||window.EJS_emulator){toast('A game is already open. Reload to switch files.');return;}
+  if(game.emulator||window.EJS_emulator){show('controller');return;}
   if(!window.isSecureContext)throw new Error('Open the HTTPS website to use phone-to-tablet play.');
   await validateRom(rom);
   game.role='dad';show('controller');await awake();

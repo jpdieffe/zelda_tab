@@ -15,7 +15,6 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "fflate": "0.8.3",
     "peerjs": "1.5.5"
   },
   "devDependencies": {

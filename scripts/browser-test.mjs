@@ -17,7 +17,7 @@ try{
   await dad.evaluate(async()=>{window.testGame=(await import('/app.js')).game;});
   await shot(dad,'home.png');
   await dad.locator('#choose-dad').click();
-  await dad.locator('#rom').setInputFiles(fileURLToPath(new URL('../../Legend of Zelda, The_ A Link to the Past.zip',import.meta.url)));
+  assert.equal(await dad.locator('#rom').count(),0,'No game file picker is needed');
   await dad.waitForFunction(()=>window.testGame.ready,{},{timeout:90000});
   console.log('Emulator ready',await dad.locator('#bridge-status').textContent());
   assert.match(await dad.locator('#bridge-status').textContent(),/Fairy ready/);
