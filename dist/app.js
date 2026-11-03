@@ -1,5 +1,6 @@
 import { ROM_SHA256, ZeldaBridge, snapshotRam } from './zelda.js';
 import { Fairy, COOLDOWN } from './fairy.js';
+import { Unicorn } from './unicorn.js';
 import { drawGuidance } from './guidance.js';
 import { Joystick } from './joystick.js';
 import { KidLock } from './kid-lock.js';
@@ -24,9 +25,11 @@ async function fullScreen(){try{if(!document.fullscreenElement)await document.do
 
 $('choose-dad').onclick=launchBundledGame;
 $('choose-jj').onclick=()=>{game.role='jj';show('jj-setup');$('join-code').focus();};
+$('choose-michelle').onclick=()=>{game.role='michelle';show('michelle-setup');$('michelle-code').focus();};
 document.querySelectorAll('[data-home]').forEach(b=>b.onclick=()=>{gameLoader?.abort();gameLoader=null;game.loading=false;game.network?.close();game.network=null;show('home');});
 $('about-toggle').onclick=()=>{$('about').hidden=!$('about').hidden;$('about-toggle').textContent=$('about').hidden?'How it works +':'How it works −';};
 $('phone-fullscreen').onclick=fullScreen;$('tablet-fullscreen').onclick=fullScreen;
+$('michelle-fullscreen').onclick=fullScreen;
 $('retry-game').onclick=launchBundledGame;
 
 export async function validateRom(bytes){
@@ -51,19 +54,27 @@ async function launchBundledGame(){
 }
 
 function hostNetwork(){
-  game.network?.close();setPhoneAudio(true);
+  game.network?.close();setPhoneAudio(true);if(game.unicorn){game.unicorn.enabled=false;game.unicorn.stop();}
   const code=roomCode();$('room-code').textContent=code.slice(0,4)+' '+code.slice(4);
   game.network=new Connection({role:'dad',code,
-    onStatus:(message,error)=>{status('dad-status',message,error);$('dad-led').classList.toggle('on',Boolean(game.network?.connection?.open));},
-    onData:data=>{
+    onStatus:(message,error)=>{status('dad-status',message,error);$('dad-led').classList.toggle('on',Boolean(game.network?.has('jj')||game.network?.has('michelle')));},
+    onData:(data,role)=>{
+      if(role==='michelle'){
+        if(!game.ready||game.paused)return;
+        if(data.type==='unicorn-move')game.unicorn.setInput(data.x,data.y);
+        if(data.type==='unicorn-fire'){const result=game.unicorn.fire((target,source)=>game.bridge.hit(target,source));game.network.send({type:'unicorn-shot',result},'michelle');}
+        if(data.type==='unicorn-heal'){const result=game.unicorn.heal(()=>game.bridge.heal());game.network.send({type:'unicorn-heart',result},'michelle');}
+        return;
+      }
+      if(role!=='jj')return;
       if(data.type==='move'&&Number.isFinite(data.x)&&Number.isFinite(data.y))game.fairy?.move(data.x,data.y);
-      if(data.type==='fire'&&game.ready&&!game.paused){const result=game.fairy.fire((target,fairy)=>game.bridge.hit(target,fairy));game.network.send({type:'shot',result});}
+      if(data.type==='fire'&&game.ready&&!game.paused){const result=game.fairy.fire((target,fairy)=>game.bridge.hit(target,fairy));game.network.send({type:'shot',result},'jj');}
       if(data.type==='sound'){setPhoneAudio(!Boolean(data.enabled));}
       if(data.type==='video-retry')game.network.sendVideo();
       if(data.type==='kid-lock-state')game.tabletLocked=Boolean(data.locked);
     },
-    onConnected:()=>{game.network.send({type:'hello',ready:game.ready});sendState();},
-    onDisconnected:()=>{releaseButtons();setPhoneAudio(true);},
+    onConnected:role=>{if(role==='michelle'&&game.unicorn){game.unicorn.enabled=true;game.unicorn.scene=null;game.unicorn.stop();}game.network.send({type:'hello',ready:game.ready},role);sendState();},
+    onDisconnected:role=>{if(role==='jj'){releaseButtons();setPhoneAudio(true);}if(role==='michelle'&&game.unicorn){game.unicorn.enabled=false;game.unicorn.stop();}},
   });
   game.network.start();if(stream)game.network.setStream(stream);
 }
@@ -107,7 +118,7 @@ async function onGameStarted(){
   // Let the runtime run a few frames before loading/locating RAM.
   await new Promise(resolve=>setTimeout(resolve,500));
   try{const saved=await storage.get('save');if(saved?.rom===ROM_SHA256){snapshotRam(saved.state);gm.loadState(saved.state);toast('Welcome back! Your last save is loaded.');}}catch{toast('Could not load the last save. Starting from the title screen.');}
-  game.bridge=new ZeldaBridge(gm,gameRom);game.fairy=new Fairy();
+  game.bridge=new ZeldaBridge(gm,gameRom);game.fairy=new Fairy();game.unicorn=new Unicorn();game.unicorn.enabled=Boolean(game.network?.has('michelle'));
   let bridgeError;
   try{await game.bridge.connect();}catch(e){bridgeError=e;}
   game.ready=true;
@@ -138,16 +149,20 @@ function frame(now){
     // share the exact 256×224 game rectangle, regardless of device pixel ratio.
     ctx.imageSmoothingEnabled=false;ctx.drawImage(source,(source.width-width)/2,(source.height-height)/2,width,height,0,0,512,448);
     const world=game.bridge?.read();
-    if(!game.paused)game.fairy.update(dt,world);
+    if(!game.paused){game.fairy.update(dt,world);game.unicorn.update(dt,world);}
     game.guidance=world?.guidance;
     $('dad-objective').textContent=game.guidanceEnabled?(game.guidance?.label||'Story compass · waiting for the adventure'):'Story compass off';
-    ctx.save();ctx.scale(2,2);game.fairy.draw(ctx,now);if(game.guidanceEnabled)drawGuidance(ctx,world);ctx.restore();
+    ctx.save();ctx.scale(2,2);if(game.unicorn.enabled)game.unicorn.draw(ctx,now);game.fairy.draw(ctx,now);if(game.guidanceEnabled)drawGuidance(ctx,world);ctx.restore();
     if(!$('peek-panel').hidden){const pc=$('peek-canvas').getContext('2d');pc.imageSmoothingEnabled=false;pc.drawImage($('broadcast'),0,0);}
     if(now-lastState>100){sendState();lastState=now;}
   }
   frameId=requestAnimationFrame(frame);
 }
-function sendState(){game.network?.send({type:'state',ready:game.ready,paused:game.paused,active:game.fairy?.active||false,bridge:Boolean(game.bridge?.ram),target:Boolean(game.fairy?.target),cooldown:game.fairy?.cooldown||0,objective:game.guidanceEnabled?game.guidance?.label||'':''});}
+function sendState(){
+  const common={type:'state',ready:game.ready,paused:game.paused,active:game.fairy?.active||false,bridge:Boolean(game.bridge?.ram),objective:game.guidanceEnabled?game.guidance?.label||'':''};
+  game.network?.send({...common,target:Boolean(game.fairy?.target),cooldown:game.fairy?.cooldown||0},'jj');
+  game.network?.send({...common,target:Boolean(game.unicorn?.target),cooldown:game.unicorn?.cooldown||0,healCooldown:game.unicorn?.healCooldown||0,bouncing:(game.unicorn?.invulnerable||0)>.5},'michelle');
+}
 function setPhoneAudio(enabled){
   if(enabled===phoneAudio)return;phoneAudio=enabled;
   const al=game.emulator?.gameManager.Module.AL?.currentCtx;
@@ -174,19 +189,58 @@ document.querySelectorAll('[data-key]').forEach(button=>{
   button.onpointerup=up;button.onpointercancel=up;button.onlostpointercapture=up;
 });
 const joystick=new Joystick($('dpad'),press,release);
+const unicornKeys=new Set();let michelleReady=false;
+function sendUnicornMove(){
+  if(game.role!=='michelle')return;
+  const x=Number(unicornKeys.has('7'))-Number(unicornKeys.has('6')),y=Number(unicornKeys.has('5'))-Number(unicornKeys.has('4'));
+  game.network?.send({type:'unicorn-move',x:michelleReady?x:0,y:michelleReady?y:0});
+}
+const unicornJoystick=new Joystick($('unicorn-pad'),key=>{unicornKeys.add(key);sendUnicornMove();},key=>{unicornKeys.delete(key);sendUnicornMove();});
+function releaseUnicorn(){unicornJoystick.reset();unicornKeys.clear();sendUnicornMove();}
+setInterval(()=>{if(unicornKeys.size)sendUnicornMove();},100);
+window.addEventListener('blur',releaseUnicorn);
+$('michelle-leave').onclick=()=>{releaseUnicorn();game.network?.close();game.network=null;michelleReady=false;show('michelle-setup');};
+for(const [id,type] of [['unicorn-fire','unicorn-fire'],['unicorn-heal','unicorn-heal']]){
+  const action=e=>{e.preventDefault();if($(id).disabled||!michelleReady)return;game.network?.send({type});$(id).disabled=true;};
+  $(id).onpointerdown=e=>{if(e.button===0)action(e);};
+  $(id).onkeydown=e=>{if(!e.repeat&&(e.key==='Enter'||e.key===' '))action(e);};
+}
+$('michelle-form').onsubmit=async e=>{
+  e.preventDefault();const code=normalizeCode($('michelle-code').value);
+  if(!validCode(code)){status('michelle-join-status','Enter the 8-character code on Dad’s phone.',true);return;}
+  game.role='michelle';releaseUnicorn();game.network?.close();await awake();michelleReady=false;$('michelle-join').disabled=true;
+  game.network=new Connection({role:'michelle',code,
+    onStatus:(message,error)=>{status('michelle-join-status',message,error);status('michelle-status',message,error);if(error)$('michelle-join').disabled=false;},
+    onConnected:()=>{show('unicorn-controller');$('michelle-join').disabled=false;$('michelle-room').textContent=code.slice(0,4)+' '+code.slice(4);releaseUnicorn();},
+    onDisconnected:()=>{michelleReady=false;releaseUnicorn();$('unicorn-fire').disabled=true;$('unicorn-heal').disabled=true;},
+    onData:data=>{
+      if(data.type==='state'){
+        michelleReady=data.ready&&data.active&&data.bridge&&!data.paused;
+        if(!michelleReady)releaseUnicorn();
+        $('michelle-objective').textContent=data.objective||'';
+        $('unicorn-fire').disabled=!michelleReady||data.cooldown>0;
+        $('unicorn-heal').disabled=!michelleReady||data.healCooldown>0;
+        $('unicorn-fire').classList.toggle('ready',data.target);
+        $('heal-label').textContent=data.healCooldown>0?Math.ceil(data.healCooldown/1000)+'s':'HEAL LINK';
+        $('unicorn-hint').textContent=data.paused?'Dad paused the adventure.':!data.bridge?'Magic unavailable — check Dad’s phone.':!data.active?'Waiting for the adventure…':data.bouncing?'Boing! You’re invincible.':data.target?'A baddie is in range!':'Watch the big screen. You can’t die!';
+      }
+    }
+  });
+  try{game.network.start();}catch(error){status('michelle-join-status',error.message,true);$('michelle-join').disabled=false;}
+};
 const keys={ArrowUp:'4',ArrowDown:'5',ArrowLeft:'6',ArrowRight:'7',Enter:'3',Shift:'2',z:'0',x:'8',a:'1',s:'9',q:'10',w:'11'};
 window.addEventListener('keydown',e=>{if(game.role==='dad'&&game.ready&&!e.repeat&&keys[e.key]&&!['INPUT','TEXTAREA'].includes(e.target.tagName)){e.preventDefault();press(keys[e.key],'keyboard');}});
 window.addEventListener('keyup',e=>{if(keys[e.key])release(keys[e.key],'keyboard');});
 window.addEventListener('blur',releaseButtons);
 
 function setPaused(paused){
-  if(!game.ready)return;releaseButtons();game.paused=paused;game.emulator.gameManager.toggleMainLoop(paused?0:1);
+  if(!game.ready)return;releaseButtons();game.unicorn?.stop();game.paused=paused;game.emulator.gameManager.toggleMainLoop(paused?0:1);
   $('pause').textContent=paused?'Resume':'Pause';sendState();
 }
 $('pause').onclick=()=>setPaused(!game.paused);
 $('peek').onclick=()=>{$('peek-panel').hidden=false;};$('close-peek').onclick=()=>{$('peek-panel').hidden=true;};
 $('options').onclick=()=>{releaseButtons();$('phone-options').hidden=false;};$('close-options').onclick=()=>{$('phone-options').hidden=true;};
-$('unlock-tablet').onclick=()=>{if(game.network?.connection?.open){game.network.send({type:'unlock-tablet'});toast('Unlock requested on JJ’s tablet.');}else toast('Pair JJ’s tablet first.');};
+$('unlock-tablet').onclick=()=>{if(game.network?.connection?.open){game.network.send({type:'unlock-tablet'},'jj');toast('Unlock requested on JJ’s tablet.');}else toast('Pair JJ’s tablet first.');};
 $('new-pair').onclick=()=>{hostNetwork();$('phone-options').hidden=true;toast('New pairing code is ready. Enter it on JJ’s tablet.');};
 $('pair-info').onclick=async()=>{
   const url=new URL(location.href);url.hash='join='+game.network.code;
@@ -200,7 +254,7 @@ async function saveGame(notify=true){
 }
 $('save').onclick=()=>saveGame();
 $('resume-save').onclick=async()=>{
-  try{const saved=await storage.get('save');if(!saved)throw new Error('No saved adventure yet.');snapshotRam(saved.state);game.emulator.gameManager.loadState(saved.state);game.fairy.scene=null;$('phone-options').hidden=true;toast('Last save loaded.');}catch(e){toast(e.message);}
+  try{const saved=await storage.get('save');if(!saved)throw new Error('No saved adventure yet.');snapshotRam(saved.state);game.emulator.gameManager.loadState(saved.state);game.fairy.scene=null;game.unicorn.scene=null;$('phone-options').hidden=true;toast('Last save loaded.');}catch(e){toast(e.message);}
 };
 $('export-save').onclick=()=>{
   if(!game.ready)return;const state=game.emulator.gameManager.getState();const blob=new Blob([state]);const url=URL.createObjectURL(blob);
@@ -208,7 +262,7 @@ $('export-save').onclick=()=>{
 };
 $('import-save').onchange=async e=>{
   const file=e.target.files[0];if(!file)return;
-  try{if(file.size>2*1024*1024)throw new Error('This is not a Fairy Link save backup.');const state=new Uint8Array(await file.arrayBuffer());snapshotRam(state);if(!new TextDecoder().decode(state.slice(0,7)).startsWith('RASTATE'))throw new Error('Unsupported save format.');game.emulator.gameManager.loadState(state);game.fairy.scene=null;await saveGame(false);toast('Backup restored.');$('phone-options').hidden=true;}catch(e){toast(e.message);}
+  try{if(file.size>2*1024*1024)throw new Error('This is not a Fairy Link save backup.');const state=new Uint8Array(await file.arrayBuffer());snapshotRam(state);if(!new TextDecoder().decode(state.slice(0,7)).startsWith('RASTATE'))throw new Error('Unsupported save format.');game.emulator.gameManager.loadState(state);game.fairy.scene=null;game.unicorn.scene=null;await saveGame(false);toast('Backup restored.');$('phone-options').hidden=true;}catch(e){toast(e.message);}
 };
 $('exit-game').onclick=async()=>{if(await saveGame(false))location.href=location.pathname;};
 
@@ -266,6 +320,7 @@ setInterval(()=>{
   else if(Date.now()-videoStamp>8000){game.network.send({type:'video-retry'});videoStamp=Date.now();}
 },2000);
 document.addEventListener('visibilitychange',()=>{
+  if(document.hidden&&game.role==='michelle')releaseUnicorn();
   if(document.hidden){releaseButtons();if(game.role==='dad'&&game.ready){wasHidden=!game.paused;saveGame(false);setPaused(true);}if(game.role==='jj')game.network?.send({type:'sound',enabled:false});}
   else{awake();if(game.role==='dad'&&wasHidden){wasHidden=false;setPaused(false);}if(game.role==='jj')game.network?.send({type:'sound',enabled:tabSound});}
 });

@@ -1,6 +1,6 @@
 # JJ's Fairy Link
 
-A two-device companion for **The Legend of Zelda: A Link to the Past (USA)**. Dad's Android phone runs the SNES emulator and displays a controller. JJ's Android tablet receives the game video and audio, controls a fairy by tapping or dragging, and fires short-range homing sparks at nearby ordinary enemies.
+A three-player companion for **The Legend of Zelda: A Link to the Past (USA)**. Dad's Android phone runs the SNES emulator and displays a controller. JJ's Android tablet receives the game video and audio, controls a fairy by tapping or dragging, and fires short-range homing sparks at nearby ordinary enemies. Michelle can join from another phone as an invincible unicorn with a joystick, magic attacks and healing hearts.
 
 **Play:** https://jpdieffe.github.io/zelda_tab/
 
@@ -16,6 +16,18 @@ Hosted on GitHub Pages. No ChatGPT account or login is required.
 6. Tap **Sound on** on the tablet to move game sound there. Leave both browser tabs open and the phone unlocked. The app requests a screen wake lock where supported.
 
 No computer or home server is required after deployment. An internet connection is needed to load the app/emulator and reach PeerJS's public pairing service. After pairing, WebRTC streams game video/audio and control messages directly between devices. No TURN relay is configured. Guest Wi-Fi client isolation, VPNs, or networks that block direct peer connections can prevent pairing.
+
+## Michelle's unicorn
+
+Open the same game URL on Michelle's phone, choose **I'm Michelle**, and enter the same pairing code shown on Dad's phone. Turn it sideways. Her phone is a controller; everyone watches JJ's shared tablet. Michelle does not need an APK, ROM or download. The existing tablet APK loads the updated web game when reopened.
+
+- Drag the joystick to gallop. Walls block the unicorn; the character slides along them. It joins beside Link and follows him until Michelle starts steering, and returns beside him in a new room.
+- **Attack** fires magic toward the closest vulnerable ordinary enemy within 54 game pixels. Without a target it shoots in the last movement direction and bursts against walls. Recharge: 450 ms.
+- Enemy contact knocks the unicorn back, followed by one second of recovery. It has no health to lose and cannot die. Common enemies and supported bosses can bounce it; NPCs cannot. Attacks use the same conservative ordinary-enemy damage rules as JJ's fairy.
+- The small **heart button** sends a visible heart toward Link. On arrival it queues one heart through Zelda's original refill animation and sound, clamped to his heart capacity. Recharge: five seconds. It cannot revive Link after death. Room changes and dialogue discard hearts in flight.
+- Pausing or losing the connection stops movement. The host expires movement input after 350 ms without a refresh. Each player has a separate connection; Michelle joining/leaving does not replace JJ or his video stream. Only JJ receives video, keeping Michelle's connection lightweight.
+
+The host accepts one JJ and one Michelle per code. A duplicate role receives an occupied-player message instead of displacing the connected player. Only Dad's phone runs and saves Zelda. Refresh Dad's page and reopen JJ's app for a new version before adding Michelle.
 
 ## Phone controls
 
@@ -45,7 +57,7 @@ For the address bar and Android buttons:
 
 Kid lock prevents accidents; a webpage cannot disable Android system navigation or guarantee that browser Back never leaves. App pinning supplies the system restriction. Parent hold/remote unlock only unlocks the game UI; Android's own unpin gesture and device PIN still apply. Installation does not make this game offline: internet is still required to load and pair. [Android's pinning instructions](https://support.google.com/android/answer/9455138?hl=en), [web app display modes](https://web.dev/articles/add-manifest).
 
-Run `node scripts/kid-lock-test.mjs` to verify lock controls, cancelled/short holds, Back navigation, fullscreen recovery, continued play, manifest parsing and icon loading. The two-device browser test also verifies unlocking from Dad's phone.
+Run `node scripts/kid-lock-test.mjs` to verify lock controls, cancelled/short holds, Back navigation, fullscreen recovery, continued play, manifest parsing and icon loading. The three-device browser test also verifies unlocking from Dad's phone, simultaneous pairing, unicorn movement, native enemy damage and heart healing, knockback, pause handling, and independent reconnection.
 
 ## Story compass
 
@@ -97,9 +109,11 @@ The browser integration test starts the bundled game without selecting any file 
 ## Implementation and references
 
 - `dist/app.js`: UI, automatic bundled-game loading, ROM validation, controller input, save states, audio routing and canvas streaming.
-- `dist/network.js`: PeerJS room pairing, WebRTC media/data, heartbeat and reconnection.
+- `dist/network.js`: one host with independent JJ and Michelle connections, role validation, targeted/broadcast messages, WebRTC video to JJ, heartbeat and reconnection.
 - `dist/zelda.js`: verified USA RAM map and conservative damage adapter. It locates the 128 KiB live WRAM by matching a Snes9x save snapshot, excluding serialized copies, checking the live frame counter, then verifying a second snapshot. It never writes to an unverified memory address.
-- `dist/fairy.js`: movement, auto-targeting, free shots, projectile sweeps, bursts and drawing.
+- `dist/fairy.js`: shared companion movement hooks, auto-targeting, free shots, projectile sweeps, bursts and fairy drawing.
+- `dist/unicorn.js`: joystick movement, wall sliding, enemy knockback, unicorn drawing, and healing projectiles.
+- Healing uses `link_hearts_filler` at WRAM `0xF372`, verified against [the original HUD refill path](https://github.com/snesrev/zelda3/blob/master/src/hud.c); one heart is eight units. Link's current health is never directly overwritten by companion healing.
 - `dist/collision.js`: live dungeon and overworld wall detection.
 - `dist/guidance.js`: story milestones, ROM entrance coordinates, objective hints and compass drawing.
 - [EmulatorJS 4.2.3](https://github.com/EmulatorJS/EmulatorJS/tree/v4.2.3) is loaded from its versioned CDN. [GameManager source](https://github.com/EmulatorJS/EmulatorJS/blob/v4.2.3/data/src/GameManager.js) documents the actual input and state interfaces used here.

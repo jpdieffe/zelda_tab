@@ -19,7 +19,7 @@ try {
   assert.equal(await page.locator('#controller').isVisible(), true);
   assert.match(await page.locator('#bridge-status').textContent(), /Fairy ready/);
   assert.equal(await page.evaluate(() => typeof window.Peer), 'function');
-  for (const asset of ['app.js','style.css','zelda.js','fairy.js','guidance.js','collision.js','network.js','storage.js','vendor/peerjs.min.js','assets/alttp-usa.sfc']) {
+  for (const asset of ['app.js','style.css','zelda.js','fairy.js','unicorn.js','unicorn.svg','joystick.js','guidance.js','collision.js','network.js','storage.js','vendor/peerjs.min.js','assets/alttp-usa.sfc']) {
     const response = await page.request.get(new URL(asset, url).href);
     assert.equal(response.status(), 200, asset);
   }

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#102c29">
-  <meta name="description" content="One adventure. Two heroes. A phone controller and a little fairy for JJ.">
+  <meta name="description" content="One adventure: Dad as Link, JJ as a fairy, and Michelle as a magical unicorn.">
   <title>JJ's Fairy Link</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
@@ -14,17 +14,34 @@
 </head>
 <body>
   <main id="home" class="view home">
-    <header class="brand"><img src="./icon.svg" alt="" width="36" height="36"><span>FAIRY LINK <small>MADE FOR JJ & DAD</small></span><span class="edition">TWO PLAYER MAGIC</span></header>
+    <header class="brand"><img src="./icon.svg" alt="" width="36" height="36"><span>FAIRY LINK <small>JJ, DAD & MICHELLE</small></span><span class="edition">THREE PLAYER MAGIC</span></header>
     <div class="intro">
-      <div class="intro-copy"><div class="eyebrow"><span></span> A SHARED ADVENTURE</div><h1>Every hero needs<br>a little <em>magic.</em></h1><p>Dad takes the controls. JJ takes flight.<br>Explore Hyrule together, one fairy spark at a time.</p></div>
+      <div class="intro-copy"><div class="eyebrow"><span></span> A SHARED ADVENTURE</div><h1>Every hero needs<br>a little <em>magic.</em></h1><p>Dad leads. JJ flies. Michelle gallops.<br>Explore Hyrule together, one fairy spark at a time.</p></div>
       <div class="fairy-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><span class="star s1">✧</span><span class="star s2">✦</span><span class="star s3">✧</span><img src="./icon.svg" alt=""><span class="fairy-label">SMALL WINGS. BIG ADVENTURES.</span></div>
     </div>
     <div class="role-grid">
       <section class="role-card dad-card"><span class="role-number">01 / THE PHONE</span><div class="role-title"><h2>I'm Dad.</h2><span class="role-symbol">✛</span></div><p>Run the game and control Link.<br>JJ will join your adventure on the big screen.</p><button id="choose-dad" class="primary">Take the controls <span>↗</span></button></section>
       <section class="role-card jj-card"><span class="role-number">02 / THE BIG SCREEN</span><div class="role-title"><h2>I'm JJ!</h2><img src="./icon.svg" alt="" width="48" height="48"></div><p>Tap to fly your fairy.<br>Fly anywhere, then send a little spark!</p><button id="choose-jj" class="primary mint">Let's fly <span>↗</span></button></section>
+      <section class="role-card michelle-card"><span class="role-number">03 / MICHELLE'S PHONE</span><div class="role-title"><h2>I'm Michelle.</h2><img src="./unicorn.svg" alt="" width="48" height="48"></div><p>Gallop as an invincible unicorn.<br>Send magic at baddies and hearts to Link.</p><button id="choose-michelle" class="primary lavender">Let's gallop <span>↗</span></button></section>
     </div>
     <footer class="home-footer"><span>Same Wi-Fi · Android Chrome · No computer needed</span><button class="text-button" id="about-toggle">How it works +</button></footer>
-    <div id="about" class="about" hidden><p>Open this page on both devices. On the phone, choose Dad to start Zelda. On the tablet, choose JJ and enter the phone's pairing code.</p><p>The game loads automatically. Internet is needed to open the game and pair through PeerJS. Play travels directly between your devices, and your saves stay on your phone. Keep both tabs open and the phone unlocked.</p><p>Fairy sparks help with ordinary enemies. Bosses and special enemies still need Dad's skills. This is an unofficial family project using <a href="https://emulatorjs.org/" target="_blank" rel="noreferrer">EmulatorJS</a> and <a href="https://peerjs.com/" target="_blank" rel="noreferrer">PeerJS</a>.</p></div>
+    <div id="about" class="about" hidden><p>Dad starts Zelda on his phone. JJ joins on the tablet, and Michelle joins on her phone using the same pairing code. Everyone watches the shared tablet.</p><p>The game loads automatically. Internet is needed to open the game and pair through PeerJS. Play travels directly between your devices, and your saves stay on your phone. Keep both tabs open and the phone unlocked.</p><p>Fairy sparks help with ordinary enemies. Bosses and special enemies still need Dad's skills. This is an unofficial family project using <a href="https://emulatorjs.org/" target="_blank" rel="noreferrer">EmulatorJS</a> and <a href="https://peerjs.com/" target="_blank" rel="noreferrer">PeerJS</a>.</p></div>
+  </main>
+
+  <main id="michelle-setup" class="view setup" hidden>
+    <button class="back" data-home>← Back</button><img src="./unicorn.svg" alt="" class="setup-mark"><div class="eyebrow">MICHELLE'S PHONE</div><h1>A little<br><em>unicorn magic.</em></h1><p>Enter Dad's pairing code, then turn your phone sideways.<br>Watch the shared tablet while you play.</p>
+    <form id="michelle-form" class="setup-panel"><label for="michelle-code">PAIRING CODE</label><input id="michelle-code" class="code-input" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD EFGH" maxlength="9" required aria-label="Pairing code from Dad's phone"><button id="michelle-join" class="primary lavender" type="submit">Join as the unicorn <span>✦</span></button><p id="michelle-join-status" role="status">Use the same code as JJ. No download needed.</p></form>
+  </main>
+
+  <main id="unicorn-controller" class="view controller unicorn-controller" hidden>
+    <header class="controller-top"><span class="mini-brand">✦ MICHELLE'S UNICORN</span><span id="michelle-room"></span><span id="michelle-status">Connecting…</span><button id="michelle-fullscreen" class="icon-button" aria-label="Full screen">⛶</button><button id="michelle-leave">Leave</button></header>
+    <div id="michelle-objective" class="objective phone-objective"></div>
+    <div class="unicorn-controls">
+      <div class="dpad joystick" id="unicorn-pad" role="group" aria-label="Unicorn joystick: touch anywhere and drag to move"><span class="joystick-ring"></span><span class="joystick-knob"></span><small>DRAG TO GALLOP</small></div>
+      <div class="unicorn-middle"><img src="./unicorn.svg" alt="Michelle's unicorn" width="65" height="65"><button id="unicorn-heal" class="heal-button" disabled aria-label="Send a heart to heal Link"><span>♥</span><small id="heal-label">HEAL LINK</small></button></div>
+      <button id="unicorn-fire" class="unicorn-attack" disabled aria-label="Shoot unicorn magic"><span>✦</span><strong>ATTACK</strong></button>
+    </div>
+    <footer class="unicorn-footer"><span id="unicorn-hint">Watch the big screen. You can't die!</span><small>♥ One heart · 5-second recharge</small></footer>
   </main>
 
   <main id="dad-setup" class="view setup" hidden>

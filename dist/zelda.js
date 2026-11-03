@@ -11,6 +11,7 @@ export const ADDR = Object.freeze({
   xLo: 0xd10, xHi: 0xd30, yLo: 0xd00, yHi: 0xd20, z: 0xf70,
   flags3: 0xe60, hit: 0xef0, recoil: 0xea0, damage: 0xce2,
   recoilX: 0xf40, recoilY: 0xf30, spriteFloor: 0xf20, pause: 0xf00,
+  health: 0xf36d, capacity: 0xf36c, heartFill: 0xf372,
 });
 // Conservative allowlist: common, ordinary enemies. Bosses, NPCs, traps,
 // switches, scripted entities and enemies with special death logic excluded.
@@ -50,6 +51,7 @@ export const ENEMIES = new Set([
 ]);
 
 export const word = (ram, offset) => ram[offset] | (ram[offset + 1] << 8);
+const CONTACT_TYPES=new Set([...ENEMIES,0x53,0x54,0x88,0x8c,0x92,0xa2,0xbd,0xcb,0xcc,0xcd,0xce,0xd6]);
 const signedDifference = (a, b) => ((a - b + 0x8000) & 0xffff) - 0x8000;
 
 export function snapshotRam(state) {
@@ -119,6 +121,7 @@ export class ZeldaBridge {
     return world;
   }
   hit(target, fairy) { return this.ram ? applyHit(this.ram, target, fairy) : false; }
+  heal() { return this.ram ? applyHeal(this.ram) : false; }
 }
 
 export function readWorld(ram) {
@@ -127,18 +130,20 @@ export function readWorld(ram) {
   const world = {
     active, scene: `${ram[ADDR.indoors]}:${ram[ADDR.indoors] ? word(ram, ADDR.room) : word(ram, ADDR.area)}`,
     cameraX, cameraY,
-    link: {x:signedDifference(word(ram,ADDR.linkX),cameraX)+8, y:signedDifference(word(ram,ADDR.linkY),cameraY)+8},
-    enemies: [],
+    link: {x:signedDifference(word(ram,ADDR.linkX),cameraX)+8, y:signedDifference(word(ram,ADDR.linkY),cameraY)+8,health:ram[ADDR.health],capacity:ram[ADDR.capacity]},
+    enemies: [],contacts: [],
   };
   if (!active) return world;
   for (let slot = 0; slot < 16; slot++) {
-    if (ram[ADDR.state+slot] !== 9 || !ENEMIES.has(ram[ADDR.type+slot]) ||
+    if (ram[ADDR.state+slot] !== 9 || !CONTACT_TYPES.has(ram[ADDR.type+slot]) ||
         !ram[ADDR.hp+slot] || ram[ADDR.hp+slot] >= 0xf0 ||
-        (ram[ADDR.flags3+slot] & 0x40) || ram[ADDR.pause+slot] ||
+        ram[ADDR.pause+slot] ||
         ram[ADDR.spriteFloor+slot] !== ram[ADDR.floor]) continue;
     const x = signedDifference(ram[ADDR.xLo+slot] | ram[ADDR.xHi+slot]<<8, cameraX)+8;
     const y = signedDifference(ram[ADDR.yLo+slot] | ram[ADDR.yHi+slot]<<8, cameraY)+8-ram[ADDR.z+slot];
     if (x < 0 || x > 256 || y < 32 || y > 224) continue;
+    world.contacts.push({slot,type:ram[ADDR.type+slot],x,y});
+    if(!ENEMIES.has(ram[ADDR.type+slot])||(ram[ADDR.flags3+slot]&0x40))continue;
     world.enemies.push({slot, type:ram[ADDR.type+slot], x, y, vulnerable:!ram[ADDR.hit+slot] && !ram[ADDR.damage+slot]});
   }
   return world;
@@ -157,5 +162,14 @@ export function applyHit(ram, target, fairy) {
   const distance = Math.hypot(current.x-fairy.x,current.y-fairy.y) || 1;
   ram[ADDR.recoilX+slot] = Math.round((current.x-fairy.x)/distance*20) & 255;
   ram[ADDR.recoilY+slot] = Math.round((current.y-fairy.y)/distance*20) & 255;
+  return true;
+}
+
+export function applyHeal(ram) {
+  const world=readWorld(ram),health=ram[ADDR.health],capacity=ram[ADDR.capacity],pending=ram[ADDR.heartFill];
+  if(!world.active||!health||capacity<8||capacity>160||health>=capacity||health+pending>=capacity)return false;
+  // One heart is eight units. Queue the original heart-refill animation/sound;
+  // the game's HUD code clamps health to capacity. Never revive a dying Link.
+  ram[ADDR.heartFill]=Math.min(160,pending+8);
   return true;
 }

@@ -6,6 +6,7 @@ import { serve } from './serve.mjs';
 const server=serve();
 const browser=await chromium.launch({executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:['--autoplay-policy=no-user-gesture-required','--disable-background-timer-throttling','--disable-renderer-backgrounding']});
 const tabletBrowser=await chromium.launch({executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:['--autoplay-policy=no-user-gesture-required']});
+const michelleBrowser=await chromium.launch({executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:['--autoplay-policy=no-user-gesture-required']});
 const results=new URL('../test-results/',import.meta.url);await mkdir(results,{recursive:true});
 const errors=[];
 const shot=async(page,name)=>page.screenshot({path:fileURLToPath(new URL(name,results))});
@@ -103,6 +104,26 @@ try{
   await jj.waitForFunction(()=>document.getElementById('tablet-objective').hidden);
   await dad.locator('#toggle-guidance').click();await dad.locator('#close-options').click();
   console.log('Compass objective and toggle relayed to tablet');
+  const michelle=await michelleBrowser.newPage({viewport:{width:900,height:430},hasTouch:true});
+  michelle.on('pageerror',e=>errors.push(e.message));
+  await michelle.goto('http://localhost:4173');await michelle.locator('#choose-michelle').click();
+  await michelle.locator('#michelle-code').fill(code);await michelle.locator('#michelle-join').click();
+  await michelle.waitForFunction(()=>!document.getElementById('unicorn-controller').hidden);
+  await dad.waitForFunction(()=>testGame.network.has('jj')&&testGame.network.has('michelle')&&testGame.unicorn.active);
+  await michelle.waitForFunction(()=>!document.getElementById('unicorn-fire').disabled);
+  await shot(michelle,'michelle-controller.png');
+  const pad=await michelle.locator('#unicorn-pad').boundingBox(),px=pad.x+pad.width/2,py=pad.y+pad.height/2;
+  const ux=await dad.evaluate(()=>testGame.unicorn.x);
+  await michelle.mouse.move(px,py);await michelle.mouse.down();await michelle.mouse.move(px+45,py);await dad.waitForTimeout(300);await michelle.mouse.up();
+  await dad.waitForFunction(()=>testGame.unicorn.inputX===0);
+  assert.ok(await dad.evaluate(x=>testGame.unicorn.x>x+10,ux),'Michelle joystick moves the unicorn');
+  const stopped=await dad.evaluate(()=>testGame.unicorn.x);await dad.waitForTimeout(450);
+  assert.ok(Math.abs(await dad.evaluate(()=>testGame.unicorn.x)-stopped)<1,'Release stops unicorn');
+  await dad.evaluate(()=>{testGame.bridge.ram[0xf36d]=testGame.bridge.ram[0xf36c]-8;});
+  await michelle.locator('#unicorn-heal').click();
+  await dad.waitForFunction(()=>testGame.bridge.ram[0xf36d]===testGame.bridge.ram[0xf36c],{},{timeout:5000});
+  assert.equal(await michelle.locator('#unicorn-heal').isDisabled(),true);
+  console.log('Three players paired; Michelle joystick and native Link healing verified');
   await dad.evaluate(async()=>{
     const {ADDR:A}=await import('/zelda.js');const ram=testGame.bridge.ram,k=14;
     const x=(ram[A.linkX]|ram[A.linkX+1]<<8)+30,y=(ram[A.linkY]|ram[A.linkY+1]<<8)+30;
@@ -118,6 +139,20 @@ try{
   await jj.locator('#fire').click({delay:80});
   await dad.waitForFunction(old=>testGame.bridge.ram[0xe50+14]<old,hp,{timeout:5000});
   console.log('LIVE FAIRY DAMAGE VERIFIED',hp,'→',await dad.evaluate(()=>testGame.bridge.ram[0xe50+14]));
+  await dad.waitForFunction(()=>testGame.unicorn.target,{},{timeout:5000});
+  const unicornHp=await dad.evaluate(()=>testGame.bridge.ram[0xe50+14]);
+  await michelle.locator('#unicorn-fire').click();
+  await dad.waitForFunction(old=>testGame.bridge.ram[0xe50+14]<old,unicornHp,{timeout:5000});
+  console.log('Unicorn homing attack dealt native enemy damage');
+  const bounces=await dad.evaluate(()=>{
+    const u=testGame.unicorn,r=testGame.bridge.ram;u.x=120;u.y=145;u.follow=false;u.stop();
+    const x=u.x+testGame.bridge.read().cameraX-3,y=u.y+testGame.bridge.read().cameraY-8,k=14;
+    r[0xd10+k]=x&255;r[0xd30+k]=x>>8;r[0xd00+k]=y&255;r[0xd20+k]=y>>8;return u.bounces;
+  });
+  await dad.waitForFunction(old=>testGame.unicorn.bounces>old,bounces);
+  assert.ok(await dad.evaluate(()=>testGame.unicorn.active),'Unicorn survives contact');
+  console.log('Live enemy bounced the unicorn without killing it');
+  await dad.locator('#pause').click();await michelle.waitForFunction(()=>document.getElementById('unicorn-fire').disabled&&document.getElementById('unicorn-heal').disabled);await dad.locator('#pause').click();
   await shot(jj,'fairy-gameplay.png');
   await jj.locator('#tablet-sound').click();
   assert.equal(await jj.locator('#video').evaluate(v=>v.muted),false);
@@ -131,7 +166,15 @@ try{
   await jj.locator('#tablet-leave').click();await dad.waitForTimeout(300);
   await jj.locator('#join').click();await jj.waitForFunction(()=>document.getElementById('video').readyState>=2,{},{timeout:20000});
   console.log('Tablet sound and reconnection verified');
+  assert.ok(await dad.evaluate(()=>testGame.network.has('michelle')),'JJ reconnect does not remove Michelle');
+  await michelle.locator('#michelle-leave').click();await dad.waitForFunction(()=>!testGame.unicorn.enabled);
+  assert.ok(await dad.evaluate(()=>testGame.network.has('jj')),'Michelle leaving preserves JJ');
+  await michelle.locator('#michelle-join').click();await dad.waitForFunction(()=>testGame.network.has('michelle')&&testGame.unicorn.active);
+  await dad.waitForTimeout(600); // Allow the composite frame to reach the tablet after rejoining.
+  await writeFile(new URL('three-player-broadcast.png',results),Buffer.from(await dad.evaluate(()=>document.getElementById('broadcast').toDataURL().split(',')[1]),'base64'));
+  await shot(jj,'three-player-gameplay.png');
+  console.log('Independent third-player leave/rejoin verified');
   await writeFile(new URL('source-canvas.png',results),Buffer.from(await dad.evaluate(()=>testGame.emulator.canvas.toDataURL().split(',')[1]),'base64'));
   assert.deepEqual(errors,[]);
   console.log('Browser checks passed');
-}finally{await browser.close();await tabletBrowser.close();server.close();}
+}finally{await browser.close();await tabletBrowser.close();await michelleBrowser.close();server.close();}

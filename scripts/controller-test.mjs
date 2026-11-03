@@ -35,5 +35,13 @@ try{
   assert.deepEqual(await page.evaluate(()=>inputs.slice(-2)),[{key:6,value:1},{key:0,value:1}]);
   await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
   assert.ok(await page.evaluate(()=>inputs.slice(-2).every(i=>i.value===0)),'Cancellation releases both fingers');
-  assert.deepEqual(errors,[]);console.log('Joystick deadzone, diagonals, release, simultaneous B and responsive hit targets passed');
+  await page.evaluate(()=>document.querySelectorAll('.view').forEach(v=>v.hidden=v.id!=='unicorn-controller'));
+  for(const [width,height] of [[900,430],[740,360],[390,844]]){
+    await page.setViewportSize({width,height});
+    for(const selector of ['#unicorn-pad','#unicorn-fire','#unicorn-heal']){
+      const r=await page.locator(selector).boundingBox();assert.ok(r.width>=44&&r.height>=44);assert.ok(r.x>=0&&r.y>=0&&r.x+r.width<=width&&r.y+r.height<=height,selector+' within screen');
+    }
+    await page.screenshot({path:`test-results/michelle-layout-${width}.png`});
+  }
+  assert.deepEqual(errors,[]);console.log('Joystick deadzone, diagonals, release, simultaneous B and both phone layouts passed');
 }finally{await browser.close();server.close();}
