@@ -6,6 +6,11 @@ export class KidLock {
     this.tablet=document.getElementById('tablet');
     this.unlockButton=document.getElementById('kid-unlock');
     this.restoreButton=document.getElementById('kid-fullscreen');
+    this.systemStatus=document.getElementById('kid-system-status');
+    this.systemButton=document.getElementById('kid-system-lock');
+    this.systemButton.onclick=()=>window.FairyAndroid?.setLocked(true);
+    if(window.FairyAndroid)document.querySelector('.tablet-app-download').hidden=true;
+    setInterval(()=>this.updateSystemLock(),1000);
     document.getElementById('kid-lock').onclick=()=>this.lock();
     this.restoreButton.onclick=()=>this.fullscreen();
     const prevent=e=>e.preventDefault();
@@ -37,11 +42,13 @@ export class KidLock {
   lock(){
     if(this.locked)return;
     this.locked=true;this.pushGuard();this.tablet.classList.add('kid-locked');
+    window.FairyAndroid?.setLocked(true);this.updateSystemLock();
     this.onChange(true);this.fullscreen();
   }
   unlock(){
     if(!this.locked)return;
     this.locked=false;this.cancelHold();this.tablet.classList.remove('kid-locked');
+    window.FairyAndroid?.setLocked(false);
     this.restoreButton.hidden=true;this.onChange(false);
     if(history.state?.fairyKidGuard)history.back();
   }
@@ -52,11 +59,18 @@ export class KidLock {
   }
   cancelHold(){clearTimeout(this.timer);this.timer=null;this.unlockButton.classList.remove('holding');this.unlockButton.textContent='Hold 3 sec to unlock';}
   async fullscreen(){
+    if(window.FairyAndroid){this.restoreButton.hidden=true;return;}
     try{
       if(!document.fullscreenElement&&!matchMedia('(display-mode: fullscreen)').matches)await document.documentElement.requestFullscreen({navigationUI:'hide'});
       try{await screen.orientation?.lock?.('landscape');}catch{}
     }catch{}
     this.updateFullscreen();
   }
-  updateFullscreen(){this.restoreButton.hidden=!this.locked||Boolean(document.fullscreenElement)||matchMedia('(display-mode: fullscreen)').matches;}
+  updateFullscreen(){this.restoreButton.hidden=!this.locked||Boolean(window.FairyAndroid)||Boolean(document.fullscreenElement)||matchMedia('(display-mode: fullscreen)').matches;}
+  updateSystemLock(){
+    if(!this.locked)return;
+    const native=window.FairyAndroid,pinned=Boolean(native?.isPinned());
+    this.systemStatus.textContent=native?(pinned?'Android buttons locked':'Accept Android’s pinning prompt'):'Kid lock on';
+    this.systemButton.hidden=!native||pinned;
+  }
 }

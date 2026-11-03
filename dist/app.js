@@ -1,6 +1,7 @@
 import { ROM_SHA256, ZeldaBridge, snapshotRam } from './zelda.js';
 import { Fairy, COOLDOWN } from './fairy.js';
 import { drawGuidance } from './guidance.js';
+import { Joystick } from './joystick.js';
 import { KidLock } from './kid-lock.js';
 import { Connection, roomCode, normalizeCode, validCode } from './network.js';
 import * as storage from './storage.js';
@@ -166,27 +167,13 @@ function press(key,source){
   document.querySelector(`[data-key="${key}"]`)?.classList.add('pressed');
 }
 function release(key,source){const set=buttons.get(key);if(!set)return;set.delete(source);if(!set.size){input(key,false);buttons.delete(key);document.querySelector(`[data-key="${key}"]`)?.classList.remove('pressed');}}
-function releaseButtons(){for(const key of buttons.keys()){if(game.emulator)game.emulator.gameManager.simulateInput(0,Number(key),0);}buttons.clear();padPointers.clear();document.querySelectorAll('.pressed').forEach(e=>e.classList.remove('pressed'));$('dpad').classList.remove('active');}
+function releaseButtons(){for(const key of buttons.keys()){if(game.emulator)game.emulator.gameManager.simulateInput(0,Number(key),0);}buttons.clear();joystick.reset();document.querySelectorAll('.pressed').forEach(e=>e.classList.remove('pressed'));$('dpad').classList.remove('active');}
 document.querySelectorAll('[data-key]').forEach(button=>{
   button.onpointerdown=e=>{e.preventDefault();button.setPointerCapture(e.pointerId);press(button.dataset.key,e.pointerId);};
   const up=e=>release(button.dataset.key,e.pointerId);
   button.onpointerup=up;button.onpointercancel=up;button.onlostpointercapture=up;
 });
-const padPointers=new Map();
-function padMove(e){
-  if(!padPointers.has(e.pointerId))return;
-  const rect=$('dpad').getBoundingClientRect(),x=(e.clientX-rect.left)/rect.width*2-1,y=(e.clientY-rect.top)/rect.height*2-1;
-  const next=new Set();
-  if(Math.hypot(x,y)>.2){if(y<-.25)next.add('4');if(y>.25)next.add('5');if(x<-.25)next.add('6');if(x>.25)next.add('7');}
-  const old=padPointers.get(e.pointerId);
-  for(const key of old)if(!next.has(key))release(key,e.pointerId);
-  for(const key of next)if(!old.has(key))press(key,e.pointerId);
-  padPointers.set(e.pointerId,next);$('dpad').classList.toggle('active',next.size>0);
-}
-$('dpad').onpointerdown=e=>{e.preventDefault();$('dpad').setPointerCapture(e.pointerId);padPointers.set(e.pointerId,new Set());padMove(e);};
-$('dpad').onpointermove=padMove;
-const padUp=e=>{for(const key of padPointers.get(e.pointerId)||[])release(key,e.pointerId);padPointers.delete(e.pointerId);$('dpad').classList.remove('active');};
-$('dpad').onpointerup=padUp;$('dpad').onpointercancel=padUp;$('dpad').onlostpointercapture=padUp;
+const joystick=new Joystick($('dpad'),press,release);
 const keys={ArrowUp:'4',ArrowDown:'5',ArrowLeft:'6',ArrowRight:'7',Enter:'3',Shift:'2',z:'0',x:'8',a:'1',s:'9',q:'10',w:'11'};
 window.addEventListener('keydown',e=>{if(game.role==='dad'&&game.ready&&!e.repeat&&keys[e.key]&&!['INPUT','TEXTAREA'].includes(e.target.tagName)){e.preventDefault();press(keys[e.key],'keyboard');}});
 window.addEventListener('keyup',e=>{if(keys[e.key])release(keys[e.key],'keyboard');});

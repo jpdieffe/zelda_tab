@@ -17,6 +17,20 @@ Hosted on GitHub Pages. No ChatGPT account or login is required.
 
 No computer or home server is required after deployment. An internet connection is needed to load the app/emulator and reach PeerJS's public pairing service. After pairing, WebRTC streams game video/audio and control messages directly between devices. No TURN relay is configured. Guest Wi-Fi client isolation, VPNs, or networks that block direct peer connections can prevent pairing.
 
+## Phone controls
+
+The large left joystick has a floating thumb origin: touch anywhere inside the circle, then drag to walk in any of eight directions. Lift your thumb to stop. The deadzone ignores small thumb movements. B is now 112 pixels across in a normal landscape view (96 on short screens), with A, X and Y spaced around it. Steering and sword presses work simultaneously.
+
+## Android tablet app
+
+For Android's bottom Back, Home and Recents buttons, install [Fairy Link Tablet](https://jpdieffe.github.io/zelda_tab/downloads/fairy-link-tablet.apk) on JJ's tablet (Android 8+). Open the APK and allow installation from your browser if Android asks, then open **Fairy Link Tablet**, pair with Dad's phone, enable sound and tap **Kid lock**. Accept Android's **Pin / Start** confirmation. The lock bar must say **Android buttons locked** before handing over the tablet. If the prompt is cancelled, **Lock Android buttons** retries it.
+
+The APK uses a WebView with immersive system bars, suppresses Back while locked, and requests Android screen pinning to block Home and Recents. A deliberate Android unpin gesture can still exit screen pinning; enable a PIN/password for unpinning in Android Settings if needed. This is ordinary Android screen pinning, not device-owner kiosk provisioning. No reset, root, device administrator or computer during play is required. Dad's **More > Unlock JJ's tablet** or the tablet's three-second parent hold releases both the game lock and Android pinning. Outside kid lock, Back asks before closing.
+
+The app loads this same GitHub Pages game and receives WebRTC video and audio. It requires internet and an up-to-date Android System WebView. No camera, microphone, storage or accessibility permission is requested. Existing phone saves stay in Chrome on Dad's phone. Android WebView does not share Chrome's storage.
+
+Build with `node scripts/build-android.mjs` using Android SDK platform/build-tools 35 and Android Studio's JDK. Override `ANDROID_HOME` and `FAIRY_JAVA_HOME` if needed. The signing key is stored outside the repository in `../.tools/fairy-android-signing`; back it up to preserve APK upgrade compatibility. The release APK disables WebView debugging. `--debug` builds a separate ignored test APK. Source is in `android/` and build output is ignored.
+
 ## Kid lock and Android setup
 
 On JJ's tablet, turn sound on, then tap **Kid lock**. It requests fullscreen and hides the normal toolbar, including Leave, Sound and Fullscreen. Long-press/right-click menus, selection, drag menus and page zoom/scroll gestures are suppressed on the play screen. Moving the fairy and firing still work. A same-page history guard catches ordinary Back navigation while locked. If Android exits browser fullscreen, **Restore fullscreen** brings the game back.

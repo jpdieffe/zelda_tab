@@ -10,3 +10,8 @@ test-results/
 .DS_Store
 .openai/
 .tools/
+
+android/build/
+*.jks
+*.keystore
+*.idsig

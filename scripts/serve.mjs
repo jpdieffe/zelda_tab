@@ -14,7 +14,7 @@ export function serve(port = 4173, basePath = '/') {
       const target = path.resolve(root, '.' + name);
       if (!target.startsWith(root)) throw new Error('Outside root');
       const body = await readFile(target);
-      const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.svg': 'image/svg+xml', '.wasm': 'application/wasm' };
+      const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.apk': 'application/vnd.android.package-archive', '.svg': 'image/svg+xml', '.wasm': 'application/wasm' };
       res.writeHead(200, { 'Content-Type': mime[path.extname(target)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
       res.end(body);
     } catch { res.writeHead(404); res.end('Not found'); }

@@ -35,6 +35,7 @@
 
   <main id="jj-setup" class="view setup" hidden>
     <button class="back" data-home>← Back</button><img src="./icon.svg" alt="" class="setup-mark"><div class="eyebrow">JJ'S BIG SCREEN</div><h1>Ready to<br><em>take flight?</em></h1><p>Enter the code on Dad's phone.</p>
+    <p class="tablet-app-download"><a class="primary" href="./downloads/fairy-link-tablet.apk" download>Install the Android tablet app</a><small>Blocks Back while locked. Accept Android's pinning prompt to block Home and Recents. Android 8 or newer.</small></p>
     <details class="kid-setup"><summary>Keep JJ in the game</summary><p>For no address bar, use Chrome's menu > Add to Home screen > Install, then open the Fairy Link icon. After joining, turn sound on and tap <strong>Kid lock</strong>.</p><p>For Android navigation buttons, search tablet Settings for <strong>App pinning</strong> (or <strong>Pin app</strong>). Enable it with a PIN to unpin, then pin Fairy Link from the Recent apps screen. A browser tab alone cannot lock Android's buttons.</p><p>Hold the unlock button for 3 seconds, or use Dad's <strong>More > Unlock JJ's tablet</strong>.</p></details>
     <form id="join-form" class="setup-panel"><label for="join-code">PAIRING CODE</label><input id="join-code" class="code-input" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD EFGH" maxlength="9" required aria-label="Pairing code from Dad's phone"><button id="join" class="primary mint" type="submit">Join the adventure <span>✦</span></button><p id="join-status" role="status">Both devices should be on the same Wi-Fi.</p></form>
   </main>
@@ -44,7 +45,7 @@
     <div class="shoulders"><button data-key="10">L</button><span id="bridge-status">Waking up your fairy…</span><button data-key="11">R</button></div>
     <div id="dad-objective" class="objective phone-objective" aria-label="Next story objective"></div>
     <div class="controller-body">
-      <div class="dpad" id="dpad" role="group" aria-label="Directional pad"><div class="dpad-cross"></div><span class="up">▲</span><span class="left">◀</span><span class="right">▶</span><span class="down">▼</span><span class="dpad-center"></span></div>
+      <div class="dpad joystick" id="dpad" role="group" aria-label="Thumb joystick: touch anywhere and drag to move"><span class="joystick-ring"></span><span class="joystick-knob"></span><small>DRAG TO MOVE</small></div>
       <div class="controller-middle"><img src="./icon.svg" alt="" width="54" height="54"><span class="middle-caption">A LITTLE HELP<br>FROM YOUR FAIRY</span><div class="menu-buttons"><button data-key="2">SELECT</button><button data-key="3">START</button></div></div>
       <div class="face-buttons"><button class="face x" data-key="9">X<small>MAP</small></button><button class="face y" data-key="1">Y<small>ITEM</small></button><button class="face a" data-key="8">A<small>ACTION</small></button><button class="face b" data-key="0">B<small>SWORD</small></button></div>
     </div>
@@ -55,7 +56,7 @@
 
   <main id="tablet" class="view tablet" hidden>
     <header class="tablet-top"><span class="mini-brand">✦ JJ'S FAIRY</span><span id="tablet-status">Waiting for Dad's game…</span><div><button id="kid-lock">Kid lock</button><button id="tablet-sound">Sound on</button><button id="tablet-fullscreen" aria-label="Full screen">⛶</button><button id="tablet-leave">Leave</button></div></header>
-    <div class="kid-lock-bar"><span>Kid lock on</span><button id="kid-fullscreen" hidden>Restore fullscreen</button><button id="kid-unlock" aria-label="Hold for three seconds to unlock tablet controls">Hold 3 sec to unlock</button></div>
+    <div class="kid-lock-bar"><span id="kid-system-status">Kid lock on</span><button id="kid-system-lock" hidden>Lock Android buttons</button><button id="kid-fullscreen" hidden>Restore fullscreen</button><button id="kid-unlock" aria-label="Hold for three seconds to unlock tablet controls">Hold 3 sec to unlock</button></div>
     <div id="tablet-objective" class="objective" aria-label="Next story objective" hidden></div>
     <div class="screen-space"><div id="game-screen" class="game-screen"><video id="video" autoplay playsinline muted></video><div id="tap-surface" class="tap-surface" role="application" aria-label="Tap or drag to fly your fairy"><span id="tap-marker" hidden>✧</span></div><div id="screen-message" class="screen-message"><img src="./icon.svg" alt="" width="72" height="72"><p>Waiting for the adventure…</p></div></div></div>
     <footer class="fairy-bar"><div class="fairy-hint"><span class="eyebrow">YOU'VE GOT THIS, JJ</span><strong id="fairy-hint">Tap anywhere to fly!</strong></div><button id="fire" class="fire" disabled><span>✦</span> FAIRY SHOT <span>✦</span></button><div class="range-hint"><span class="range-dot"></span><span>Tap to aim.<br>Send a spark!</span></div></footer>
