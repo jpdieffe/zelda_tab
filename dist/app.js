@@ -153,6 +153,7 @@ function frame(now){
     game.guidance=world?.guidance;
     $('dad-objective').textContent=game.guidanceEnabled?(game.guidance?.label||'Story compass · waiting for the adventure'):'Story compass off';
     ctx.save();ctx.scale(2,2);if(game.unicorn.enabled)game.unicorn.draw(ctx,now);game.fairy.draw(ctx,now);if(game.guidanceEnabled)drawGuidance(ctx,world);ctx.restore();
+    if(!$('controller').hidden){const canvas=$('dad-canvas'),pc=canvas.getContext('2d',{alpha:false});pc.imageSmoothingEnabled=false;pc.drawImage($('broadcast'),0,0,canvas.width,canvas.height);}
     if(!$('peek-panel').hidden){const pc=$('peek-canvas').getContext('2d');pc.imageSmoothingEnabled=false;pc.drawImage($('broadcast'),0,0);}
     if(now-lastState>100){sendState();lastState=now;}
   }

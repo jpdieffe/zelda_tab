@@ -31,6 +31,8 @@ The host accepts one JJ and one Michelle per code. A duplicate role receives an 
 
 ## Phone controls
 
+Dad's phone shows the live game, including both companions, between the joystick and action buttons in landscape. In portrait the game sits above the controls. **Enlarge game** opens a bigger preview; close it to return to the controls.
+
 The large left joystick has a floating thumb origin: touch anywhere inside the circle, then drag to walk in any of eight directions. Lift your thumb to stop. The deadzone ignores small thumb movements. B is now 112 pixels across in a normal landscape view (96 on short screens), with A, X and Y spaced around it. Steering and sword presses work simultaneously.
 
 ## Android tablet app

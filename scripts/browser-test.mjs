@@ -174,6 +174,27 @@ try{
   await writeFile(new URL('three-player-broadcast.png',results),Buffer.from(await dad.evaluate(()=>document.getElementById('broadcast').toDataURL().split(',')[1]),'base64'));
   await shot(jj,'three-player-gameplay.png');
   console.log('Independent third-player leave/rejoin verified');
+  // The permanent phone view includes the complete broadcast while leaving
+  // the joystick, sword and menu controls reachable at common phone sizes.
+  await dad.waitForFunction(()=>new Set(document.getElementById('dad-canvas').getContext('2d').getImageData(0,0,512,384).data).size>3);
+  assert.equal(await dad.evaluate(()=>{
+    const canvas=document.getElementById('dad-canvas'),expected=document.createElement('canvas');
+    expected.width=canvas.width;expected.height=canvas.height;
+    const ctx=expected.getContext('2d');ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(document.getElementById('broadcast'),0,0,expected.width,expected.height);
+    return expected.toDataURL()===canvas.toDataURL();
+  }),true,'Dad sees the complete game and companion composite');
+  for(const [width,height] of [[900,430],[844,390],[667,375],[568,320],[390,844],[360,640]]){
+    await dad.setViewportSize({width,height});
+    const boxes=await dad.evaluate(()=>Object.fromEntries(['dad-canvas','dpad'].map(id=>[id,document.getElementById(id).getBoundingClientRect().toJSON()]).concat([...document.querySelectorAll('#controller [data-key]')].map(el=>['key-'+el.dataset.key,el.getBoundingClientRect().toJSON()]))));
+    const screen=boxes['dad-canvas'];assert.ok(screen.width>=150&&screen.height>=120,`Readable game at ${width}x${height}`);
+    for(const [id,box] of Object.entries(boxes)){
+      assert.ok(box.x>=0&&box.y>=0&&box.right<=width+.5&&box.bottom<=height+.5,`${id} fits ${width}x${height}`);
+      if(id!=='dad-canvas')assert.ok(box.right<=screen.x+.5||box.x>=screen.right-.5||box.bottom<=screen.y+.5||box.y>=screen.bottom-.5,`${id} does not cover the game`);
+    }
+    await shot(dad,`dad-live-${width}x${height}.png`);
+  }
+  console.log('Live Dad view verified at six phone sizes, with controls clear of the game');
   await writeFile(new URL('source-canvas.png',results),Buffer.from(await dad.evaluate(()=>testGame.emulator.canvas.toDataURL().split(',')[1]),'base64'));
   assert.deepEqual(errors,[]);
   console.log('Browser checks passed');
