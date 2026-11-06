@@ -23,6 +23,49 @@ test('enemy contacts repeatedly bounce an immortal unicorn with a recovery windo
   for(let i=0;i<20;i++){u.invulnerable=0;w.enemies[0].x=u.x+4;w.enemies[0].y=u.y;u.update(.05,w);}
   assert.equal(u.bounces,21);assert.equal(u.active,true);
 });
+test('room entry finds floor when all five old spawn offsets are blocked',()=>{
+  const {u,w}=setup();w.scene='narrow doorway';
+  w.wallAt=(x,y)=>!(x>=124&&x<=140&&y>=96&&y<=112);
+  u.update(.016,w);
+  assert.equal(u.active,true);assert.equal(u.clearAt(u.x,u.y,w),true);
+  assert.ok(u.x>=129&&u.x<=135,'spawn fits inside the nearby doorway');
+  u.setInput(0,1);const y=u.y;u.update(.02,w);assert.ok(u.y>y,'can leave the spawn');
+});
+test('room entry stays on Link side of a wall instead of choosing a clear offset beyond it',()=>{
+  const {u,w}=setup();w.scene='partition';w.wallAt=x=>x>=104&&x<112;
+  u.update(.016,w);
+  assert.ok(u.x>=117);assert.equal(u.clearAt(u.x,u.y,w),true);
+});
+test('overlap recovery lets the unicorn slide alongside a wall and steer away',()=>{
+  const {u,w}=setup();u.follow=false;u.x=105;u.y=100;w.wallAt=x=>x>=109;
+  u.setInput(0,1);u.update(.05,w);
+  assert.equal(u.clearAt(u.x,u.y,w),true);assert.ok(u.y>100);
+  const x=u.x;u.setInput(-1,0);u.update(.05,w);assert.ok(u.x<x);
+});
+test('camera edge clamping cannot leave the unicorn stuck inside a wall',()=>{
+  const {u,w}=setup();u.follow=false;u.x=12;u.y=100;w.cameraX=20;
+  w.wallAt=x=>x<13;u.setInput(0,1);u.update(.05,w);
+  assert.equal(u.clearAt(u.x,u.y,w),true);assert.ok(u.y>100);
+  const y=u.y;u.setInput(0,1);u.update(.05,w);assert.ok(u.y>y);
+});
+test('unusable transition tiles defer placement and recover as soon as floor exists',()=>{
+  const {u,w}=setup();w.scene='transition';w.wallAt=()=>true;u.update(.016,w);
+  assert.equal(u.active,false);assert.equal(u.fire(),'wait');
+  w.wallAt=()=>false;u.update(.016,w);
+  assert.equal(u.active,true);assert.equal(u.clearAt(u.x,u.y,w),true);
+  u.setInput(1,0);const x=u.x;u.update(.05,w);assert.ok(u.x>x);
+});
+test('long diagonal movement and knockback stay outside walls and release cleanly',()=>{
+  const {u,w}=setup();u.follow=false;u.x=100;u.y=100;
+  w.wallAt=(x,y)=>x>=116||y>=160;
+  for(let i=0;i<120;i++){
+    u.setInput(1,1);u.update(1/60,w);assert.equal(u.clearAt(u.x,u.y,w),true);
+  }
+  assert.ok(u.x>109&&u.y>155,'slides all the way to the corner');
+  u.knockX=170;u.knockY=170;u.update(.2,w);assert.equal(u.clearAt(u.x,u.y,w),true);
+  u.knockX=u.knockY=0;const x=u.x,y=u.y;u.setInput(-1,-1);u.update(.1,w);
+  assert.ok(u.x<x&&u.y<y,'can steer out of the corner');
+});
 test('unicorn attacks home within range, free-fire otherwise, and heal only on heart arrival',()=>{
   const {u,w}=setup();u.follow=false;
   w.enemies=[{x:u.x+35,y:u.y,slot:1,type:0x41,vulnerable:true}];

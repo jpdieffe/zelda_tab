@@ -1,6 +1,9 @@
 import {Fairy} from './fairy.js';
 export const HEAL_COOLDOWN=5000;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const placementOffsets=[];
+for(let y=-32;y<=32;y++)for(let x=-32;x<=32;x++)if(x*x+y*y<=32*32)placementOffsets.push({x,y,d:x*x+y*y});
+placementOffsets.sort((a,b)=>a.d-b.d);
 export class Unicorn extends Fairy {
   constructor(){
     super();this.offsetX=-22;this.offsetY=10;this.enabled=false;this.inputX=0;this.inputY=0;this.inputAge=1;
@@ -23,6 +26,7 @@ export class Unicorn extends Fairy {
       for(const heart of this.hearts){heart.x-=dx;heart.y-=dy;}
     }
     super.update(dt,world);
+    if(!this.active){this.hearts=[];return;}
     for(const heart of this.hearts){
       heart.life+=dt;const dx=world.link.x-heart.x,dy=world.link.y-heart.y,d=Math.hypot(dx,dy),step=180*dt;
       if(d<=step+4){heart.heal();this.burst(world.link.x,world.link.y);heart.done=true;}
@@ -31,14 +35,47 @@ export class Unicorn extends Fairy {
     }
     this.hearts=this.hearts.filter(h=>!h.done);
   }
-  clearAt(x,y,world){return ![-5,5].some(dx=>[-3,4].some(dy=>world.wallAt?.(x+dx,y+dy)));}
-  moveBody(dt,world){
-    if(this.newScene){
-      for(const [dx,dy] of [[-22,10],[22,10],[0,24],[0,-24],[0,0]]){
-        const x=clamp(world.link.x+dx,10,246),y=clamp(world.link.y+dy,44,215);
-        if(this.clearAt(x,y,world)){this.x=x;this.y=y;break;}
-      }
+  clearAt(x,y,world){return x>=10&&x<=246&&y>=44&&y<=215&&![-5,0,5].some(dx=>[-3,0,4].some(dy=>world.wallAt?.(x+dx,y+dy)));}
+  nearestClear(x,y,world,radius=32){
+    x=clamp(x,10,246);y=clamp(y,44,215);
+    for(const offset of placementOffsets){
+      if(offset.d>radius*radius)break;
+      const point={x:x+offset.x,y:y+offset.y};
+      if(this.clearAt(point.x,point.y,world))return point;
     }
+    return null;
+  }
+  placeNearLink(world){
+    const anchor=this.nearestClear(world.link.x,world.link.y,world);
+    if(!anchor)return false;
+    // Walk out from Link's safe space; never choose an offset across a wall.
+    this.x=anchor.x;this.y=anchor.y;
+    const dx=world.link.x+this.offsetX-anchor.x,dy=world.link.y+this.offsetY-anchor.y;
+    const steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)));
+    for(let i=1;i<=steps;i++){
+      const x=anchor.x+dx*i/steps,y=anchor.y+dy*i/steps;
+      if(!this.clearAt(x,y,world))break;
+      this.x=x;this.y=y;
+    }
+    return true;
+  }
+  moveBody(dt,world){
+    if(this.newScene||this.needsPlacement){
+      this.needsPlacement=!this.placeNearLink(world);
+    }else if(!this.clearAt(this.x,this.y,world)){
+      // Scrolling clamps, changing tiles and doorway transitions can overlap
+      // the body with a wall. Resolve that before testing either movement axis.
+      const point=this.nearestClear(this.x,this.y,world,12);
+      if(point){this.x=point.x;this.y=point.y;}
+      else this.needsPlacement=!this.placeNearLink(world);
+      this.knockX=this.knockY=0;
+    }
+    if(this.needsPlacement){
+      // Transition collision data may have no usable floor yet. Retry next
+      // frame instead of leaving a visible, immovable unicorn inside a wall.
+      this.active=false;this.shots=[];this.walking=false;return;
+    }
+    const startX=this.x,startY=this.y;
     let x=this.inputAge<.35?this.inputX:0,y=this.inputAge<.35?this.inputY:0;
     if(this.follow){const dx=world.link.x+this.offsetX-this.x,dy=world.link.y+this.offsetY-this.y,d=Math.hypot(dx,dy);if(d>3){x=dx/d*Math.min(1,d/12);y=dy/d*Math.min(1,d/12);}}
     if(!this.invulnerable){
@@ -55,7 +92,7 @@ export class Unicorn extends Fairy {
       if(this.clearAt(this.x,ny,world))this.y=ny;else this.knockY*=-.45;
     }
     this.knockX*=Math.exp(-7*dt);this.knockY*=Math.exp(-7*dt);
-    this.walking=Math.hypot(dx,dy)>.1;
+    this.walking=Math.hypot(this.x-startX,this.y-startY)>.1;
   }
   fire(hit){const result=super.fire(hit);if(result==='fired')this.cooldown=450;return result;}
   heal(heal){
