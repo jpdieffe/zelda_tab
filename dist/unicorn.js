@@ -24,6 +24,13 @@ export class Unicorn extends Fairy {
     else{
       const dx=((world.cameraX-this.cameraX+32768)&65535)-32768,dy=((world.cameraY-this.cameraY+32768)&65535)-32768;
       for(const heart of this.hearts){heart.x-=dx;heart.y-=dy;}
+      // Fairy's screen clamp can drag a grounded companion through scenery.
+      // Detect being left behind before that clamp loses the world position,
+      // and recall onto clear floor near Link instead of pushing along the edge.
+      const x=this.x-dx,y=this.y-dy;
+      if((dx||dy)&&(x<10||x>246||y<44||y>215)){
+        this.needsPlacement=true;this.knockX=this.knockY=0;
+      }
     }
     super.update(dt,world);
     if(!this.active){this.hearts=[];return;}

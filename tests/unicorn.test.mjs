@@ -48,6 +48,34 @@ test('camera edge clamping cannot leave the unicorn stuck inside a wall',()=>{
   assert.equal(u.clearAt(u.x,u.y,w),true);assert.ok(u.y>100);
   const y=u.y;u.setInput(0,1);u.update(.05,w);assert.ok(u.y>y);
 });
+test('scrolling past any screen edge recalls the unicorn beside Link instead of dragging it along the edge',()=>{
+  for(const [x,y,cameraX,cameraY] of [[11,100,3,0],[245,100,65533,0],[120,45,0,3],[120,214,0,65533]]){
+    const {u,w}=setup();u.follow=false;u.x=x;u.y=y;
+    w.cameraX=cameraX;w.cameraY=cameraY;
+    // A wall separates the stranded edge from Link's open floor.
+    w.wallAt=(px,py)=>x<20?px>=40&&px<48:x>240?px>=208&&px<216:y<50?py>=64&&py<72:py>=184&&py<192;
+    u.knockX=80;u.knockY=60;u.update(0,w);
+    assert.ok(Math.hypot(u.x-w.link.x,u.y-w.link.y)<32,`recalled from edge ${x},${y}`);
+    assert.equal(u.clearAt(u.x,u.y,w),true);
+    assert.equal(u.follow,false,'recall preserves Michelle control');
+    assert.equal(u.knockX,0);assert.equal(u.knockY,0);
+    u.setInput(1,0);const before=u.x;u.update(.05,w);assert.ok(u.x>before,'can steer immediately');
+  }
+});
+test('ordinary scrolling preserves world position until the screen overtakes the unicorn',()=>{
+  const {u,w}=setup();u.follow=false;u.x=80;u.y=100;
+  for(let i=1;i<=60;i++){
+    w.cameraX=i;u.update(0,w);
+    assert.equal(u.x+w.cameraX,80);assert.equal(u.y,100);
+  }
+  w.cameraX=72;u.update(0,w);
+  assert.ok(Math.hypot(u.x-w.link.x,u.y-w.link.y)<32);
+});
+test('steering against a stationary screen edge does not recall the unicorn',()=>{
+  const {u,w}=setup();u.follow=false;u.x=10;u.y=100;
+  u.setInput(-1,0);u.update(.1,w);assert.equal(u.x,10);assert.equal(u.y,100);
+  u.setInput(0,1);u.update(.1,w);assert.equal(u.x,10);assert.ok(u.y>100);
+});
 test('unusable transition tiles defer placement and recover as soon as floor exists',()=>{
   const {u,w}=setup();w.scene='transition';w.wallAt=()=>true;u.update(.016,w);
   assert.equal(u.active,false);assert.equal(u.fire(),'wait');
