@@ -23,6 +23,7 @@ public final class MainActivity extends Activity {
   private static final String GAME = "https://jpdieffe.github.io/zelda_tab/?tablet=1";
   private WebView web;
   private boolean locked;
+  private boolean refreshOnResume;
 
   @Override public void onCreate(Bundle state) {
     super.onCreate(state);
@@ -31,6 +32,10 @@ public final class MainActivity extends Activity {
     WebView.setWebContentsDebuggingEnabled((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0);
     web.setBackgroundColor(0xff102c29);
     WebSettings settings = web.getSettings();
+    // Game updates are served at stable URLs. Do not reuse an old HTML/JS
+    // bundle when opening the app after a deployment.
+    settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+    web.clearCache(true);
     settings.setJavaScriptEnabled(true);
     settings.setDomStorageEnabled(true);
     settings.setMediaPlaybackRequiresUserGesture(false);
@@ -89,7 +94,16 @@ public final class MainActivity extends Activity {
       .setPositiveButton("Close",(dialog,which)->finish()).show();
   }
   @Override public void onWindowFocusChanged(boolean focus) { super.onWindowFocusChanged(focus); if(focus)hideBars(); }
-  @Override protected void onResume() { super.onResume();hideBars(); }
+  @Override protected void onStop() { super.onStop();refreshOnResume=true; }
+  @Override protected void onResume() {
+    super.onResume();hideBars();
+    if(refreshOnResume&&web!=null){
+      refreshOnResume=false;
+      // Reopening from Home can resume the existing Activity. Refresh idle
+      // pairing screens, but preserve a live game or a connection in progress.
+      web.evaluateJavascript("(function(){var setup=document.getElementById('jj-setup'),join=document.getElementById('join');if(setup&&!setup.hidden&&join&&!join.disabled)location.reload();})()",null);
+    }
+  }
   private void hideBars() {
     if (Build.VERSION.SDK_INT >= 30) {
       getWindow().setDecorFitsSystemWindows(false);

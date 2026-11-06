@@ -43,6 +43,8 @@ The APK uses a WebView with immersive system bars, suppresses Back while locked,
 
 The app loads this same GitHub Pages game and receives WebRTC video and audio. It requires internet and an up-to-date Android System WebView. No camera, microphone, storage or accessibility permission is requested. Existing phone saves stay in Chrome on Dad's phone. Android WebView does not share Chrome's storage.
 
+Tablet app 1.1 fetches fresh game files and refreshes the idle pairing screen when reopened from Home, so web updates do not leave it using an old room-code format. Returning to a connected game preserves the session.
+
 Build with `node scripts/build-android.mjs` using Android SDK platform/build-tools 35 and Android Studio's JDK. Override `ANDROID_HOME` and `FAIRY_JAVA_HOME` if needed. The signing key is stored outside the repository in `../.tools/fairy-android-signing`; back it up to preserve APK upgrade compatibility. The release APK disables WebView debugging. `--debug` builds a separate ignored test APK. Source is in `android/` and build output is ignored.
 
 ## Kid lock and Android setup
