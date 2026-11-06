@@ -55,8 +55,9 @@ async function launchBundledGame(){
 
 function hostNetwork(){
   game.network?.close();setPhoneAudio(true);if(game.unicorn){game.unicorn.enabled=false;game.unicorn.stop();}
-  const code=roomCode();$('room-code').textContent=code.slice(0,4)+' '+code.slice(4);
+  const code=roomCode();$('room-code').textContent='...';$('pair-info').disabled=true;
   game.network=new Connection({role:'dad',code,
+    onCode:code=>{$('room-code').textContent=code;$('pair-info').disabled=false;},
     onStatus:(message,error)=>{status('dad-status',message,error);$('dad-led').classList.toggle('on',Boolean(game.network?.has('jj')||game.network?.has('michelle')));},
     onData:(data,role)=>{
       if(role==='michelle'){
@@ -208,11 +209,11 @@ for(const [id,type] of [['unicorn-fire','unicorn-fire'],['unicorn-heal','unicorn
 }
 $('michelle-form').onsubmit=async e=>{
   e.preventDefault();const code=normalizeCode($('michelle-code').value);
-  if(!validCode(code)){status('michelle-join-status','Enter the 8-character code on Dad’s phone.',true);return;}
+  if(!validCode(code)){status('michelle-join-status','Enter the two-letter code on Dad’s phone.',true);return;}
   game.role='michelle';releaseUnicorn();game.network?.close();await awake();michelleReady=false;$('michelle-join').disabled=true;
   game.network=new Connection({role:'michelle',code,
     onStatus:(message,error)=>{status('michelle-join-status',message,error);status('michelle-status',message,error);if(error)$('michelle-join').disabled=false;},
-    onConnected:()=>{show('unicorn-controller');$('michelle-join').disabled=false;$('michelle-room').textContent=code.slice(0,4)+' '+code.slice(4);releaseUnicorn();},
+    onConnected:()=>{show('unicorn-controller');$('michelle-join').disabled=false;$('michelle-room').textContent=code;releaseUnicorn();},
     onDisconnected:()=>{michelleReady=false;releaseUnicorn();$('unicorn-fire').disabled=true;$('unicorn-heal').disabled=true;},
     onData:data=>{
       if(data.type==='state'){
@@ -242,7 +243,7 @@ $('pause').onclick=()=>setPaused(!game.paused);
 $('peek').onclick=()=>{$('peek-panel').hidden=false;};$('close-peek').onclick=()=>{$('peek-panel').hidden=true;};
 $('options').onclick=()=>{releaseButtons();$('phone-options').hidden=false;};$('close-options').onclick=()=>{$('phone-options').hidden=true;};
 $('unlock-tablet').onclick=()=>{if(game.network?.connection?.open){game.network.send({type:'unlock-tablet'},'jj');toast('Unlock requested on JJ’s tablet.');}else toast('Pair JJ’s tablet first.');};
-$('new-pair').onclick=()=>{hostNetwork();$('phone-options').hidden=true;toast('New pairing code is ready. Enter it on JJ’s tablet.');};
+$('new-pair').onclick=()=>{hostNetwork();$('phone-options').hidden=true;toast('Getting a new two-letter code...');};
 $('pair-info').onclick=async()=>{
   const url=new URL(location.href);url.hash='join='+game.network.code;
   try{await navigator.clipboard.writeText(url.href);toast('Tablet link copied. Or enter the code on JJ’s tablet.');}catch{toast('On JJ’s tablet, open this page and enter '+game.network.code);}
@@ -269,7 +270,7 @@ $('exit-game').onclick=async()=>{if(await saveGame(false))location.href=location
 
 $('join-form').onsubmit=async e=>{
   e.preventDefault();const code=normalizeCode($('join-code').value);
-  if(!validCode(code)){status('join-status','Enter the 8 letters and numbers shown on Dad’s phone.',true);return;}
+  if(!validCode(code)){status('join-status','Enter the two letters shown on Dad’s phone.',true);return;}
   game.role='jj';game.network?.close();await awake();$('join').disabled=true;status('join-status','Finding Dad’s phone…');
   game.network=new Connection({role:'jj',code,
     onStatus:(message,error)=>{status('join-status',message,error);status('tablet-status',message,error);if(error)$('join').disabled=false;},

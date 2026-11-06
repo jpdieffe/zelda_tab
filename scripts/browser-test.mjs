@@ -24,11 +24,13 @@ try{
   assert.match(await dad.locator('#bridge-status').textContent(),/Fairy ready/);
   await dad.waitForFunction(()=>document.getElementById('dad-status').textContent.includes('Waiting for JJ'),{},{timeout:30000});
   const code=(await dad.locator('#room-code').textContent()).replaceAll(' ','');
+  assert.match(code,/^[A-HJ-NP-Z]{2}$/,'Dad displays only two letters');
   console.log('Pairing code obtained');
   const jjContext=await tabletBrowser.newContext({viewport:{width:1280,height:800},hasTouch:true});
   const jj=await jjContext.newPage();
   jj.on('pageerror',e=>{errors.push(e.message);console.log('JJ ERROR',e.message);});
   await jj.goto('http://localhost:4173/#join='+code);
+  assert.equal(await jj.locator('#join-code').inputValue(),code,'Pairing link uses the two-letter code');
   await jj.locator('#join').click();
   await jj.waitForFunction(()=>document.getElementById('video').readyState>=2,{},{timeout:35000});
   console.log('WebRTC video received');
@@ -107,7 +109,7 @@ try{
   const michelle=await michelleBrowser.newPage({viewport:{width:900,height:430},hasTouch:true});
   michelle.on('pageerror',e=>errors.push(e.message));
   await michelle.goto('http://localhost:4173');await michelle.locator('#choose-michelle').click();
-  await michelle.locator('#michelle-code').fill(code);await michelle.locator('#michelle-join').click();
+  await michelle.locator('#michelle-code').fill(code.toLowerCase());await michelle.locator('#michelle-join').click();
   await michelle.waitForFunction(()=>!document.getElementById('unicorn-controller').hidden);
   await dad.waitForFunction(()=>testGame.network.has('jj')&&testGame.network.has('michelle')&&testGame.unicorn.active);
   await michelle.waitForFunction(()=>!document.getElementById('unicorn-fire').disabled);

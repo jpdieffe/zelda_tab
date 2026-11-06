@@ -1,12 +1,17 @@
 const PREFIX='jj-fairy-v1-';
-const ALPHABET='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const ALPHABET='ABCDEFGHJKLMNPQRSTUVWXYZ';
 const GUESTS=new Set(['jj','michelle']);
-export function roomCode(){return Array.from(crypto.getRandomValues(new Uint8Array(8)),b=>ALPHABET[b%ALPHABET.length]).join('');}
+export function roomCode(excluded=new Set()){
+  const available=Array.from(ALPHABET,a=>Array.from(ALPHABET,b=>a+b)).flat().filter(code=>!excluded.has(code));
+  if(!available.length)throw new Error('No free room codes. Try again shortly.');
+  return available[crypto.getRandomValues(new Uint32Array(1))[0]%available.length];
+}
 export function normalizeCode(code){return String(code).replace(/[\s-]/g,'').toUpperCase();}
-export function validCode(code){return /^[A-HJ-NP-Z2-9]{8}$/.test(code);}
+export function validCode(code){return /^[A-HJ-NP-Z]{2}$/.test(code);}
 export class Connection {
-  constructor({role,code,onStatus,onData,onStream,onConnected,onDisconnected}){
-    Object.assign(this,{role,code,onStatus,onData,onStream,onConnected,onDisconnected});
+  constructor({role,code,onStatus,onData,onStream,onConnected,onDisconnected,onCode}){
+    Object.assign(this,{role,code,onStatus,onData,onStream,onConnected,onDisconnected,onCode});
+    this.triedCodes=new Set();
     this.closed=false;this.connection=null;this.call=null;this.stream=null;this.lastSeen=Date.now();this.guests=new Map();
   }
   has(role){return Boolean(this.guests.get(role)?.connection.open);}
@@ -16,15 +21,22 @@ export class Connection {
   }
   start(){
     if(!window.Peer)throw new Error('The connection library did not load. Reload this page.');
-    this.peer=new window.Peer(this.role==='dad'?PREFIX+this.code:undefined,{debug:0,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'}]}});
-    this.peer.on('open',()=>{if(this.role==='dad')this.hostStatus();else{this.onStatus('Connecting to Dad...');this.connect();}});
+    clearInterval(this.timer);clearTimeout(this.startTimeout);
+    if(this.role==='dad')this.triedCodes.add(this.code);
+    const peer=this.peer=new window.Peer(this.role==='dad'?PREFIX+this.code:undefined,{debug:0,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'}]}});
+    this.peer.on('open',()=>{if(this.closed||this.peer!==peer)return;if(this.role==='dad'){this.onCode?.(this.code);this.hostStatus();}else{this.onStatus('Connecting to Dad...');this.connect();}});
     this.peer.on('connection',c=>{if(this.role==='dad')this.bindHost(c);else c.close();});
     this.peer.on('call',call=>{
       if(this.role!=='jj'||call.peer!==PREFIX+this.code){call.close();return;}
       this.call?.close();this.call=call;call.on('stream',s=>this.onStream?.(s));call.on('error',()=>this.onStatus('Video interrupted. Reconnecting...'));call.answer();
     });
-    this.peer.on('disconnected',()=>{if(!this.closed)setTimeout(()=>{if(!this.closed&&!this.peer.destroyed)this.peer.reconnect();},1800);});
+    this.peer.on('disconnected',()=>{if(!this.closed&&this.peer===peer)setTimeout(()=>{if(!this.closed&&this.peer===peer&&!peer.destroyed)peer.reconnect();},1800);});
     this.peer.on('error',err=>{
+      if(this.closed||this.peer!==peer)return;
+      if(err.type==='unavailable-id'&&this.role==='dad'&&!peer.open&&this.triedCodes.size<12){
+        this.peer=null;peer.destroy();this.code=roomCode(this.triedCodes);
+        this.onStatus('Choosing a free code...');this.start();return;
+      }
       const messages={'peer-unavailable':"Dad's code was not found. Check the code and keep his tab open.",'network':'Pairing service unavailable. Check internet and try again.','unavailable-id':'This code is in use. Tap Reconnect tablet for a new code.','browser-incompatible':'Please use up-to-date Android Chrome.','webrtc':'Could not connect directly. Use the same Wi-Fi without guest isolation or VPN.'};
       this.onStatus(messages[err.type]||`Connection failed: ${err.message}`,true);
     });

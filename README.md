@@ -10,7 +10,7 @@ Hosted on GitHub Pages. No ChatGPT account or login is required.
 
 1. Open https://jpdieffe.github.io/zelda_tab/ in Chrome on both Android devices, on the same Wi-Fi.
 2. On the phone, choose **I'm Dad → Take the controls**. The included Zelda game starts automatically; there is no ZIP or ROM picker.
-3. On the tablet, choose **I'm JJ → Let's fly**, and enter the eight-character code on the phone. You can also tap the code on the phone to copy a direct pairing link.
+3. On the tablet, choose **I'm JJ → Let's fly**, and enter the two-letter code on the phone. You can also tap the code on the phone to copy a direct pairing link.
 4. Turn both devices sideways. Tap the full-screen button. Press **START** on the phone once Zelda's title animation finishes, and create/select an ordinary game file.
 5. JJ taps or drags on the game picture to fly. The fairy follows Link until JJ chooses a destination, follows scrolling, and returns beside Link when the room changes. A faint ring shows its range. When an ordinary enemy is close, the fire button lights up and sparks home toward it. With no target, sparks fire in the fairy's last flight direction (up before its first move), burst against walls, and can be fired just for fun.
 6. Tap **Sound on** on the tablet to move game sound there. Leave both browser tabs open and the phone unlocked. The app requests a screen wake lock where supported.

@@ -23,10 +23,10 @@ try {
     const response = await page.request.get(new URL(asset, url).href);
     assert.equal(response.status(), 200, asset);
   }
-  await page.goto(new URL('#join=ABCDEFGH', url).href);
+  await page.goto(new URL('#join=AB', url).href);
   await page.reload();
   assert.equal(await page.locator('#jj-setup').isVisible(), true);
-  assert.equal(await page.locator('#join-code').inputValue(), 'ABCDEFGH');
+  assert.equal(await page.locator('#join-code').inputValue(), 'AB');
   assert.deepEqual(errors, []);
   console.log('Bundled Zelda booted without a file picker; live memory, assets and tablet pairing link passed:', url);
 } finally {

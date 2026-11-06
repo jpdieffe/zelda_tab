@@ -11,8 +11,8 @@ try{
     const page=await browser.newPage({viewport:{width,height}});await page.goto('http://localhost:4174');await page.evaluate(()=>document.fonts.ready);
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),name+' horizontal overflow');
     await page.screenshot({path:fileURLToPath(new URL(`../test-results/home-${name}.png`,import.meta.url)),fullPage:true});
-    await page.locator('#choose-jj').click();await page.locator('#join-code').fill('INVALID');await page.locator('#join').click();
-    assert.match(await page.locator('#join-status').textContent(),/8 letters/);await page.close();
+    await page.locator('#choose-jj').click();await page.locator('#join-code').fill('A');await page.locator('#join').click();
+    assert.match(await page.locator('#join-status').textContent(),/two letters/);await page.close();
   }
   console.log('Responsive layouts and invalid-code feedback passed');
 }finally{await browser.close();server.close();}

@@ -61,6 +61,7 @@ test('snapshot parser rejects missing or truncated RAM',()=>{
   assert.equal(snapshotRam(state)[123],42);assert.throws(()=>snapshotRam(state.slice(0,-1)));
 });
 test('pairing uses unambiguous random codes and validates malformed input',()=>{
-  assert.equal(normalizeCode(' abcd efgh '),'ABCDEFGH');assert.equal(validCode('ABCDEFGH'),true);assert.equal(validCode('<script>'),false);
+  assert.equal(normalizeCode(' a-b '),'AB');assert.equal(validCode('AB'),true);
+  for(const code of ['A','ABC','ABCDEFGH','A2','12','<script>'])assert.equal(validCode(code),false);
   for(let i=0;i<50;i++)assert.equal(validCode(roomCode()),true);
 });
