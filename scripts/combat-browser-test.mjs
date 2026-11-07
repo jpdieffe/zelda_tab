@@ -7,7 +7,7 @@ try{
   const page=await browser.newPage({viewport:{width:900,height:430}});
   page.on('pageerror',e=>{throw e;});
   await page.goto('http://localhost:4183');
-  await page.evaluate(async()=>{window.g=(await import('/app.js')).game;g.learning.elapsed=-36000;});
+  await page.evaluate(async()=>{window.g=(await import('/app.js')).game;});
   await page.locator('#choose-dad').click();await page.waitForFunction(()=>g.ready&&g.bridge?.ram,{},{timeout:90000});
   const state=await readFile(process.env.TEST_SAVE||'test-results/active-game.state');
   await page.evaluate(async bytes=>{

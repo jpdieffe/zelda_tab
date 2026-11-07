@@ -21,19 +21,17 @@ test('letters and words have three choices; math shows the complete ordered 0–
   assert.equal(letters.size,26);assert.equal(words.size,23);
 });
 const eligible={playing:true,tablet:true};
-test('one-minute rounds pause on a ready screen; combat shortens the interval to 30 seconds',()=>{
+test('Dad starts both questions on a ready screen only when play and the tablet are available',()=>{
   const quiz=new LearningRound();
-  assert.equal(quiz.tick(59,eligible),false);
-  quiz.tick(300,{...eligible,playing:false});quiz.tick(300,{...eligible,tablet:false});assert.equal(quiz.elapsed,59);
-  assert.equal(quiz.tick(1,eligible),true);assert.equal(quiz.round.questions.length,2);
+  assert.equal(quiz.start({...eligible,playing:false}),false);
+  assert.equal(quiz.start({...eligible,tablet:false}),false);assert.equal(quiz.round,null);
+  assert.equal(quiz.start(eligible),true);assert.deepEqual(quiz.round.questions.map(q=>q.role),['jj','michelle']);
   assert.equal(quiz.snapshot().phase,'ready');assert.match(quiz.snapshot().speech,/Get ready for questions/);assert.equal(quiz.snapshot().answer,null);
-  assert.equal(quiz.tick(300,eligible),false);assert.equal(quiz.elapsed,0);
+  const token=quiz.token();assert.equal(quiz.start(eligible),false);assert.equal(quiz.token(),token,'Repeated starts preserve the pending round');
   quiz.advance(quiz.token());assert.equal(quiz.snapshot().name,'JJ');
-  quiz.skip();assert.equal(quiz.tick(29,{...eligible,enemies:true,reward:true}),false);
-  assert.equal(quiz.tick(1,{...eligible,enemies:true,reward:true}),true,'Laser time also counts toward questions');
-  quiz.skip();quiz.tick(45,eligible);assert.equal(quiz.tick(0,{...eligible,enemies:true}),true);
+  quiz.skip();assert.equal(quiz.start(eligible),true,'Dad can start another round after skipping');assert.notEqual(quiz.token(),token);
 });
-function begin(quiz){quiz.tick(60,eligible);quiz.advance(quiz.token());}
+function begin(quiz){quiz.start(eligible);quiz.advance(quiz.token());}
 function answer(quiz,correct){const r=quiz.round,q=r.questions[r.index],index=q.choices.findIndex(v=>correct?v===q.answer:v!==q.answer);assert.equal(quiz.answer(quiz.token(),index),true);}
 test('the host accepts every math keypad index including 9 and 10, but rejects out-of-range input',()=>{
   for(let n=0;n<=10;n++){
@@ -62,7 +60,7 @@ test('both correct answers earn giant lasers; no correct answers and skipped rou
     for(let i=0;i<2;i++){answer(quiz,correct);if(!correct){quiz.advance(quiz.token());answer(quiz,true);}if(i===0)quiz.advance(quiz.token());}
     assert.equal(quiz.snapshot().giant,correct);const result=quiz.advance(quiz.token());assert.equal(result.giant,correct);assert.equal(result.roles.length,correct?2:0);
   }
-  const quiz=new LearningRound();begin(quiz);answer(quiz,true);quiz.skip();assert.equal(quiz.round,null);assert.equal(quiz.elapsed,0);assert.equal(quiz.advance('1:0'),null);
+  const quiz=new LearningRound();begin(quiz);answer(quiz,true);quiz.skip();assert.equal(quiz.round,null);assert.equal(quiz.advance('1:0'),null);
 });
 const world=()=>({active:true,enemies:[{slot:1,type:0x41,x:150,y:100,vulnerable:true}],wallAt:()=>false});
 const characters=()=>({jj:{active:true,x:50,y:100,aimX:1,aimY:0},michelle:{active:true,enabled:true,x:100,y:150,aimX:0,aimY:-1}});

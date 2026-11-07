@@ -17,7 +17,7 @@ try{
   const dad=await dadContext.newPage();
   dad.on('pageerror',e=>{errors.push(e.message);console.log('DAD ERROR',e.message);});
   await dad.goto('http://localhost:4173');
-  await dad.evaluate(async()=>{window.testGame=(await import('/app.js')).game;testGame.learning.elapsed=-3600;});
+  await dad.evaluate(async()=>{window.testGame=(await import('/app.js')).game;});
   await shot(dad,'home.png');
   await dad.locator('#choose-dad').click();
   assert.equal(await dad.locator('#rom').count(),0,'No game file picker is needed');
@@ -191,7 +191,7 @@ try{
   }),true,'Dad sees the complete game and companion composite');
   for(const [width,height] of [[900,430],[844,390],[667,375],[568,320],[390,844],[360,640]]){
     await dad.setViewportSize({width,height});
-    const boxes=await dad.evaluate(()=>Object.fromEntries(['dad-canvas','dpad'].map(id=>[id,document.getElementById(id).getBoundingClientRect().toJSON()]).concat([...document.querySelectorAll('#controller [data-key]')].map(el=>['key-'+el.dataset.key,el.getBoundingClientRect().toJSON()]))));
+    const boxes=await dad.evaluate(()=>Object.fromEntries(['dad-canvas','dpad','start-questions'].map(id=>[id,document.getElementById(id).getBoundingClientRect().toJSON()]).concat([...document.querySelectorAll('#controller [data-key]')].map(el=>['key-'+el.dataset.key,el.getBoundingClientRect().toJSON()]))));
     const screen=boxes['dad-canvas'];assert.ok(screen.width>=150&&screen.height>=120,`Readable game at ${width}x${height}`);
     for(const [id,box] of Object.entries(boxes)){
       assert.ok(box.x>=0&&box.y>=0&&box.right<=width+.5&&box.bottom<=height+.5,`${id} fits ${width}x${height}`);

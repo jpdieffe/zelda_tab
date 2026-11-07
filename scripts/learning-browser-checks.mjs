@@ -3,10 +3,12 @@ export async function learningChecks({dad,jj,michelle,shot}){
   await dad.setViewportSize({width:900,height:430});
   await jj.evaluate(()=>{window.questionSpeech=[];speechSynthesis.speak=utterance=>questionSpeech.push(utterance.text);});
   await jj.locator('#kid-lock').click();
+  assert.equal(await dad.evaluate(()=>testGame.learning.round),null,'Gameplay has not started questions automatically');
   const begin=async()=>{
-    await dad.evaluate(()=>{testGame.learning.elapsed=59.99;});
+    await dad.locator('#start-questions').click();
     await jj.waitForFunction(()=>!document.getElementById('quiz-panel').hidden);
     assert.equal(await dad.evaluate(()=>testGame.paused),true);
+    assert.equal(await dad.locator('#start-questions').isDisabled(),true,'Pending questions cannot be replaced');
     assert.equal(await jj.locator('#quiz-title').textContent(),'Get ready for questions');
     assert.equal(await jj.locator('#quiz-choices').isVisible(),false);
     assert.ok(await jj.evaluate(()=>questionSpeech.at(-1).startsWith('Get ready for questions')));

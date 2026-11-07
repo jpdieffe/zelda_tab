@@ -1,8 +1,6 @@
 // Current deck from edu_games/weekly_agendas/heart-words.js: words introduced
 // through October 26, 2026. Keep the curriculum here; no student data is sent.
 export const SIGHT_WORDS=Object.freeze(['a','by','I','as','is','he','be','here','she','the','what','and','love','my','pretty','says','little','new','come','make','baby','father','mother']);
-export const QUESTION_INTERVAL=60;
-export const COMBAT_QUESTION_INTERVAL=30;
 const LETTERS=Array.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
 const NUMBERS=Array.from({length:11},(_,i)=>String(i));
 export function shuffled(items,random=Math.random){
@@ -34,12 +32,9 @@ export class QuestionDeck {
   }
 }
 export class LearningRound {
-  constructor(random=Math.random){this.deck=new QuestionDeck(random);this.elapsed=0;this.sequence=0;this.round=null;}
-  tick(dt,{playing,tablet,enemies=false}){
+  constructor(random=Math.random){this.deck=new QuestionDeck(random);this.sequence=0;this.round=null;}
+  start({playing,tablet}){
     if(this.round||!playing||!tablet)return false;
-    this.elapsed+=Math.max(0,dt);
-    if(this.elapsed<(enemies?COMBAT_QUESTION_INTERVAL:QUESTION_INTERVAL))return false;
-    this.elapsed=0;
     const roles=['jj','michelle'];
     this.round={id:++this.sequence,index:0,revision:0,missed:false,questions:roles.map(role=>this.deck.next(role)),results:[],phase:'ready'};
     return true;
@@ -63,7 +58,7 @@ export class LearningRound {
     if(r.index+1<r.questions.length){r.index++;r.missed=false;r.phase='question';return {finished:false};}
     const reward=this.reward();this.round=null;return {finished:true,...reward};
   }
-  skip(){this.round=null;this.elapsed=0;}
+  skip(){this.round=null;}
   snapshot(){
     const r=this.round;if(!r)return null;
     if(r.phase==='ready')return {token:this.token(),phase:'ready',role:'both',name:'JJ and Michelle',kind:'ready',prompt:'JJ and Michelle, take turns answering on the big tablet.',choices:[],speech:'Get ready for questions! JJ and Michelle, take turns answering on the big tablet. Tap We are ready to start.',feedback:'Get it right the first time to earn 20 seconds of lasers. You can always try again!',number:0,total:2,correct:null,answer:null,next:'We’re ready!',giant:false};

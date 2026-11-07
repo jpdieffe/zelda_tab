@@ -177,7 +177,6 @@ function frame(now){
     // share the exact 256×224 game rectangle, regardless of device pixel ratio.
     ctx.imageSmoothingEnabled=false;ctx.drawImage(source,(source.width-width)/2,(source.height-height)/2,width,height,0,0,512,448);
     const world=game.bridge?.read();
-    if(game.learning.tick(elapsed,{playing:!game.paused&&world?.active&&world.link.health>0&&$('phone-options').hidden,tablet:game.network?.has('jj'),enemies:Boolean(world?.contacts?.length)})){setPaused(true);}
     if(!game.paused){game.fairy.update(dt,world);game.unicorn.update(dt,world);}
     game.lasers.update(elapsed,world,{jj:game.fairy,michelle:game.unicorn},(target,source,end,radius)=>game.bridge.laserHit(target,source,end,radius),game.paused,()=>game.bridge.fireSound());
     game.guidance=world?.guidance;
@@ -189,11 +188,17 @@ function frame(now){
   }
   frameId=requestAnimationFrame(frame);
 }
+function questionEligibility(){
+  const world=game.bridge?.read();
+  return {playing:Boolean(game.role==='dad'&&game.ready&&!game.paused&&!document.hidden&&world?.active&&world.link.health>0&&$('phone-options').hidden),tablet:Boolean(game.network?.has('jj'))};
+}
 function sendState(){
   const learning=game.learning.snapshot(),lasers=game.lasers.snapshot();
   $('dad-learning').hidden=!learning&&!lasers;$('skip-questions').hidden=!learning;
   $('dad-learning-text').textContent=learning?(learning.phase==='ready'?'Get ready for questions on the tablet.':`${learning.name}'s turn on the tablet. Zelda is paused.`):game.lasers.label();
   $('pause').disabled=Boolean(learning);
+  const eligible=questionEligibility();
+  $('start-questions').disabled=Boolean(learning)||!eligible.playing||!eligible.tablet;
   const common={type:'state',ready:game.ready,paused:game.paused,active:game.fairy?.active||false,bridge:Boolean(game.bridge?.ram),objective:game.guidanceEnabled?game.guidance?.label||'':'',learning,lasers};
   game.network?.send({...common,target:Boolean(game.fairy?.target),cooldown:game.fairy?.cooldown||0,arrowCooldown:game.fairy?.arrowCooldown||0},'jj');
   game.network?.send({...common,target:Boolean(game.unicorn?.target),cooldown:game.unicorn?.cooldown||0,healCooldown:game.unicorn?.healCooldown||0,bombCooldown:game.unicorn?.bombs.cooldown||0,bouncing:(game.unicorn?.invulnerable||0)>.5},'michelle');
@@ -281,6 +286,7 @@ function setPaused(paused){
   $('pause').textContent=paused?'Resume':'Pause';sendState();
 }
 $('pause').onclick=()=>setPaused(!game.paused);
+$('start-questions').onclick=()=>{if(game.learning.start(questionEligibility()))setPaused(true);};
 $('skip-questions').onclick=()=>{game.learning.skip();if(document.hidden)wasHidden=true;else setPaused(false);sendState();};
 $('peek').onclick=()=>{$('peek-panel').hidden=false;};$('close-peek').onclick=()=>{$('peek-panel').hidden=true;};
 $('options').onclick=()=>{releaseButtons();$('phone-options').hidden=false;};$('close-options').onclick=()=>{$('phone-options').hidden=true;};
