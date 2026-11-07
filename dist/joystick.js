@@ -1,8 +1,9 @@
 // Floating thumb origin: touch anywhere in the large pad, then drag to move.
 // The SNES receives its normal eight directions; release always returns neutral.
 export class Joystick {
-  constructor(element,press,release){
+  constructor(element,press,release,onVector=()=>{}){
     this.element=element;this.press=press;this.release=release;this.pointer=null;this.keys=new Set();
+    this.vector={x:0,y:0};this.onVector=onVector;
     element.onpointerdown=e=>{
       if(e.button!==0||this.pointer!==null)return;
       e.preventDefault();this.pointer=e.pointerId;this.origin={x:e.clientX,y:e.clientY};
@@ -17,7 +18,7 @@ export class Joystick {
       }
       for(const key of this.keys)if(!next.has(key))release(key,'joystick');
       for(const key of next)if(!this.keys.has(key))press(key,'joystick');
-      this.keys=next;this.draw(dx,dy);
+      this.keys=next;this.vector=d>10?{x:dx/d,y:dy/d}:{x:0,y:0};this.onVector(this.vector);this.draw(dx,dy);
     };
     for(const type of ['pointerup','pointercancel','lostpointercapture'])element.addEventListener(type,e=>{if(e.pointerId===this.pointer)this.reset();});
     element.oncontextmenu=e=>e.preventDefault();
@@ -28,6 +29,7 @@ export class Joystick {
     this.element.style.setProperty('--stick-y',`${this.origin.y-rect.top+dy*scale}px`);
   }
   reset(){
+    this.vector={x:0,y:0};this.onVector(this.vector);
     for(const key of this.keys)this.release(key,'joystick');
     this.keys.clear();this.pointer=null;this.element.classList.remove('active');
     this.element.style.removeProperty('--stick-x');this.element.style.removeProperty('--stick-y');

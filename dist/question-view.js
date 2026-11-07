@@ -42,14 +42,15 @@ export class QuestionView {
     this.question=question;this.panel.hidden=false;
     if(changed){
       this.pending=false;this.panel.dataset.player=question.role;this.panel.dataset.kind=question.kind;
-      document.getElementById('quiz-turn').textContent=`${question.name}’s turn · ${question.number} of ${question.total}`;
-      document.getElementById('quiz-title').textContent=question.phase==='feedback'?(question.giant?'Team magic!':question.correct?'You did it!':'Keep trying!'):question.kind==='math'?'A little number magic':question.kind==='word'?'Find the sight word':'Find the letter';
+      document.getElementById('quiz-turn').textContent=question.phase==='ready'?'Learning magic · JJ and Michelle':`${question.name}’s turn · ${question.number} of ${question.total}`;
+      document.getElementById('quiz-title').textContent=question.phase==='ready'?'Get ready for questions':question.phase==='retry'?'Try again!':question.phase==='feedback'?(question.giant?'Team magic!':'You did it!'):question.kind==='math'?'A little number magic':question.kind==='word'?'Find the sight word':'Find the letter';
       document.getElementById('quiz-prompt').textContent=question.prompt;
       document.getElementById('quiz-feedback').textContent=question.feedback;
       document.getElementById('quiz-parent-prompt').textContent=question.speech;
       document.getElementById('quiz-parent-help').open=false;
       this.buttons.forEach((b,i)=>{b.textContent=question.choices[i];b.classList.toggle('correct',question.phase==='feedback'&&question.choices[i]===question.answer);});
-      this.next.hidden=question.phase!=='feedback';this.next.textContent=question.next;
+      this.choices.hidden=question.phase==='ready';
+      this.next.hidden=question.phase==='question';this.next.textContent=question.next;
       this.speak();
     }
     this.updateDisabled();

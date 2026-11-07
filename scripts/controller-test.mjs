@@ -13,7 +13,7 @@ try{
   for(const [width,height] of [[900,430],[740,360],[390,844]]){
     await page.setViewportSize({width,height});
     const b=await page.locator('.face.b').boundingBox(),stick=await page.locator('#dpad').boundingBox();
-    assert.ok(b.width>=92&&b.height>=92,'Large B target');assert.ok(stick.width>=160,'Large joystick target');
+    assert.ok(b.width>=92&&b.height>=92,'Large B target');assert.ok(stick.width>=150,'Joystick remains large beside Dad’s game view');
     for(const selector of ['.face.b','.face.a','.face.x','.face.y','#dpad']){
       const r=await page.locator(selector).boundingBox();assert.ok(r.x>=0&&r.y>=0&&r.x+r.width<=width&&r.y+r.height<=height,selector+' within screen');
     }

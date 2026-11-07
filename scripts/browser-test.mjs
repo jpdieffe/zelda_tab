@@ -16,7 +16,7 @@ try{
   const dad=await dadContext.newPage();
   dad.on('pageerror',e=>{errors.push(e.message);console.log('DAD ERROR',e.message);});
   await dad.goto('http://localhost:4173');
-  await dad.evaluate(async()=>{window.testGame=(await import('/app.js')).game;});
+  await dad.evaluate(async()=>{window.testGame=(await import('/app.js')).game;testGame.learning.elapsed=-3600;});
   await shot(dad,'home.png');
   await dad.locator('#choose-dad').click();
   assert.equal(await dad.locator('#rom').count(),0,'No game file picker is needed');

@@ -20,47 +20,68 @@ test('spoken questions have three unique choices, shuffle decks, and alternate M
   assert.equal(letters.size,26);assert.equal(words.size,23);
 });
 const eligible={playing:true,tablet:true};
-test('two-minute rounds count active play only and ask both children on the tablet',()=>{
+test('one-minute rounds pause on a ready screen; combat shortens the interval to 30 seconds',()=>{
   const quiz=new LearningRound();
-  assert.equal(quiz.tick(119,eligible),false);
-  quiz.tick(300,{...eligible,playing:false});quiz.tick(300,{...eligible,tablet:false});quiz.tick(300,{...eligible,reward:true});assert.equal(quiz.elapsed,119);
+  assert.equal(quiz.tick(59,eligible),false);
+  quiz.tick(300,{...eligible,playing:false});quiz.tick(300,{...eligible,tablet:false});assert.equal(quiz.elapsed,59);
   assert.equal(quiz.tick(1,eligible),true);assert.equal(quiz.round.questions.length,2);
-  assert.equal(quiz.snapshot().name,'JJ');assert.equal(quiz.snapshot().answer,null);
+  assert.equal(quiz.snapshot().phase,'ready');assert.match(quiz.snapshot().speech,/Get ready for questions/);assert.equal(quiz.snapshot().answer,null);
   assert.equal(quiz.tick(300,eligible),false);assert.equal(quiz.elapsed,0);
+  quiz.advance(quiz.token());assert.equal(quiz.snapshot().name,'JJ');
+  quiz.skip();assert.equal(quiz.tick(29,{...eligible,enemies:true,reward:true}),false);
+  assert.equal(quiz.tick(1,{...eligible,enemies:true,reward:true}),true,'Laser time also counts toward questions');
+  quiz.skip();quiz.tick(45,eligible);assert.equal(quiz.tick(0,{...eligible,enemies:true}),true);
 });
+function begin(quiz){quiz.tick(60,eligible);quiz.advance(quiz.token());}
 function answer(quiz,correct){const r=quiz.round,q=r.questions[r.index],index=q.choices.findIndex(v=>correct?v===q.answer:v!==q.answer);assert.equal(quiz.answer(quiz.token(),index),true);}
-test('only the first valid answer counts; stale, repeated and malformed messages cannot earn rewards',()=>{
-  const quiz=new LearningRound();quiz.tick(120,eligible);const token=quiz.token();
+test('wrong answers require retries without a bonus; stale and repeated messages are rejected',()=>{
+  const quiz=new LearningRound();begin(quiz);const token=quiz.token();
   for(const i of [-1,3,NaN,1.5,'0'])assert.equal(quiz.answer(token,i),false);
   assert.equal(quiz.answer('old',0),false);assert.equal(quiz.advance(token),null);
   answer(quiz,false);assert.equal(quiz.answer(token,0),false);
-  assert.equal(quiz.snapshot().correct,false);quiz.advance(token);
+  assert.equal(quiz.snapshot().correct,false);assert.equal(quiz.snapshot().phase,'retry');assert.equal(quiz.snapshot().answer,null);
+  assert.equal(quiz.advance(token),null);const retryToken=quiz.token();quiz.advance(retryToken);
+  assert.equal(quiz.snapshot().name,'JJ');assert.equal(quiz.advance(retryToken),null);assert.equal(quiz.answer(token,0),false);
+  answer(quiz,false);quiz.advance(quiz.token());answer(quiz,true);
+  assert.equal(quiz.snapshot().correct,false,'A later correct answer cannot restore the bonus');quiz.advance(quiz.token());
   assert.equal(quiz.snapshot().name,'Michelle');assert.equal(quiz.advance(token),null);assert.equal(quiz.answer(token,0),false);
   answer(quiz,true);const result=quiz.advance(quiz.token());
   assert.deepEqual(result,{finished:true,roles:['michelle'],giant:false});assert.equal(quiz.snapshot(),null);
 });
 test('both correct answers earn giant lasers; no correct answers and skipped rounds earn none',()=>{
   for(const correct of [true,false]){
-    const quiz=new LearningRound();quiz.tick(120,eligible);answer(quiz,correct);quiz.advance(quiz.token());answer(quiz,correct);
+    const quiz=new LearningRound();begin(quiz);
+    for(let i=0;i<2;i++){answer(quiz,correct);if(!correct){quiz.advance(quiz.token());answer(quiz,true);}if(i===0)quiz.advance(quiz.token());}
     assert.equal(quiz.snapshot().giant,correct);const result=quiz.advance(quiz.token());assert.equal(result.giant,correct);assert.equal(result.roles.length,correct?2:0);
   }
-  const quiz=new LearningRound();quiz.tick(120,eligible);answer(quiz,true);quiz.skip();assert.equal(quiz.round,null);assert.equal(quiz.elapsed,0);assert.equal(quiz.advance('1:0'),null);
+  const quiz=new LearningRound();begin(quiz);answer(quiz,true);quiz.skip();assert.equal(quiz.round,null);assert.equal(quiz.elapsed,0);assert.equal(quiz.advance('1:0'),null);
 });
 const world=()=>({active:true,enemies:[{slot:1,type:0x41,x:150,y:100,vulnerable:true}],wallAt:()=>false});
 const characters=()=>({jj:{active:true,x:50,y:100,aimX:1,aimY:0},michelle:{active:true,enabled:true,x:100,y:150,aimX:0,aimY:-1}});
-test('laser rewards last five active seconds, pause during dialogue/manual pause, and only fire for earned roles',()=>{
+test('laser rewards last 60 active seconds and pause during questions/dialogue',()=>{
   const laser=new LaserReward(),w=world(),c=characters();let hits=0;laser.start({roles:['jj'],giant:false});
-  laser.update(1,w,c,()=>hits++);assert.equal(laser.remaining,4);assert.equal(laser.beams.length,1);assert.equal(laser.beams[0].role,'jj');assert.equal(hits,1);
-  laser.update(10,w,c,()=>hits++,true);laser.update(10,{...w,active:false},c,()=>hits++);assert.equal(laser.remaining,4);assert.equal(hits,1);
-  laser.update(4,w,c,()=>hits++);assert.equal(laser.active,false);assert.equal(laser.beams.length,0);
+  laser.update(1,w,c,()=>hits++);assert.equal(laser.remaining,59);assert.equal(laser.beams.length,1);assert.equal(laser.beams[0].role,'jj');assert.equal(hits,1);
+  laser.update(10,w,c,()=>hits++,true);laser.update(10,{...w,active:false},c,()=>hits++);assert.equal(laser.remaining,59);assert.equal(hits,1);
+  laser.update(58,w,c,()=>hits++);assert.equal(laser.active,true);
+  laser.update(1,w,c,()=>hits++);assert.equal(laser.active,false);assert.equal(laser.beams.length,0);
 });
-test('giant lasers steer independently with JJ tablet vectors and Michelle joystick vectors',()=>{
-  const laser=new LaserReward(),w=world(),c=characters();laser.start({roles:['jj','michelle'],giant:true});
+test('regular and giant lasers steer independently with tablet and phone vectors',()=>{
+ for(const giant of [false,true]){
+  const laser=new LaserReward(),w=world(),c=characters();laser.start({roles:['jj','michelle'],giant});
   laser.setAim('jj',1,0);laser.setAim('michelle',0,-1);laser.update(.01,w,c,()=>{});
   assert.ok(laser.beams[0].end.x>c.jj.x);assert.equal(laser.beams[0].end.y,c.jj.y);
   assert.equal(laser.beams[1].end.x,c.michelle.x);assert.ok(laser.beams[1].end.y<c.michelle.y);
   laser.setAim('jj',0,1);laser.setAim('michelle',NaN,Infinity);laser.update(.01,w,c,()=>{});
   assert.equal(laser.beams[0].end.x,c.jj.x);assert.ok(laser.beams[0].end.y>c.jj.y);assert.equal(laser.aim.michelle.y,-1);
+ }
+});
+test('later questions preserve remaining rewards and track each child’s minute separately',()=>{
+  const laser=new LaserReward(),w=world(),c=characters();laser.start({roles:['jj','michelle'],giant:true});
+  laser.update(30,w,c,()=>{});laser.start({roles:[],giant:false});assert.equal(laser.remaining,30);
+  laser.start({roles:['michelle'],giant:false});assert.equal(laser.timers.jj.remaining,30);assert.equal(laser.timers.michelle.remaining,60);
+  laser.update(30,w,c,()=>{});assert.deepEqual(laser.roles,['michelle']);assert.equal(laser.giant,false);
+  laser.setAim('michelle',.5,.25);laser.update(.01,w,c,()=>{});assert.equal(laser.beams[0].radius,2);
+  laser.update(30,w,c,()=>{});assert.equal(laser.active,false);
 });
 test('lasers stop at walls and cannot hit enemies behind or beside the beam',()=>{
   const w=world(),source={x:50,y:100};w.wallAt=x=>x>=110;

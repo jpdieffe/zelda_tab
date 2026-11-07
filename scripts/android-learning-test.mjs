@@ -42,8 +42,12 @@ try{
     document.getElementById('quiz-choices').replaceChildren();
     window.nativeQuiz=new LearningRound();
     window.nativeView=new QuestionView((token,index)=>{nativeQuiz.answer(token,index);nativeView.render(nativeQuiz.snapshot());},token=>{nativeQuiz.advance(token);nativeView.render(nativeQuiz.snapshot());});
-    nativeQuiz.tick(120,{playing:true,tablet:true});nativeView.render(nativeQuiz.snapshot());
+    nativeQuiz.tick(60,{playing:true,tablet:true});nativeView.render(nativeQuiz.snapshot());
   })()`);
+  await until(()=>js('FairyAndroid.isSpeaking()'),'Native voice did not start for ready screen');
+  assert.equal(await js("document.getElementById('quiz-title').textContent"),'Get ready for questions');
+  await until(()=>js('!FairyAndroid.isSpeaking()'),'Ready speech did not finish');
+  await js("document.getElementById('quiz-next').click()");
   await until(()=>js('FairyAndroid.isSpeaking()'),'Native voice did not start for JJ');
   assert.equal(await js("document.querySelectorAll('.quiz-choice').length"),3);
   await mkdir(new URL('../test-results/',import.meta.url),{recursive:true});
@@ -55,7 +59,7 @@ try{
   assert.equal(await js('nativeQuiz.round.questions[1].kind'),'math');
   await shot('android-math-question.png');
   await until(()=>js('!FairyAndroid.isSpeaking()'),'Math speech did not finish');
-  await js(`(()=>{nativeQuiz.skip();nativeQuiz.tick(120,{playing:true,tablet:true});const q=nativeQuiz.round.questions[0];nativeQuiz.answer(nativeQuiz.token(),q.choices.indexOf(q.answer));nativeQuiz.advance(nativeQuiz.token());nativeView.render(nativeQuiz.snapshot());})()`);
+  await js(`(()=>{nativeQuiz.skip();nativeQuiz.tick(60,{playing:true,tablet:true});nativeQuiz.advance(nativeQuiz.token());const q=nativeQuiz.round.questions[0];nativeQuiz.answer(nativeQuiz.token(),q.choices.indexOf(q.answer));nativeQuiz.advance(nativeQuiz.token());nativeView.render(nativeQuiz.snapshot());})()`);
   await until(()=>js('FairyAndroid.isSpeaking()'),'Native voice did not start for sight word');
   assert.equal(await js('nativeQuiz.round.questions[1].kind'),'word');
   assert.equal(await js("[...document.querySelectorAll('.quiz-choice')].every(b=>b.scrollWidth<=b.clientWidth)"),true,'Sight words fit on one line');
