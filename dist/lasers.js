@@ -1,14 +1,12 @@
-export const LASER_SECONDS=60;
+export const LASER_SECONDS=20;
 const names={jj:'JJ',michelle:'Michelle'};
-// Beam collision uses the same live wall map as companion projectiles.
-export function beamEnd(source,direction,world,radius=0){
+// Reward lasers pierce scenery and end at the game-screen boundary.
+export function beamEnd(source,direction){
   const length=Math.hypot(direction.x,direction.y)||1,dx=direction.x/length,dy=direction.y/length;
   let end={x:source.x,y:source.y};
   for(let distance=2;distance<=320;distance+=2){
     const x=source.x+dx*distance,y=source.y+dy*distance;
-    // Clip the actual ray. A wide glow grazing a side wall must not collapse
-    // the entire giant beam to zero length beside a doorway or corridor.
-    if(x<1||x>255||y<33||y>223||world.wallAt?.(x,y))break;
+    if(x<1||x>255||y<33||y>223)break;
     end={x,y};
   }
   return end;
@@ -46,7 +44,7 @@ export class LaserReward {
     for(const role of this.roles){
       const source=characters[role];if(!source?.active||(role==='michelle'&&!source.enabled))continue;
       const direction=this.aim[role]||{x:source.aimX,y:source.aimY};
-      const radius=this.timers[role].giant>0?10:2,end=beamEnd(source,direction,world,radius);
+      const radius=this.timers[role].giant>0?10:2,end=beamEnd(source,direction);
       this.beams.push({role,x:source.x,y:source.y,end,radius});
       firing=true;
       if(fire)for(const enemy of world.enemies)if(enemy.vulnerable&&touchesBeam(enemy,source,end,radius))hit(enemy,source,end,radius);

@@ -38,12 +38,14 @@ test('boss reaction hits cannot strand damage behind timers cleared by native AI
     const r=enemy(type);r[A.ai]=ai;applyHit(r,readWorld(r).enemies[0],{x:130,y:100});assert.equal(r[A.damage],1);
   }
 });
-test('a giant laser beside a wall stays long enough to hit; actual intervening walls still block it',()=>{
-  const r=enemy(0x53);r[A.yLo]=42;
-  const source={x:40,y:50},wall=(_x,y)=>y<44,end=beamEnd(source,{x:1,y:0},{wallAt:wall},10);
-  assert.ok(end.x>200);assert.equal(applyLaserHit(r,readWorld(r).enemies[0],source,end,10,wall),true);
-  r[A.hit]=r[A.damage]=0;assert.equal(applyLaserHit(r,readWorld(r).enemies[0],source,end,10,(x,y)=>wall(x,y)||x>=100),false);
-  assert.equal(applyLaserHit(r,readWorld(r).enemies[0],source,source,10,wall),false);
+test('both laser sizes damage a boss across solid scenery, including when the source overlaps a wall',()=>{
+  for(const giant of [false,true]){
+    const r=enemy(0x53),source={active:true,x:40,y:100,aimX:1,aimY:0};
+    const w={...readWorld(r),wallAt:()=>true},laser=new LaserReward();laser.start({roles:['jj'],giant});
+    laser.update(.01,w,{jj:source},(target,origin,end,radius)=>applyLaserHit(r,target,origin,end,radius));
+    assert.ok(laser.beams[0].end.x>250);assert.equal(r[A.damage],1);
+    r[A.hit]=r[A.damage]=0;assert.equal(applyLaserHit(r,readWorld(r).enemies[0],source,source,10),false);
+  }
 });
 test('a freely aimed shot hits an enemy that enters its path, even after the fairy moves away',()=>{
   const f=new Fairy(),w={active:true,scene:'a',cameraX:0,cameraY:0,link:{x:40,y:116},enemies:[],wallAt:()=>false};

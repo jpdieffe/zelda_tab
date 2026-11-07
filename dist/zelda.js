@@ -87,7 +87,7 @@ export class ZeldaBridge {
     return world;
   }
   hit(target, fairy) { return this.ram ? applyHit(this.ram, target, fairy) : false; }
-  laserHit(target,source,end,radius) { return this.ram ? applyLaserHit(this.ram,target,source,end,radius,this.read().wallAt) : false; }
+  laserHit(target,source,end,radius) { return this.ram ? applyLaserHit(this.ram,target,source,end,radius) : false; }
   heal() { return this.ram ? applyHeal(this.ram) : false; }
   fireSound(){return this.ram?playFireSound(this.ram):false;}
 }
@@ -121,17 +121,13 @@ export function readWorld(ram) {
 export function applyHit(ram, target, fairy) {
   return queueHit(ram,target,fairy,58);
 }
-export function applyLaserHit(ram,target,source,end,radius,wallAt){
-  if(![source.x,source.y,end.x,end.y].every(Number.isFinite)||![2,10].includes(radius)||typeof wallAt!=='function'||Math.hypot(end.x-source.x,end.y-source.y)<.01)return false;
+export function applyLaserHit(ram,target,source,end,radius){
+  if(![source.x,source.y,end.x,end.y].every(Number.isFinite)||![2,10].includes(radius)||Math.hypot(end.x-source.x,end.y-source.y)<.01)return false;
   const world=readWorld(ram),current=world.enemies.find(e=>e.slot===target.slot&&e.type===target.type&&e.vulnerable);
   if(!world.active||!current)return false;
-  const clipped=beamEnd(source,{x:end.x-source.x,y:end.y-source.y},{...world,wallAt},radius);
-  // Revalidate the live enemy and walls immediately before queuing native damage.
+  const clipped=beamEnd(source,{x:end.x-source.x,y:end.y-source.y});
+  // Revalidate the live enemy and beam direction; reward lasers pierce walls.
   if(!touchesBeam(current,source,clipped,radius))return false;
-  // A wide beam can overlap a wall visually; damage still requires a clear
-  // line to the enemy body so the glow cannot hit through a side wall.
-  const sight=beamEnd(source,{x:current.x-source.x,y:current.y-source.y},{wallAt});
-  if(Math.hypot(sight.x-source.x,sight.y-source.y)+current.radius<Math.hypot(current.x-source.x,current.y-source.y))return false;
   return queueHit(ram,current,source,320);
 }
 function queueHit(ram, target, fairy, range) {

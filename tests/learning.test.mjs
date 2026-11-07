@@ -66,11 +66,11 @@ test('both correct answers earn giant lasers; no correct answers and skipped rou
 });
 const world=()=>({active:true,enemies:[{slot:1,type:0x41,x:150,y:100,vulnerable:true}],wallAt:()=>false});
 const characters=()=>({jj:{active:true,x:50,y:100,aimX:1,aimY:0},michelle:{active:true,enabled:true,x:100,y:150,aimX:0,aimY:-1}});
-test('laser rewards last 60 active seconds and pause during questions/dialogue',()=>{
+test('laser rewards last 20 active seconds and pause during questions/dialogue',()=>{
   const laser=new LaserReward(),w=world(),c=characters();let hits=0;laser.start({roles:['jj'],giant:false});
-  laser.update(1,w,c,()=>hits++);assert.equal(laser.remaining,59);assert.equal(laser.beams.length,1);assert.equal(laser.beams[0].role,'jj');assert.equal(hits,1);
-  laser.update(10,w,c,()=>hits++,true);laser.update(10,{...w,active:false},c,()=>hits++);assert.equal(laser.remaining,59);assert.equal(hits,1);
-  laser.update(58,w,c,()=>hits++);assert.equal(laser.active,true);
+  laser.update(1,w,c,()=>hits++);assert.equal(laser.remaining,19);assert.equal(laser.beams.length,1);assert.equal(laser.beams[0].role,'jj');assert.equal(hits,1);
+  laser.update(10,w,c,()=>hits++,true);laser.update(10,{...w,active:false},c,()=>hits++);assert.equal(laser.remaining,19);assert.equal(hits,1);
+  laser.update(18,w,c,()=>hits++);assert.equal(laser.active,true);
   laser.update(1,w,c,()=>hits++);assert.equal(laser.active,false);assert.equal(laser.beams.length,0);
 });
 test('regular and giant lasers steer independently with tablet and phone vectors',()=>{
@@ -83,28 +83,27 @@ test('regular and giant lasers steer independently with tablet and phone vectors
   assert.equal(laser.beams[0].end.x,c.jj.x);assert.ok(laser.beams[0].end.y>c.jj.y);assert.equal(laser.aim.michelle.y,-1);
  }
 });
-test('later questions preserve remaining rewards and track each child’s minute separately',()=>{
+test('later questions preserve remaining rewards and track each child’s reward separately',()=>{
   const laser=new LaserReward(),w=world(),c=characters();laser.start({roles:['jj','michelle'],giant:true});
-  laser.update(30,w,c,()=>{});laser.start({roles:[],giant:false});assert.equal(laser.remaining,30);
-  laser.start({roles:['michelle'],giant:false});assert.equal(laser.timers.jj.remaining,30);assert.equal(laser.timers.michelle.remaining,60);
-  laser.update(30,w,c,()=>{});assert.deepEqual(laser.roles,['michelle']);assert.equal(laser.giant,false);
+  laser.update(10,w,c,()=>{});laser.start({roles:[],giant:false});assert.equal(laser.remaining,10);
+  laser.start({roles:['michelle'],giant:false});assert.equal(laser.timers.jj.remaining,10);assert.equal(laser.timers.michelle.remaining,20);
+  laser.update(10,w,c,()=>{});assert.deepEqual(laser.roles,['michelle']);assert.equal(laser.giant,false);
   laser.setAim('michelle',.5,.25);laser.update(.01,w,c,()=>{});assert.equal(laser.beams[0].radius,2);
-  laser.update(30,w,c,()=>{});assert.equal(laser.active,false);
+  laser.update(10,w,c,()=>{});assert.equal(laser.active,false);
 });
-test('lasers stop at walls and cannot hit enemies behind or beside the beam',()=>{
+test('regular and giant lasers pierce walls but cannot hit enemies behind or beside the beam',()=>{
   const w=world(),source={x:50,y:100};w.wallAt=x=>x>=110;
-  const end=beamEnd(source,{x:1,y:0},w,2);assert.ok(end.x<110);
-  assert.equal(touchesBeam({x:150,y:100},source,end,2),false);
+  const end=beamEnd(source,{x:1,y:0});assert.ok(end.x>250&&end.x<=255);
+  assert.equal(touchesBeam({x:150,y:100},source,end,2),true);
   assert.equal(touchesBeam({x:30,y:100},source,end,2),false);
   assert.equal(touchesBeam({x:80,y:130},source,end,2),false);
-  const laser=new LaserReward();laser.start({roles:['jj'],giant:false});let hits=0;laser.update(.1,w,characters(),()=>hits++);assert.equal(hits,0);
+  for(const giant of [false,true]){const laser=new LaserReward();laser.start({roles:['jj'],giant});let hits=0;laser.update(.1,w,characters(),()=>hits++);assert.equal(hits,1);}
 });
-test('long-range lasers recheck walls, damage bosses and protect NPCs',()=>{
+test('long-range lasers damage bosses through walls and protect NPCs',()=>{
   const ram=new Uint8Array(0x20000),source={x:50,y:100},end={x:240,y:100};
   ram[A.module]=9;ram[A.state]=9;ram[A.hp]=6;ram[A.type]=0x41;ram[A.xLo]=142;ram[A.yLo]=92;
   const target={slot:0,type:0x41};assert.equal(applyHit(ram,target,source),false,'normal shots keep their short range');
-  assert.equal(applyLaserHit(ram,target,source,end,2,x=>x>=110),false);
-  assert.equal(applyLaserHit(ram,target,source,end,2,()=>false),true);assert.equal(ram[A.damage],1);assert.equal(ram[A.hp],6);
+  assert.equal(applyLaserHit(ram,target,source,end,2),true);assert.equal(ram[A.damage],1);assert.equal(ram[A.hp],6);
   assert.equal(applyLaserHit(ram,target,source,end,2,()=>false),false,'invulnerability prevents repeated damage');
   for(const type of [0x51,0x53,0x73]){ram[A.type]=type;ram[A.damage]=0;ram[A.hit]=0;assert.equal(applyLaserHit(ram,{slot:0,type},source,end,10,()=>false),type!==0x73);}
   ram[A.type]=0x41;ram[A.module]=14;assert.equal(applyLaserHit(ram,target,source,end,2,()=>false),false);

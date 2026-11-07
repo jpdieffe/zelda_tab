@@ -76,7 +76,7 @@ export async function learningChecks({dad,jj,michelle,shot}){
   await jj.locator('#quiz-next').click();await jj.locator('#quiz-panel').waitFor({state:'hidden'});
   await dad.waitForFunction(()=>testGame.lasers.active);
   assert.equal(await dad.evaluate(()=>testGame.lasers.giant),true);
-  assert.ok(await dad.evaluate(()=>testGame.lasers.remaining>55));
+  assert.ok(await dad.evaluate(()=>testGame.lasers.remaining>15&&testGame.lasers.remaining<=20));
   await steer('jj');await steer('michelle');
   await shot(jj,'quiz-team-lasers.png');
   await dad.locator('#pause').click();const remaining=await dad.evaluate(()=>testGame.lasers.remaining);
@@ -102,5 +102,5 @@ export async function learningChecks({dad,jj,michelle,shot}){
   assert.deepEqual(await dad.evaluate(()=>testGame.lasers.roles),['jj']);await steer('jj');await expire();
   await begin();await dad.locator('#skip-questions').click();await jj.locator('#quiz-panel').waitFor({state:'hidden'});
   assert.equal(await dad.evaluate(()=>testGame.paused||testGame.lasers.active),false,'Parent skip resumes without awarding lasers');
-  console.log('Ready screen, spoken prompts, retries without bonus, touch and analog steering for regular/giant lasers, minute rewards, pause, skip, and reconnection passed');
+  console.log('Ready screen, spoken prompts, retries without bonus, touch and analog steering for regular/giant lasers, 20-second rewards, pause, skip, and reconnection passed');
 }

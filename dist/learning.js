@@ -66,13 +66,13 @@ export class LearningRound {
   skip(){this.round=null;this.elapsed=0;}
   snapshot(){
     const r=this.round;if(!r)return null;
-    if(r.phase==='ready')return {token:this.token(),phase:'ready',role:'both',name:'JJ and Michelle',kind:'ready',prompt:'JJ and Michelle, take turns answering on the big tablet.',choices:[],speech:'Get ready for questions! JJ and Michelle, take turns answering on the big tablet. Tap We are ready to start.',feedback:'Get it right the first time to earn one minute of lasers. You can always try again!',number:0,total:2,correct:null,answer:null,next:'We’re ready!',giant:false};
+    if(r.phase==='ready')return {token:this.token(),phase:'ready',role:'both',name:'JJ and Michelle',kind:'ready',prompt:'JJ and Michelle, take turns answering on the big tablet.',choices:[],speech:'Get ready for questions! JJ and Michelle, take turns answering on the big tablet. Tap We are ready to start.',feedback:'Get it right the first time to earn 20 seconds of lasers. You can always try again!',number:0,total:2,correct:null,answer:null,next:'We’re ready!',giant:false};
     const q=r.questions[r.index],last=r.index===r.questions.length-1,correct=r.results.at(-1)?.correct;
     const name=q.role==='jj'?'JJ':'Michelle',reward=this.reward();
     let feedback='',speech=q.speech;
     if(r.phase==='feedback'){
       feedback=correct?`Great job, ${name}!`:`You got it, ${name}! No laser bonus this time, but well done for trying again.`;
-      if(last)feedback+=' '+(reward.giant?'Team magic! Two giant lasers for one whole minute!':reward.roles.length?`${reward.roles[0]==='jj'?'JJ':'Michelle'} earned one minute of laser blasts!`:'Keep practicing. More magic next time!');
+      if(last)feedback+=' '+(reward.giant?'Team magic! Two giant lasers for 20 seconds!':reward.roles.length?`${reward.roles[0]==='jj'?'JJ':'Michelle'} earned 20 seconds of laser blasts!`:'Keep practicing. More magic next time!');
       speech=feedback;
     }
     if(r.phase==='retry'){feedback=`Try again, ${name}! You can still find the answer. The laser bonus is for your first try.`;speech=`Try again, ${name}. ${q.speech}`;}

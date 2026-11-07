@@ -171,10 +171,6 @@ function frame(now){
     const world=game.bridge?.read();
     if(game.learning.tick(elapsed,{playing:!game.paused&&world?.active&&world.link.health>0&&$('phone-options').hidden,tablet:game.network?.has('jj'),enemies:Boolean(world?.contacts?.length)})){setPaused(true);}
     if(!game.paused){game.fairy.update(dt,world);game.unicorn.update(dt,world);}
-    if(!game.paused&&world?.active&&game.lasers.steering('jj')&&world.wallAt(game.fairy.x,game.fairy.y)){
-      const point=game.unicorn.nearestClear(game.fairy.x,game.fairy.y,world)||game.unicorn.nearestClear(world.link.x,world.link.y,world);
-      if(point){game.fairy.x=game.fairy.tx=point.x;game.fairy.y=game.fairy.ty=point.y;game.fairy.follow=false;}
-    }
     game.lasers.update(elapsed,world,{jj:game.fairy,michelle:game.unicorn},(target,source,end,radius)=>game.bridge.laserHit(target,source,end,radius),game.paused,()=>game.bridge.fireSound());
     game.guidance=world?.guidance;
     $('dad-objective').textContent=game.guidanceEnabled?(game.guidance?.label||'Story compass · waiting for the adventure'):'Story compass off';
