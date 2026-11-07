@@ -6,13 +6,15 @@ import { Joystick } from './joystick.js';
 import { KidLock } from './kid-lock.js';
 import { LearningRound } from './learning.js';
 import { LaserReward } from './lasers.js';
+import { PowerRewards } from './powers.js';
+import { powerHint } from './reward-types.js';
 import { QuestionView, speakQuestion, stopQuestionAudio } from './question-view.js';
 import { Connection, roomCode, normalizeCode, validCode } from './network.js';
 import * as storage from './storage.js';
 
 const $=id=>document.getElementById(id);
 export const game={role:null,network:null,emulator:null,bridge:null,fairy:null,paused:false,ready:false,saving:false,loading:false};
-game.learning=new LearningRound();game.lasers=new LaserReward();
+game.learning=new LearningRound();game.lasers=new LaserReward();game.powers=new PowerRewards(game.lasers);
 const questionView=new QuestionView((token,index)=>game.network?.send({type:'quiz-answer',token,index}),token=>game.network?.send({type:'quiz-next',token}));
 const kidLock=new KidLock(locked=>game.network?.send({type:'kid-lock-state',locked}));
 let gameLoader,gameRom;
@@ -69,7 +71,8 @@ function hostNetwork(){
       if(role==='jj'&&data.type==='quiz-next'){
         const result=game.learning.advance(data.token);
         if(result?.finished){
-          game.lasers.start(result);
+          game.powers.start(result);
+          game.powers.syncCharacters({jj:game.fairy,michelle:game.unicorn});
           if(game.lasers.steering('jj')){game.fairy.tx=game.fairy.x;game.fairy.ty=game.fairy.y;game.fairy.follow=false;}
           if(game.lasers.steering('michelle')){game.unicorn.follow=false;game.unicorn.stop();}
           if(document.hidden)wasHidden=true;else setPaused(false);
@@ -177,11 +180,13 @@ function frame(now){
     // share the exact 256×224 game rectangle, regardless of device pixel ratio.
     ctx.imageSmoothingEnabled=false;ctx.drawImage(source,(source.width-width)/2,(source.height-height)/2,width,height,0,0,512,448);
     const world=game.bridge?.read();
+    game.powers.syncCharacters({jj:game.fairy,michelle:game.unicorn});
     if(!game.paused){game.fairy.update(dt,world);game.unicorn.update(dt,world);}
     game.lasers.update(elapsed,world,{jj:game.fairy,michelle:game.unicorn},(target,source,end,radius)=>game.bridge.laserHit(target,source,end,radius),game.paused,()=>game.bridge.fireSound());
+    game.powers.update(elapsed,world,{jj:game.fairy,michelle:game.unicorn},(target,source,type,giant)=>game.bridge.powerHit(target,source,type,giant),game.paused,kind=>kind==='boom'?game.bridge.bombSound():game.bridge.fireSound());
     game.guidance=world?.guidance;
     $('dad-objective').textContent=game.guidanceEnabled?(game.guidance?.label||'Story compass · waiting for the adventure'):'Story compass off';
-    ctx.save();ctx.scale(2,2);if(game.unicorn.enabled)game.unicorn.draw(ctx,now);game.fairy.draw(ctx,now);if(game.guidanceEnabled)drawGuidance(ctx,world);game.lasers.draw(ctx,now);ctx.restore();
+    ctx.save();ctx.scale(2,2);if(game.unicorn.enabled)game.unicorn.draw(ctx,now);game.fairy.draw(ctx,now);if(game.guidanceEnabled)drawGuidance(ctx,world);game.lasers.draw(ctx,now);game.powers.draw(ctx,now);ctx.restore();
     if(!$('controller').hidden){const canvas=$('dad-canvas'),pc=canvas.getContext('2d',{alpha:false});pc.imageSmoothingEnabled=false;pc.drawImage($('broadcast'),0,0,canvas.width,canvas.height);}
     if(!$('peek-panel').hidden){const pc=$('peek-canvas').getContext('2d');pc.imageSmoothingEnabled=false;pc.drawImage($('broadcast'),0,0);}
     if(now-lastState>100){sendState();lastState=now;}
@@ -193,13 +198,13 @@ function questionEligibility(){
   return {playing:Boolean(game.role==='dad'&&game.ready&&!game.paused&&!document.hidden&&world?.active&&world.link.health>0&&$('phone-options').hidden),tablet:Boolean(game.network?.has('jj'))};
 }
 function sendState(){
-  const learning=game.learning.snapshot(),lasers=game.lasers.snapshot();
-  $('dad-learning').hidden=!learning&&!lasers;$('skip-questions').hidden=!learning;
-  $('dad-learning-text').textContent=learning?(learning.phase==='ready'?'Get ready for questions on the tablet.':`${learning.name}'s turn on the tablet. Zelda is paused.`):game.lasers.label();
+  const learning=game.learning.snapshot(),lasers=game.lasers.snapshot(),powers=game.powers.snapshot();
+  $('dad-learning').hidden=!learning&&!powers;$('skip-questions').hidden=!learning;
+  $('dad-learning-text').textContent=learning?(learning.phase==='ready'?'Get ready for questions on the tablet.':`${learning.name}'s turn on the tablet. Zelda is paused.`):game.powers.label();
   $('pause').disabled=Boolean(learning);
   const eligible=questionEligibility();
   $('start-questions').disabled=Boolean(learning)||!eligible.playing||!eligible.tablet;
-  const common={type:'state',ready:game.ready,paused:game.paused,active:game.fairy?.active||false,bridge:Boolean(game.bridge?.ram),objective:game.guidanceEnabled?game.guidance?.label||'':'',learning,lasers};
+  const common={type:'state',ready:game.ready,paused:game.paused,active:game.fairy?.active||false,bridge:Boolean(game.bridge?.ram),objective:game.guidanceEnabled?game.guidance?.label||'':'',learning,lasers,powers};
   game.network?.send({...common,target:Boolean(game.fairy?.target),cooldown:game.fairy?.cooldown||0,arrowCooldown:game.fairy?.arrowCooldown||0},'jj');
   game.network?.send({...common,target:Boolean(game.unicorn?.target),cooldown:game.unicorn?.cooldown||0,healCooldown:game.unicorn?.healCooldown||0,bombCooldown:game.unicorn?.bombs.cooldown||0,bouncing:(game.unicorn?.invulnerable||0)>.5},'michelle');
 }
@@ -258,9 +263,9 @@ $('michelle-form').onsubmit=async e=>{
       if(data.type==='state'){
         michelleReady=data.ready&&data.active&&data.bridge&&!data.paused;
         const aiming=data.lasers?.roles.includes('michelle');
-        $('michelle-learning').hidden=!data.learning&&!data.lasers;
-        $('michelle-learning').textContent=data.learning?(data.learning.phase==='ready'?'Get ready for questions on the big tablet.':`${data.learning.name}'s turn. Answer on the big tablet.`):data.lasers?`${aiming?'Aim your laser with the joystick!':'Laser magic!'} ${Math.ceil(aiming?data.lasers.timers.michelle.remaining:data.lasers.remaining)}s`:'';
-        $('unicorn-pad').querySelector('small').textContent=aiming?'DRAG TO AIM':'DRAG TO GALLOP';
+        $('michelle-learning').hidden=!data.learning&&!data.powers;
+        $('michelle-learning').textContent=data.learning?(data.learning.phase==='ready'?'Get ready for questions on the big tablet.':`${data.learning.name}'s turn. Answer on the big tablet.`):data.powers?Object.entries(data.powers).map(([role,power])=>`${role==='jj'?'JJ':'Michelle'}: ${powerHint(power,role)}`).join(' | '):'';
+        $('unicorn-pad').querySelector('small').textContent=aiming?'DRAG TO AIM':data.powers?.michelle?.type==='dinosaur'?'DRAG TO STOMP':'DRAG TO GALLOP';
         if(!michelleReady)releaseUnicorn();
         $('michelle-objective').textContent=data.objective||'';
         $('unicorn-fire').disabled=!michelleReady||data.cooldown>0;
@@ -338,8 +343,8 @@ function onTabletData(data){
     questionView.setConnected(true);questionView.render(data.learning);
     $('tablet').classList.toggle('learning-active',Boolean(data.learning));
     $('video').muted=Boolean(data.learning)||!tabSound;
-    $('tablet-learning').hidden=!data.lasers;
-    $('tablet-learning').textContent=data.lasers?`${data.lasers.giant?'GIANT LASERS! ':''}${data.lasers.roles.includes('jj')?'JJ, drag on the game to aim! ':''}${data.lasers.roles.includes('michelle')?'Michelle, aim with your joystick! ':''}${Math.ceil(data.lasers.remaining)}s`:'';
+    $('tablet-learning').hidden=!data.powers;
+    $('tablet-learning').textContent=data.powers?Object.entries(data.powers).map(([role,power])=>`${role==='jj'?'JJ':'Michelle'}: ${powerHint(power,role)}`).join(' | '):'';
     $('tablet-objective').textContent=data.objective||'';$('tablet-objective').hidden=!data.objective;
     $('fire').disabled=!data.ready||data.paused||!data.active||!data.bridge||data.cooldown>0;
     $('arrows').disabled=!data.ready||data.paused||!data.active||!data.bridge||data.arrowCooldown>0;
@@ -347,7 +352,7 @@ function onTabletData(data){
     $('fire').classList.toggle('ready',data.target&&data.cooldown===0);
     if(data.paused){$('screen-message').hidden=false;$('screen-message').querySelector('p').textContent='A little rest. Dad will resume the adventure.';}
     else if($('video').readyState>=2)$('screen-message').hidden=true;
-    if(Date.now()>shotHintUntil)$('fairy-hint').textContent=data.lasers?.roles.includes('jj')?'Drag on the game screen to aim your laser!':!data.bridge?'Fairy magic is unavailable — check Dad’s phone.':!data.active?'Waiting for Link’s adventure…':data.target?'A baddie is close! Send a spark!':'Tap anywhere to fly!';
+    if(Date.now()>shotHintUntil)$('fairy-hint').textContent=data.powers?.jj?powerHint(data.powers.jj,'jj'):!data.bridge?'Fairy magic is unavailable — check Dad’s phone.':!data.active?'Waiting for Link’s adventure…':data.target?'A baddie is close! Send a spark!':'Tap anywhere to fly!';
   }
   if(data.type==='shot'){
     $('fairy-hint').textContent=data.result==='fired'?'Nice one, JJ! ✦':'Your magic is recharging…';shotHintUntil=Date.now()+1500;

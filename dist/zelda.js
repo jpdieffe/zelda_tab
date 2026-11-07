@@ -1,3 +1,4 @@
+import {POWERS} from './reward-types.js';
 import {BOSSES,ZERO_HEALTH_ENEMIES,enemyBody} from './enemies.js';
 import { wallAt } from './collision.js';
 import { readGuidance } from './guidance.js';
@@ -88,6 +89,7 @@ export class ZeldaBridge {
   }
   hit(target, fairy) { return this.ram ? applyHit(this.ram, target, fairy) : false; }
   laserHit(target,source,end,radius) { return this.ram ? applyLaserHit(this.ram,target,source,end,radius) : false; }
+  powerHit(target,source,type,giant){return this.ram?applyPowerHit(this.ram,target,source,type,giant):false;}
   heal() { return this.ram ? applyHeal(this.ram) : false; }
   fireSound(){return this.ram?playFireSound(this.ram):false;}
   bombSound(){return this.ram?playFireSound(this.ram,true):false;}
@@ -131,12 +133,16 @@ export function applyLaserHit(ram,target,source,end,radius){
   if(!touchesBeam(current,source,clipped,radius))return false;
   return queueHit(ram,current,source,320);
 }
-function queueHit(ram, target, fairy, range) {
+export function applyPowerHit(ram,target,source,type,giant=false){
+  const power=POWERS[type];if(!power?.radius)return false;
+  return queueHit(ram,target,source,giant?power.teamRadius:power.radius,giant?power.teamDamage:power.damage);
+}
+function queueHit(ram, target, fairy, range, damage=1) {
   const world = readWorld(ram);
   const current = world.enemies.find(e=>e.slot===target.slot && e.type===target.type && e.vulnerable);
   if (!current || !world.active || ![fairy.x,fairy.y].every(Number.isFinite)||Math.hypot(current.x - fairy.x, current.y - fairy.y) > range+(current.radius||0)) return false;
   const slot = current.slot;
-  // Queue a small hit in the game's own recoil/damage path. The game handles
+  // Queue a hit in the game's own recoil/damage path. The game handles
   // health, death animations, drops, room counters and progression itself.
   // Blind counts recoil hits; Trinexx heads and yellow Stalfos consume the
   // first hit to stun. Ganon's final phase consumes a hit to become silver-
@@ -144,7 +150,7 @@ function queueHit(ram, target, fairy, range) {
   const type=current.type,ai=ram[ADDR.ai+slot];
   const reactionOnly=type===0xce||((type===0xcc||type===0xcd)&&ai!==4)||
     (type===0x85&&ram[ADDR.sword]<3&&ai!==5)||(type===0xd6&&(ai===17||ram[ADDR.aux1+slot]));
-  ram[ADDR.damage + slot] = reactionOnly?0:Math.min(1,ram[ADDR.hp+slot]||1);
+  ram[ADDR.damage + slot] = reactionOnly?0:Math.min(damage,ram[ADDR.hp+slot]||1);
   ram[ADDR.hit + slot] = 0x20;
   if(type===0xd7)ram[ADDR.aux4+slot]=32; // Native silver-arrow reaction.
   ram[ADDR.recoil + slot] = type===0x09?20:(type===0x18||type===0x53)?11:15;

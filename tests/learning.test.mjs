@@ -31,7 +31,7 @@ test('Dad starts both questions on a ready screen only when play and the tablet 
   quiz.advance(quiz.token());assert.equal(quiz.snapshot().name,'JJ');
   quiz.skip();assert.equal(quiz.start(eligible),true,'Dad can start another round after skipping');assert.notEqual(quiz.token(),token);
 });
-function begin(quiz){quiz.start(eligible);quiz.advance(quiz.token());}
+function begin(quiz){quiz.rewardBag=['laser'];quiz.start(eligible);quiz.advance(quiz.token());}
 function answer(quiz,correct){const r=quiz.round,q=r.questions[r.index],index=q.choices.findIndex(v=>correct?v===q.answer:v!==q.answer);assert.equal(quiz.answer(quiz.token(),index),true);}
 test('the host accepts every math keypad index including 9 and 10, but rejects out-of-range input',()=>{
   for(let n=0;n<=10;n++){
@@ -52,7 +52,7 @@ test('wrong answers require retries without a bonus; stale and repeated messages
   assert.equal(quiz.snapshot().correct,false,'A later correct answer cannot restore the bonus');quiz.advance(quiz.token());
   assert.equal(quiz.snapshot().name,'Michelle');assert.equal(quiz.advance(token),null);assert.equal(quiz.answer(token,0),false);
   answer(quiz,true);const result=quiz.advance(quiz.token());
-  assert.deepEqual(result,{finished:true,roles:['michelle'],giant:false});assert.equal(quiz.snapshot(),null);
+  assert.deepEqual(result,{finished:true,roles:['michelle'],giant:false,type:'laser'});assert.equal(quiz.snapshot(),null);
 });
 test('both correct answers earn giant lasers; no correct answers and skipped rounds earn none',()=>{
   for(const correct of [true,false]){

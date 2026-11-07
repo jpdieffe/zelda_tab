@@ -5,6 +5,7 @@ export async function learningChecks({dad,jj,michelle,shot}){
   await jj.locator('#kid-lock').click();
   assert.equal(await dad.evaluate(()=>testGame.learning.round),null,'Gameplay has not started questions automatically');
   const begin=async()=>{
+    await dad.evaluate(()=>{testGame.learning.rewardBag=['laser'];});
     await dad.locator('#start-questions').click();
     await jj.waitForFunction(()=>!document.getElementById('quiz-panel').hidden);
     assert.equal(await dad.evaluate(()=>testGame.paused),true);
@@ -24,7 +25,7 @@ export async function learningChecks({dad,jj,michelle,shot}){
   const retry=async()=>{
     await answer(false);assert.match(await jj.locator('#quiz-title').textContent(),/Try again/);
     await jj.locator('#quiz-next').click();await jj.waitForFunction(()=>document.getElementById('quiz-next').hidden);
-    await answer(true);assert.match(await jj.locator('#quiz-feedback').textContent(),/No laser bonus/);
+    await answer(true);assert.match(await jj.locator('#quiz-feedback').textContent(),/No superpower bonus/);
   };
   // Duration is checked by unit tests; fast-forward earned time to exercise more rounds here.
   const expire=async()=>{await dad.evaluate(()=>{for(const t of Object.values(testGame.lasers.timers)){t.remaining=.01;t.giant=Math.min(t.giant,.01);}});await dad.waitForFunction(()=>!testGame.lasers.active);};

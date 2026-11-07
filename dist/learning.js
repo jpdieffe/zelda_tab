@@ -1,3 +1,4 @@
+import {REWARD_TYPES,rewardAnnouncement} from './reward-types.js';
 // Current deck from edu_games/weekly_agendas/heart-words.js: words introduced
 // through October 26, 2026. Keep the curriculum here; no student data is sent.
 export const SIGHT_WORDS=Object.freeze(['a','by','I','as','is','he','be','here','she','the','what','and','love','my','pretty','says','little','new','come','make','baby','father','mother']);
@@ -32,11 +33,13 @@ export class QuestionDeck {
   }
 }
 export class LearningRound {
-  constructor(random=Math.random){this.deck=new QuestionDeck(random);this.sequence=0;this.round=null;}
+  constructor(random=Math.random){this.deck=new QuestionDeck(random);this.sequence=0;this.round=null;this.rewardBag=[];this.lastReward=null;}
   start({playing,tablet}){
     if(this.round||!playing||!tablet)return false;
     const roles=['jj','michelle'];
-    this.round={id:++this.sequence,index:0,revision:0,missed:false,questions:roles.map(role=>this.deck.next(role)),results:[],phase:'ready'};
+    if(!this.rewardBag.length){this.rewardBag=shuffled(REWARD_TYPES,this.deck.random);if(this.rewardBag.at(-1)===this.lastReward)this.rewardBag.unshift(this.rewardBag.pop());}
+    const rewardType=this.rewardBag.pop();this.lastReward=rewardType;
+    this.round={id:++this.sequence,rewardType,index:0,revision:0,missed:false,questions:roles.map(role=>this.deck.next(role)),results:[],phase:'ready'};
     return true;
   }
   answer(token,index){
@@ -49,7 +52,7 @@ export class LearningRound {
   token(){return this.round?`${this.round.id}:${this.round.index}:${this.round.revision}`:null;}
   reward(){
     const roles=this.round?.results.filter(r=>r.correct).map(r=>r.role)||[];
-    return {roles,giant:roles.includes('jj')&&roles.includes('michelle')};
+    return {roles,giant:roles.includes('jj')&&roles.includes('michelle'),type:this.round?.rewardType};
   }
   advance(token){
     const r=this.round;if(!r||!['ready','retry','feedback'].includes(r.phase)||token!==this.token())return null;
@@ -61,19 +64,19 @@ export class LearningRound {
   skip(){this.round=null;}
   snapshot(){
     const r=this.round;if(!r)return null;
-    if(r.phase==='ready')return {token:this.token(),phase:'ready',role:'both',name:'JJ and Michelle',kind:'ready',prompt:'JJ and Michelle, take turns answering on the big tablet.',choices:[],speech:'Get ready for questions! JJ and Michelle, take turns answering on the big tablet. Tap We are ready to start.',feedback:'Get it right the first time to earn 20 seconds of lasers. You can always try again!',number:0,total:2,correct:null,answer:null,next:'We’re ready!',giant:false};
+    if(r.phase==='ready')return {token:this.token(),phase:'ready',role:'both',name:'JJ and Michelle',kind:'ready',prompt:'JJ and Michelle, take turns answering on the big tablet.',choices:[],speech:'Get ready for questions! JJ and Michelle, take turns answering on the big tablet. Tap We are ready to start.',feedback:'Get it right the first time to earn a surprise superpower. You can always try again!',number:0,total:2,correct:null,answer:null,next:'We’re ready!',giant:false};
     const q=r.questions[r.index],last=r.index===r.questions.length-1,correct=r.results.at(-1)?.correct;
     const name=q.role==='jj'?'JJ':'Michelle',reward=this.reward();
     let feedback='',speech=q.speech;
     if(r.phase==='feedback'){
-      feedback=correct?`Great job, ${name}!`:`You got it, ${name}! No laser bonus this time, but well done for trying again.`;
-      if(last)feedback+=' '+(reward.giant?'Team magic! Two giant lasers for 20 seconds!':reward.roles.length?`${reward.roles[0]==='jj'?'JJ':'Michelle'} earned 20 seconds of laser blasts!`:'Keep practicing. More magic next time!');
+      feedback=correct?`Great job, ${name}!`:`You got it, ${name}! No superpower bonus this time, but well done for trying again.`;
+      if(last)feedback+=' '+(reward.giant?`Team magic! ${rewardAnnouncement(reward.type,true)}`:reward.roles.length?`${reward.roles[0]==='jj'?'JJ':'Michelle'} earned a superpower! ${rewardAnnouncement(reward.type,false)}`:'Keep practicing. More magic next time!');
       speech=feedback;
     }
-    if(r.phase==='retry'){feedback=`Try again, ${name}! You can still find the answer. The laser bonus is for your first try.`;speech=`Try again, ${name}. ${q.speech}`;}
+    if(r.phase==='retry'){feedback=`Try again, ${name}! You can still find the answer. The superpower bonus is for your first try.`;speech=`Try again, ${name}. ${q.speech}`;}
     return {token:this.token(),phase:r.phase,role:q.role,name,kind:q.kind,prompt:q.prompt,choices:q.choices,speech,feedback,
       number:r.index+1,total:r.questions.length,correct:r.phase==='feedback'?correct:r.phase==='retry'?false:null,
-      answer:r.phase==='feedback'?q.answer:null,next:r.phase==='retry'?'Try again':last?(reward.roles.length?'Release the lasers!':'Back to the adventure'):'Michelle’s turn',
+      answer:r.phase==='feedback'?q.answer:null,next:r.phase==='retry'?'Try again':last?(reward.roles.length?'Release the magic!':'Back to the adventure'):'Michelle’s turn',
       giant:r.phase==='feedback'&&last&&reward.giant};
   }
 }

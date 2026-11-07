@@ -79,7 +79,7 @@ try{
   }
   // Verify a lethal hit takes the statue's own defeat path and drops its reward.
   await setup(0x53);
-  await page.evaluate(()=>{const r=g.bridge.ram;r[A.hp]=1;r[0xff8]=1;const t=g.bridge.read().enemies[0];g.bridge.hit(t,{x:t.x-20,y:t.y});});
+  await page.evaluate(()=>{const r=g.bridge.ram;r[A.hp]=24;r[0xff8]=1;const t=g.bridge.read().enemies[0];g.bridge.powerHit(t,{x:t.x-20,y:t.y},'meteor',true);});
   await page.waitForFunction(()=>[...g.bridge.ram.slice(A.type,A.type+16)].some((type,i)=>type===0xea&&g.bridge.ram[A.state+i]),{},{timeout:5000});
-  console.log('Armos native defeat and heart-container drop verified');
+  console.log('Meteor smash triggers Armos native defeat and heart-container drop');
 }finally{await browser.close();server.close();}

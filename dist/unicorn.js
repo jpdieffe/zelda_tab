@@ -1,3 +1,4 @@
+import {drawDinosaur} from './dinosaur.js';
 import {Fairy} from './fairy.js';
 import {BombLauncher} from './bombs.js';
 export const HEAL_COOLDOWN=5000;
@@ -45,7 +46,7 @@ export class Unicorn extends Fairy {
     }
     this.hearts=this.hearts.filter(h=>!h.done);
   }
-  clearAt(x,y,world){return x>=10&&x<=246&&y>=44&&y<=215&&![-5,0,5].some(dx=>[-3,0,4].some(dy=>world.wallAt?.(x+dx,y+dy)));}
+  clearAt(x,y,world){return x>=10&&x<=246&&y>=44&&y<=215&&(this.dinosaur||![-5,0,5].some(dx=>[-3,0,4].some(dy=>world.wallAt?.(x+dx,y+dy))));}
   nearestClear(x,y,world,radius=32){
     x=clamp(x,10,246);y=clamp(y,44,215);
     for(const offset of placementOffsets){
@@ -88,7 +89,8 @@ export class Unicorn extends Fairy {
     const startX=this.x,startY=this.y;
     let x=this.inputAge<.35?this.inputX:0,y=this.inputAge<.35?this.inputY:0;
     if(this.follow){const dx=world.link.x+this.offsetX-this.x,dy=world.link.y+this.offsetY-this.y,d=Math.hypot(dx,dy);if(d>3){x=dx/d*Math.min(1,d/12);y=dy/d*Math.min(1,d/12);}}
-    if(!this.invulnerable){
+    if(this.dinosaur)this.knockX=this.knockY=0;
+    if(!this.dinosaur&&!this.invulnerable){
       const enemy=(world.contacts||world.enemies).find(e=>Math.hypot(e.x-this.x,e.y-this.y)<15);
       if(enemy){const dx=this.x-enemy.x,dy=this.y-enemy.y,d=Math.hypot(dx,dy)||1;this.knockX=dx/d*170;this.knockY=dy/d*170;if(!dx&&!dy)this.knockX=-170;this.invulnerable=1;this.bounces++;}
     }
@@ -119,6 +121,7 @@ export class Unicorn extends Fairy {
     ctx.restore();
   }
   drawBody(ctx,time){
+    if(this.dinosaur){drawDinosaur(ctx,this,time);return;}
     const bob=this.walking?Math.sin(time/70):0;
     ctx.shadowBlur=0;ctx.fillStyle='#081f2160';ctx.beginPath();ctx.ellipse(this.x,this.y+8,12,3,0,0,Math.PI*2);ctx.fill();
     ctx.translate(this.x,this.y+bob);ctx.scale(this.facing,1);

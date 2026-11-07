@@ -1,3 +1,4 @@
+import {drawDinosaur} from './dinosaur.js';
 export const RANGE = 54;
 export const COOLDOWN = 650;
 export const ARROW_COOLDOWN=1200;
@@ -102,6 +103,7 @@ export class Fairy {
     this.drawBody(ctx,time);ctx.restore();
   }
   drawBody(ctx,time){
+    if(this.dinosaur){drawDinosaur(ctx,this,time);return;}
     const bob=Math.sin(time/180)*1.6, flap=1+Math.sin(time/45)*.25;
     ctx.translate(this.x,this.y+bob);ctx.shadowColor='#c7ffc8';ctx.shadowBlur=10;
     ctx.fillStyle='#d7f8e0cc';
