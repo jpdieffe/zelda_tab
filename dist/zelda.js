@@ -1,5 +1,6 @@
 import { wallAt } from './collision.js';
 import { readGuidance } from './guidance.js';
+import { beamEnd, touchesBeam } from './lasers.js';
 // USA ALttP 1.0 only. Addresses verified against snesrev/zelda3 variables.h
 // and Sprite_GiveDamage / Sprite_MiniMoldorm_Recoil in sprite.c.
 export const ROM_SHA256 = '66871d66be19ad2c34c927d6b14cd8eb6fc3181965b6e517cb361f7316009cfb';
@@ -121,6 +122,7 @@ export class ZeldaBridge {
     return world;
   }
   hit(target, fairy) { return this.ram ? applyHit(this.ram, target, fairy) : false; }
+  laserHit(target,source,end,radius) { return this.ram ? applyLaserHit(this.ram,target,source,end,radius,this.read().wallAt) : false; }
   heal() { return this.ram ? applyHeal(this.ram) : false; }
 }
 
@@ -150,9 +152,21 @@ export function readWorld(ram) {
 }
 
 export function applyHit(ram, target, fairy) {
+  return queueHit(ram,target,fairy,58);
+}
+export function applyLaserHit(ram,target,source,end,radius,wallAt){
+  if(![source.x,source.y,end.x,end.y].every(Number.isFinite)||![2,10].includes(radius)||typeof wallAt!=='function')return false;
+  const world=readWorld(ram),current=world.enemies.find(e=>e.slot===target.slot&&e.type===target.type&&e.vulnerable);
+  if(!world.active||!current)return false;
+  const clipped=beamEnd(source,{x:end.x-source.x,y:end.y-source.y},{...world,wallAt},radius);
+  // Revalidate the live enemy and walls immediately before queuing native damage.
+  if(!touchesBeam(current,source,clipped,radius))return false;
+  return queueHit(ram,current,source,320);
+}
+function queueHit(ram, target, fairy, range) {
   const world = readWorld(ram);
   const current = world.enemies.find(e=>e.slot===target.slot && e.type===target.type && e.vulnerable);
-  if (!current || !world.active || Math.hypot(current.x - fairy.x, current.y - fairy.y) > 58) return false;
+  if (!current || !world.active || Math.hypot(current.x - fairy.x, current.y - fairy.y) > range) return false;
   const slot = current.slot;
   // Queue a small hit in the game's own recoil/damage path. The game handles
   // health, death animations, drops, room counters and progression itself.

@@ -1,0 +1,82 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {QuestionDeck,LearningRound,SIGHT_WORDS,mathFacts} from '../dist/learning.js';
+import {LaserReward,beamEnd,touchesBeam} from '../dist/lasers.js';
+import {ADDR as A,applyHit,applyLaserHit} from '../dist/zelda.js';
+
+test('curriculum has the 23 current agenda words and every math fact stays within 0 through 10',()=>{
+  assert.equal(SIGHT_WORDS.length,23);assert.equal(SIGHT_WORDS.at(-1),'mother');assert.ok(!SIGHT_WORDS.includes('good'));
+  const facts=mathFacts();assert.equal(facts.length,132);
+  for(const f of facts){assert.ok(f.a>=0&&f.a<=10&&f.b>=0&&f.b<=10);assert.equal(Number(f.answer),f.operator==='+'?f.a+f.b:f.a-f.b);assert.ok(Number(f.answer)>=0&&Number(f.answer)<=10);}
+});
+test('spoken questions have three unique choices, shuffle decks, and alternate Michelle math and sight words',()=>{
+  const deck=new QuestionDeck(),letters=new Set(),words=new Set();
+  for(let i=0;i<46;i++){
+    const jj=deck.next('jj'),m=deck.next('michelle');
+    if(i<26)letters.add(jj.answer);
+    assert.equal(m.kind,i%2===0?'math':'word');if(m.kind==='word')words.add(m.answer);
+    for(const q of [jj,m]){assert.equal(q.choices.length,3);assert.equal(new Set(q.choices).size,3);assert.ok(q.choices.includes(q.answer));assert.ok(q.speech.includes(q.role==='jj'?'JJ':'Michelle'));}
+  }
+  assert.equal(letters.size,26);assert.equal(words.size,23);
+});
+const eligible={playing:true,tablet:true};
+test('two-minute rounds count active play only and ask both children on the tablet',()=>{
+  const quiz=new LearningRound();
+  assert.equal(quiz.tick(119,eligible),false);
+  quiz.tick(300,{...eligible,playing:false});quiz.tick(300,{...eligible,tablet:false});quiz.tick(300,{...eligible,reward:true});assert.equal(quiz.elapsed,119);
+  assert.equal(quiz.tick(1,eligible),true);assert.equal(quiz.round.questions.length,2);
+  assert.equal(quiz.snapshot().name,'JJ');assert.equal(quiz.snapshot().answer,null);
+  assert.equal(quiz.tick(300,eligible),false);assert.equal(quiz.elapsed,0);
+});
+function answer(quiz,correct){const r=quiz.round,q=r.questions[r.index],index=q.choices.findIndex(v=>correct?v===q.answer:v!==q.answer);assert.equal(quiz.answer(quiz.token(),index),true);}
+test('only the first valid answer counts; stale, repeated and malformed messages cannot earn rewards',()=>{
+  const quiz=new LearningRound();quiz.tick(120,eligible);const token=quiz.token();
+  for(const i of [-1,3,NaN,1.5,'0'])assert.equal(quiz.answer(token,i),false);
+  assert.equal(quiz.answer('old',0),false);assert.equal(quiz.advance(token),null);
+  answer(quiz,false);assert.equal(quiz.answer(token,0),false);
+  assert.equal(quiz.snapshot().correct,false);quiz.advance(token);
+  assert.equal(quiz.snapshot().name,'Michelle');assert.equal(quiz.advance(token),null);assert.equal(quiz.answer(token,0),false);
+  answer(quiz,true);const result=quiz.advance(quiz.token());
+  assert.deepEqual(result,{finished:true,roles:['michelle'],giant:false});assert.equal(quiz.snapshot(),null);
+});
+test('both correct answers earn giant lasers; no correct answers and skipped rounds earn none',()=>{
+  for(const correct of [true,false]){
+    const quiz=new LearningRound();quiz.tick(120,eligible);answer(quiz,correct);quiz.advance(quiz.token());answer(quiz,correct);
+    assert.equal(quiz.snapshot().giant,correct);const result=quiz.advance(quiz.token());assert.equal(result.giant,correct);assert.equal(result.roles.length,correct?2:0);
+  }
+  const quiz=new LearningRound();quiz.tick(120,eligible);answer(quiz,true);quiz.skip();assert.equal(quiz.round,null);assert.equal(quiz.elapsed,0);assert.equal(quiz.advance('1:0'),null);
+});
+const world=()=>({active:true,enemies:[{slot:1,type:0x41,x:150,y:100,vulnerable:true}],wallAt:()=>false});
+const characters=()=>({jj:{active:true,x:50,y:100,aimX:1,aimY:0},michelle:{active:true,enabled:true,x:100,y:150,aimX:0,aimY:-1}});
+test('laser rewards last five active seconds, pause during dialogue/manual pause, and only fire for earned roles',()=>{
+  const laser=new LaserReward(),w=world(),c=characters();let hits=0;laser.start({roles:['jj'],giant:false});
+  laser.update(1,w,c,()=>hits++);assert.equal(laser.remaining,4);assert.equal(laser.beams.length,1);assert.equal(laser.beams[0].role,'jj');assert.equal(hits,1);
+  laser.update(10,w,c,()=>hits++,true);laser.update(10,{...w,active:false},c,()=>hits++);assert.equal(laser.remaining,4);assert.equal(hits,1);
+  laser.update(4,w,c,()=>hits++);assert.equal(laser.active,false);assert.equal(laser.beams.length,0);
+});
+test('giant lasers steer independently with JJ tablet vectors and Michelle joystick vectors',()=>{
+  const laser=new LaserReward(),w=world(),c=characters();laser.start({roles:['jj','michelle'],giant:true});
+  laser.setAim('jj',1,0);laser.setAim('michelle',0,-1);laser.update(.01,w,c,()=>{});
+  assert.ok(laser.beams[0].end.x>c.jj.x);assert.equal(laser.beams[0].end.y,c.jj.y);
+  assert.equal(laser.beams[1].end.x,c.michelle.x);assert.ok(laser.beams[1].end.y<c.michelle.y);
+  laser.setAim('jj',0,1);laser.setAim('michelle',NaN,Infinity);laser.update(.01,w,c,()=>{});
+  assert.equal(laser.beams[0].end.x,c.jj.x);assert.ok(laser.beams[0].end.y>c.jj.y);assert.equal(laser.aim.michelle.y,-1);
+});
+test('lasers stop at walls and cannot hit enemies behind or beside the beam',()=>{
+  const w=world(),source={x:50,y:100};w.wallAt=x=>x>=110;
+  const end=beamEnd(source,{x:1,y:0},w,2);assert.ok(end.x<110);
+  assert.equal(touchesBeam({x:150,y:100},source,end,2),false);
+  assert.equal(touchesBeam({x:30,y:100},source,end,2),false);
+  assert.equal(touchesBeam({x:80,y:130},source,end,2),false);
+  const laser=new LaserReward();laser.start({roles:['jj'],giant:false});let hits=0;laser.update(.1,w,characters(),()=>hits++);assert.equal(hits,0);
+});
+test('long-range laser damage uses native enemy rules, rechecks walls, and never enables NPC or boss damage',()=>{
+  const ram=new Uint8Array(0x20000),source={x:50,y:100},end={x:240,y:100};
+  ram[A.module]=9;ram[A.state]=9;ram[A.hp]=6;ram[A.type]=0x41;ram[A.xLo]=142;ram[A.yLo]=92;
+  const target={slot:0,type:0x41};assert.equal(applyHit(ram,target,source),false,'normal shots keep their short range');
+  assert.equal(applyLaserHit(ram,target,source,end,2,x=>x>=110),false);
+  assert.equal(applyLaserHit(ram,target,source,end,2,()=>false),true);assert.equal(ram[A.damage],1);assert.equal(ram[A.hp],6);
+  assert.equal(applyLaserHit(ram,target,source,end,2,()=>false),false,'invulnerability prevents repeated damage');
+  for(const type of [0x53,0x73]){ram[A.type]=type;ram[A.damage]=0;ram[A.hit]=0;assert.equal(applyLaserHit(ram,{slot:0,type},source,end,10,()=>false),false);}
+  ram[A.type]=0x41;ram[A.module]=14;assert.equal(applyLaserHit(ram,target,source,end,2,()=>false),false);
+});

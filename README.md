@@ -29,6 +29,18 @@ Open the same game URL on Michelle's phone, choose **I'm Michelle**, and enter t
 
 The host accepts one JJ and one Michelle per code. A duplicate role receives an occupied-player message instead of displacing the connected player. Only Dad's phone runs and saves Zelda. Refresh Dad's page and reopen JJ's app for a new version before adding Michelle.
 
+## Learning magic
+
+Every two minutes of active play with JJ's tablet connected, Zelda pauses for a short round on the big tablet. JJ answers first: listen to a letter name and tap it from three choices. Michelle answers next, also on the tablet: addition/subtraction with an answer from 0 through 10, alternating with a spoken sight word to find among three choices. **Hear again** repeats the prompt. Each child gets one scored answer; a missed answer shows the correct choice without losing health or progress. Tap the next-turn button between children, then release the magic to resume.
+
+One correct answer earns five seconds of automatic laser blasts from that child's character. Two correct answers earn two giant lasers for five seconds: JJ drags on the tablet to aim the fairy's beam; Michelle uses her phone joystick to aim the unicorn's beam. Normal movement returns when the reward ends. Lasers stop at walls and use the original game's ordinary-enemy damage rules; they do not damage NPCs or bosses. Reward time freezes during pauses/dialogue. The next two-minute interval starts after the reward.
+
+Question timing excludes dialogue, Zelda menus, manual pauses, and Dad's More menu. Reconnecting the tablet restores the same pending question. Dad can use **Skip this round** to resume without a reward. Both children answer each round even if Michelle temporarily disconnects her phone; reconnect her phone to use her character's laser.
+
+Michelle's deck uses the 23 current words in `edu_games/weekly_agendas/heart-words.js`, introduced through October 26, 2026: a, by, I, as, is, he, be, here, she, the, what, and, love, my, pretty, says, little, new, come, make, baby, father, mother. Words and letters shuffle without repeats until their deck is exhausted. All 132 addition/subtraction facts use operands and answers from 0 through 10.
+
+Tablet APK 1.2 adds native English speech for these prompts; Chrome uses its speech engine. Question audio is separate from the game-sound toggle. If speech is unavailable, **Grown-up prompt** reveals the text to read aloud. No microphone or AI service is used.
+
 ## Phone controls
 
 Dad's phone shows the live game, including both companions, between the joystick and action buttons in landscape. In portrait the game sits above the controls. **Enlarge game** opens a bigger preview; close it to return to the controls.

@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { serve } from './serve.mjs';
+import { learningChecks } from './learning-browser-checks.mjs';
 const server=serve();
 const browser=await chromium.launch({executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:['--autoplay-policy=no-user-gesture-required','--disable-background-timer-throttling','--disable-renderer-backgrounding']});
 const tabletBrowser=await chromium.launch({executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:['--autoplay-policy=no-user-gesture-required']});
@@ -197,6 +198,7 @@ try{
     await shot(dad,`dad-live-${width}x${height}.png`);
   }
   console.log('Live Dad view verified at six phone sizes, with controls clear of the game');
+  await learningChecks({dad,jj,michelle,shot});
   await writeFile(new URL('source-canvas.png',results),Buffer.from(await dad.evaluate(()=>testGame.emulator.canvas.toDataURL().split(',')[1]),'base64'));
   assert.deepEqual(errors,[]);
   console.log('Browser checks passed');

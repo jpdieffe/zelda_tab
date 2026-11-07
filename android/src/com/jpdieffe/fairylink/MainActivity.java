@@ -18,15 +18,36 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.Voice;
+import android.media.AudioAttributes;
+import java.util.Locale;
 
 public final class MainActivity extends Activity {
   private static final String GAME = "https://jpdieffe.github.io/zelda_tab/?tablet=1";
   private WebView web;
   private boolean locked;
   private boolean refreshOnResume;
+  private TextToSpeech speech;
+  private volatile boolean speechReady;
+  private volatile boolean speechFailed;
+  private String pendingSpeech;
 
   @Override public void onCreate(Bundle state) {
     super.onCreate(state);
+    speech=new TextToSpeech(this,result -> {
+      if(result==TextToSpeech.SUCCESS&&speech!=null){
+        int language=speech.setLanguage(Locale.US);
+        if(speech.getVoices()!=null)for(Voice voice:speech.getVoices()){
+          if(Locale.US.equals(voice.getLocale())&&!voice.isNetworkConnectionRequired()){speech.setVoice(voice);break;}
+        }
+        speech.setSpeechRate(.85f);
+        speech.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+        speechReady=language!=TextToSpeech.LANG_MISSING_DATA&&language!=TextToSpeech.LANG_NOT_SUPPORTED;
+        speechFailed=!speechReady;
+        if(speechReady&&pendingSpeech!=null){speech.speak(pendingSpeech,TextToSpeech.QUEUE_FLUSH,null,"fairy-question");pendingSpeech=null;}
+      }else speechFailed=true;
+    });
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     web = new WebView(this);
     WebView.setWebContentsDebuggingEnabled((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0);
@@ -69,6 +90,13 @@ public final class MainActivity extends Activity {
   }
 
   public final class TabletControls {
+    @JavascriptInterface public boolean speak(String text) {
+      if(speechFailed||speech==null||text==null||text.length()>500)return false;
+      runOnUiThread(() -> {if(speechReady&&speech!=null)speech.speak(text,TextToSpeech.QUEUE_FLUSH,null,"fairy-question");else pendingSpeech=text;});
+      return true;
+    }
+    @JavascriptInterface public void stopSpeech() { runOnUiThread(() -> {pendingSpeech=null;if(speech!=null&&speechReady)speech.stop();}); }
+    @JavascriptInterface public boolean isSpeaking() { return speech!=null&&speech.isSpeaking(); }
     @JavascriptInterface public void setLocked(boolean value) {
       runOnUiThread(() -> {
         locked = value;
@@ -94,7 +122,7 @@ public final class MainActivity extends Activity {
       .setPositiveButton("Close",(dialog,which)->finish()).show();
   }
   @Override public void onWindowFocusChanged(boolean focus) { super.onWindowFocusChanged(focus); if(focus)hideBars(); }
-  @Override protected void onStop() { super.onStop();refreshOnResume=true; }
+  @Override protected void onStop() { super.onStop();refreshOnResume=true;pendingSpeech=null;if(speech!=null&&speechReady)speech.stop(); }
   @Override protected void onResume() {
     super.onResume();hideBars();
     if(refreshOnResume&&web!=null){
@@ -115,5 +143,5 @@ public final class MainActivity extends Activity {
         View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
     }
   }
-  @Override protected void onDestroy() { if(web!=null){web.removeJavascriptInterface("FairyAndroid");web.destroy();}super.onDestroy(); }
+  @Override protected void onDestroy() { speechReady=false;if(speech!=null){speech.stop();speech.shutdown();speech=null;}if(web!=null){web.removeJavascriptInterface("FairyAndroid");web.destroy();}super.onDestroy(); }
 }

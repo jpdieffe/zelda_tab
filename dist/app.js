@@ -4,11 +4,16 @@ import { Unicorn } from './unicorn.js';
 import { drawGuidance } from './guidance.js';
 import { Joystick } from './joystick.js';
 import { KidLock } from './kid-lock.js';
+import { LearningRound } from './learning.js';
+import { LaserReward } from './lasers.js';
+import { QuestionView, speakQuestion, stopQuestionAudio } from './question-view.js';
 import { Connection, roomCode, normalizeCode, validCode } from './network.js';
 import * as storage from './storage.js';
 
 const $=id=>document.getElementById(id);
 export const game={role:null,network:null,emulator:null,bridge:null,fairy:null,paused:false,ready:false,saving:false,loading:false};
+game.learning=new LearningRound();game.lasers=new LaserReward();
+const questionView=new QuestionView((token,index)=>game.network?.send({type:'quiz-answer',token,index}),token=>game.network?.send({type:'quiz-next',token}));
 const kidLock=new KidLock(locked=>game.network?.send({type:'kid-lock-state',locked}));
 let gameLoader,gameRom;
 game.guidanceEnabled=localStorage.getItem('guidance')!=='off';
@@ -60,15 +65,28 @@ function hostNetwork(){
     onCode:code=>{$('room-code').textContent=code;$('pair-info').disabled=false;},
     onStatus:(message,error)=>{status('dad-status',message,error);$('dad-led').classList.toggle('on',Boolean(game.network?.has('jj')||game.network?.has('michelle')));},
     onData:(data,role)=>{
+      if(role==='jj'&&data.type==='quiz-answer'){if(game.learning.answer(data.token,data.index))sendState();return;}
+      if(role==='jj'&&data.type==='quiz-next'){
+        const result=game.learning.advance(data.token);
+        if(result?.finished){
+          game.lasers.start(result);
+          if(result.giant){game.fairy.tx=game.fairy.x;game.fairy.ty=game.fairy.y;game.fairy.follow=false;game.unicorn.follow=false;game.unicorn.stop();}
+          if(document.hidden)wasHidden=true;else setPaused(false);
+        }
+        sendState();return;
+      }
       if(role==='michelle'){
         if(!game.ready||game.paused)return;
-        if(data.type==='unicorn-move')game.unicorn.setInput(data.x,data.y);
+        if(data.type==='unicorn-move'){if(game.lasers.steering('michelle'))game.lasers.setAim('michelle',data.x,data.y);else game.unicorn.setInput(data.x,data.y);}
         if(data.type==='unicorn-fire'){const result=game.unicorn.fire((target,source)=>game.bridge.hit(target,source));game.network.send({type:'unicorn-shot',result},'michelle');}
         if(data.type==='unicorn-heal'){const result=game.unicorn.heal(()=>game.bridge.heal());game.network.send({type:'unicorn-heart',result},'michelle');}
         return;
       }
       if(role!=='jj')return;
-      if(data.type==='move'&&Number.isFinite(data.x)&&Number.isFinite(data.y))game.fairy?.move(data.x,data.y);
+      if(data.type==='move'&&!game.paused&&Number.isFinite(data.x)&&Number.isFinite(data.y)){
+        if(game.lasers.steering('jj'))game.lasers.setAim('jj',data.x-game.fairy.x,data.y-game.fairy.y);
+        else game.fairy?.move(data.x,data.y);
+      }
       if(data.type==='fire'&&game.ready&&!game.paused){const result=game.fairy.fire((target,fairy)=>game.bridge.hit(target,fairy));game.network.send({type:'shot',result},'jj');}
       if(data.type==='sound'){setPhoneAudio(!Boolean(data.enabled));}
       if(data.type==='video-retry')game.network.sendVideo();
@@ -140,7 +158,7 @@ async function onGameStarted(){
 }
 
 function frame(now){
-  const dt=Math.min((now-lastFrame)/1000,.05);lastFrame=now;
+  const elapsed=Math.max(0,Math.min((now-lastFrame)/1000,1)),dt=Math.min(elapsed,.05);lastFrame=now;
   if(game.ready){
     const ctx=$('broadcast').getContext('2d',{alpha:false});
     const source=game.emulator.canvas;
@@ -150,10 +168,12 @@ function frame(now){
     // share the exact 256×224 game rectangle, regardless of device pixel ratio.
     ctx.imageSmoothingEnabled=false;ctx.drawImage(source,(source.width-width)/2,(source.height-height)/2,width,height,0,0,512,448);
     const world=game.bridge?.read();
+    if(game.learning.tick(elapsed,{playing:!game.paused&&world?.active&&world.link.health>0&&$('phone-options').hidden,tablet:game.network?.has('jj'),reward:game.lasers.active})){setPaused(true);}
     if(!game.paused){game.fairy.update(dt,world);game.unicorn.update(dt,world);}
+    game.lasers.update(elapsed,world,{jj:game.fairy,michelle:game.unicorn},(target,source,end,radius)=>game.bridge.laserHit(target,source,end,radius),game.paused);
     game.guidance=world?.guidance;
     $('dad-objective').textContent=game.guidanceEnabled?(game.guidance?.label||'Story compass · waiting for the adventure'):'Story compass off';
-    ctx.save();ctx.scale(2,2);if(game.unicorn.enabled)game.unicorn.draw(ctx,now);game.fairy.draw(ctx,now);if(game.guidanceEnabled)drawGuidance(ctx,world);ctx.restore();
+    ctx.save();ctx.scale(2,2);if(game.unicorn.enabled)game.unicorn.draw(ctx,now);game.fairy.draw(ctx,now);if(game.guidanceEnabled)drawGuidance(ctx,world);game.lasers.draw(ctx,now);ctx.restore();
     if(!$('controller').hidden){const canvas=$('dad-canvas'),pc=canvas.getContext('2d',{alpha:false});pc.imageSmoothingEnabled=false;pc.drawImage($('broadcast'),0,0,canvas.width,canvas.height);}
     if(!$('peek-panel').hidden){const pc=$('peek-canvas').getContext('2d');pc.imageSmoothingEnabled=false;pc.drawImage($('broadcast'),0,0);}
     if(now-lastState>100){sendState();lastState=now;}
@@ -161,7 +181,11 @@ function frame(now){
   frameId=requestAnimationFrame(frame);
 }
 function sendState(){
-  const common={type:'state',ready:game.ready,paused:game.paused,active:game.fairy?.active||false,bridge:Boolean(game.bridge?.ram),objective:game.guidanceEnabled?game.guidance?.label||'':''};
+  const learning=game.learning.snapshot(),lasers=game.lasers.snapshot();
+  $('dad-learning').hidden=!learning&&!lasers;$('skip-questions').hidden=!learning;
+  $('dad-learning-text').textContent=learning?`${learning.name}'s turn on the tablet. Zelda is paused.`:game.lasers.label();
+  $('pause').disabled=Boolean(learning);
+  const common={type:'state',ready:game.ready,paused:game.paused,active:game.fairy?.active||false,bridge:Boolean(game.bridge?.ram),objective:game.guidanceEnabled?game.guidance?.label||'':'',learning,lasers};
   game.network?.send({...common,target:Boolean(game.fairy?.target),cooldown:game.fairy?.cooldown||0},'jj');
   game.network?.send({...common,target:Boolean(game.unicorn?.target),cooldown:game.unicorn?.cooldown||0,healCooldown:game.unicorn?.healCooldown||0,bouncing:(game.unicorn?.invulnerable||0)>.5},'michelle');
 }
@@ -179,6 +203,7 @@ function input(key,pressed){
   game.emulator.gameManager.simulateInput(0,Number(key),pressed?1:0);
 }
 function press(key,source){
+  if(!game.ready||game.paused)return;
   if(!buttons.has(key))buttons.set(key,new Set());const set=buttons.get(key);
   if(!set.size)input(key,true);set.add(source);
   document.querySelector(`[data-key="${key}"]`)?.classList.add('pressed');
@@ -218,6 +243,10 @@ $('michelle-form').onsubmit=async e=>{
     onData:data=>{
       if(data.type==='state'){
         michelleReady=data.ready&&data.active&&data.bridge&&!data.paused;
+        const aiming=data.lasers?.giant&&data.lasers.roles.includes('michelle');
+        $('michelle-learning').hidden=!data.learning&&!data.lasers;
+        $('michelle-learning').textContent=data.learning?`${data.learning.name}'s turn. Answer on the big tablet.`:data.lasers?`${aiming?'Aim your giant laser with the joystick!':'Laser magic!'} ${Math.ceil(data.lasers.remaining)}s`:'';
+        $('unicorn-pad').querySelector('small').textContent=aiming?'DRAG TO AIM':'DRAG TO GALLOP';
         if(!michelleReady)releaseUnicorn();
         $('michelle-objective').textContent=data.objective||'';
         $('unicorn-fire').disabled=!michelleReady||data.cooldown>0;
@@ -236,10 +265,12 @@ window.addEventListener('keyup',e=>{if(keys[e.key])release(keys[e.key],'keyboard
 window.addEventListener('blur',releaseButtons);
 
 function setPaused(paused){
+  if(!paused&&(game.learning.round||document.hidden))return;
   if(!game.ready)return;releaseButtons();game.unicorn?.stop();game.paused=paused;game.emulator.gameManager.toggleMainLoop(paused?0:1);
   $('pause').textContent=paused?'Resume':'Pause';sendState();
 }
 $('pause').onclick=()=>setPaused(!game.paused);
+$('skip-questions').onclick=()=>{game.learning.skip();if(document.hidden)wasHidden=true;else setPaused(false);sendState();};
 $('peek').onclick=()=>{$('peek-panel').hidden=false;};$('close-peek').onclick=()=>{$('peek-panel').hidden=true;};
 $('options').onclick=()=>{releaseButtons();$('phone-options').hidden=false;};$('close-options').onclick=()=>{$('phone-options').hidden=true;};
 $('unlock-tablet').onclick=()=>{if(game.network?.connection?.open){game.network.send({type:'unlock-tablet'},'jj');toast('Unlock requested on JJ’s tablet.');}else toast('Pair JJ’s tablet first.');};
@@ -271,11 +302,12 @@ $('exit-game').onclick=async()=>{if(await saveGame(false))location.href=location
 $('join-form').onsubmit=async e=>{
   e.preventDefault();const code=normalizeCode($('join-code').value);
   if(!validCode(code)){status('join-status','Enter the two letters shown on Dad’s phone.',true);return;}
+  speakQuestion('Ready for learning magic.');
   game.role='jj';game.network?.close();await awake();$('join').disabled=true;status('join-status','Finding Dad’s phone…');
   game.network=new Connection({role:'jj',code,
     onStatus:(message,error)=>{status('join-status',message,error);status('tablet-status',message,error);if(error)$('join').disabled=false;},
-    onConnected:()=>{show('tablet');$('join').disabled=false;$('screen-message').hidden=false;game.network.send({type:'sound',enabled:tabSound});},
-    onDisconnected:()=>{$('screen-message').hidden=false;$('screen-message').querySelector('p').textContent='Reconnecting to Dad… Keep both tabs open.';$('fire').disabled=true;},
+    onConnected:()=>{show('tablet');questionView.setConnected(true);$('join').disabled=false;$('screen-message').hidden=false;game.network.send({type:'sound',enabled:tabSound});},
+    onDisconnected:()=>{questionView.setConnected(false);$('screen-message').hidden=false;$('screen-message').querySelector('p').textContent='Reconnecting to Dad… Keep both tabs open.';$('fire').disabled=true;},
     onStream:async media=>{$('video').srcObject=media;try{await $('video').play();$('screen-message').hidden=true;}catch{$('screen-message').querySelector('p').textContent='Tap Sound on to start the video.';}},
     onData:onTabletData,
   });
@@ -286,6 +318,11 @@ function onTabletData(data){
   if(data.type==='unlock-tablet')kidLock.unlock();
   if(data.type==='state'){
     tabletState=data;
+    questionView.setConnected(true);questionView.render(data.learning);
+    $('tablet').classList.toggle('learning-active',Boolean(data.learning));
+    $('video').muted=Boolean(data.learning)||!tabSound;
+    $('tablet-learning').hidden=!data.lasers;
+    $('tablet-learning').textContent=data.lasers?`${data.lasers.giant?'TEAM LASERS! JJ, drag to aim. Michelle, use your phone.':'Laser blasts!'} ${Math.ceil(data.lasers.remaining)}s`:'';
     $('tablet-objective').textContent=data.objective||'';$('tablet-objective').hidden=!data.objective;
     $('fire').disabled=!data.ready||data.paused||!data.active||!data.bridge||data.cooldown>0;
     $('fire').classList.toggle('ready',data.target&&data.cooldown===0);
@@ -298,6 +335,7 @@ function onTabletData(data){
   }
 }
 function moveFairy(e){
+  if(tabletState?.paused||questionView.question)return;
   const now=performance.now();if(e.type==='pointermove'&&now-moveStamp<25)return;moveStamp=now;
   const r=$('tap-surface').getBoundingClientRect(),x=Math.max(0,Math.min(256,(e.clientX-r.left)/r.width*256)),y=Math.max(32,Math.min(224,(e.clientY-r.top)/r.height*224));
   game.network?.send({type:'move',x,y});
@@ -315,7 +353,7 @@ $('tablet-sound').onclick=async()=>{
   try{await $('video').play();$('tablet-sound').textContent=tabSound?'Sound off':'Sound on';game.network?.send({type:'sound',enabled:tabSound});}
   catch{tabSound=false;$('video').muted=true;toast('Tap again when the game picture arrives.');}
 };
-$('tablet-leave').onclick=()=>{if(kidLock.locked)return;game.network?.close();game.network=null;$('video').srcObject=null;show('jj-setup');};
+$('tablet-leave').onclick=()=>{if(kidLock.locked)return;stopQuestionAudio();questionView.render(null);game.network?.close();game.network=null;$('video').srcObject=null;show('jj-setup');};
 setInterval(()=>{
   if(game.role!=='jj'||$('tablet').hidden||!game.network?.connection?.open)return;
   if($('video').currentTime!==lastVideoTime){lastVideoTime=$('video').currentTime;videoStamp=Date.now();}
