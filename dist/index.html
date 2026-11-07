@@ -40,7 +40,7 @@
     <div class="unicorn-controls">
       <div class="dpad joystick" id="unicorn-pad" role="group" aria-label="Unicorn joystick: touch anywhere and drag to move"><span class="joystick-ring"></span><span class="joystick-knob"></span><small>DRAG TO GALLOP</small></div>
       <div class="unicorn-middle"><img src="./unicorn.svg" alt="Michelle's unicorn" width="65" height="65"><button id="unicorn-heal" class="heal-button" disabled aria-label="Send a heart to heal Link"><span>♥</span><small id="heal-label">HEAL LINK</small></button></div>
-      <button id="unicorn-fire" class="unicorn-attack" disabled aria-label="Shoot unicorn magic"><span>✦</span><strong>ATTACK</strong></button>
+      <div class="unicorn-weapons"><button id="unicorn-fire" class="unicorn-attack" disabled aria-label="Shoot unicorn magic"><span>✦</span><strong>ATTACK</strong></button><button id="unicorn-bomb" class="bomb-button" disabled aria-label="Shoot a bomb"><span aria-hidden="true">●</span><strong id="bomb-label">BOMB</strong></button></div>
     </div>
     <footer class="unicorn-footer"><span id="unicorn-hint">Watch the big screen. You can't die!</span><small>♥ One heart · 5-second recharge</small></footer>
   </main>
@@ -85,7 +85,7 @@
       <button id="quiz-next" class="primary" hidden></button><p id="quiz-connection" role="status"></p><p id="quiz-audio-help" role="status"></p>
       <details id="quiz-parent-help"><summary>Grown-up prompt</summary><p id="quiz-parent-prompt"></p></details></div>
     </section><div id="game-screen" class="game-screen"><video id="video" autoplay playsinline muted></video><div id="tap-surface" class="tap-surface" role="application" aria-label="Tap or drag to fly your fairy"><span id="tap-marker" hidden>✧</span></div><div id="screen-message" class="screen-message"><img src="./icon.svg" alt="" width="72" height="72"><p>Waiting for the adventure…</p></div></div></div>
-    <footer class="fairy-bar"><div class="fairy-hint"><span class="eyebrow">YOU'VE GOT THIS, JJ</span><strong id="fairy-hint">Tap anywhere to fly!</strong></div><button id="fire" class="fire" disabled><span>✦</span> FAIRY SHOT <span>✦</span></button><div class="range-hint"><span class="range-dot"></span><span>Tap to aim.<br>Send a spark!</span></div></footer>
+    <footer class="fairy-bar"><div class="fairy-hint"><span class="eyebrow">YOU'VE GOT THIS, JJ</span><strong id="fairy-hint">Tap anywhere to fly!</strong></div><div class="fairy-weapons"><button id="fire" class="fire" disabled><span>✦</span> FAIRY SHOT <span>✦</span></button><button id="arrows" class="fire arrow-button" disabled aria-label="Fire five arrows in a fan"><span aria-hidden="true">➶</span><strong id="arrow-label">5 ARROWS</strong></button></div><div class="range-hint"><span class="range-dot"></span><span>Tap to aim.<br>Send a spark!</span></div></footer>
   </main>
 
   <div id="emulator-stage" aria-hidden="true"><div id="emulator"></div><canvas id="broadcast" width="512" height="448"></canvas></div>

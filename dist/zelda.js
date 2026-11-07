@@ -90,6 +90,7 @@ export class ZeldaBridge {
   laserHit(target,source,end,radius) { return this.ram ? applyLaserHit(this.ram,target,source,end,radius) : false; }
   heal() { return this.ram ? applyHeal(this.ram) : false; }
   fireSound(){return this.ram?playFireSound(this.ram):false;}
+  bombSound(){return this.ram?playFireSound(this.ram,true):false;}
 }
 
 export function readWorld(ram) {
@@ -153,10 +154,10 @@ function queueHit(ram, target, fairy, range) {
   return true;
 }
 
-export function playFireSound(ram){
+export function playFireSound(ram,bomb=false){
   if(!readWorld(ram).active||ram[ADDR.sound])return false;
-  // Original Fire Rod launch sound, carried by the existing game audio stream.
-  ram[ADDR.sound]=0x0e;return true;
+  // Native bomb explosion or Fire Rod launch, carried by the game audio stream.
+  ram[ADDR.sound]=bomb?0x0c:0x0e;return true;
 }
 
 export function applyHeal(ram) {

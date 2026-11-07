@@ -15,6 +15,8 @@ Hosted on GitHub Pages. No ChatGPT account or login is required.
 5. JJ taps or drags on the game picture to fly. The fairy follows Link until JJ chooses a destination, follows scrolling, and returns beside Link when the room changes. A faint ring shows its range. When an enemy is close, the fire button lights up and sparks home toward it. With no target, sparks fire in the fairy's last flight direction (up before its first move), burst against walls, and can be fired just for fun.
 6. Tap **Sound on** on the tablet to move game sound there. Leave both browser tabs open and the phone unlocked. The app requests a screen wake lock where supported.
 
+JJ's **5 ARROWS** button fires five straight arrows in a fan, aimed toward a nearby enemy or his last flight direction. Recharge: 1.2 seconds, separate from Fairy Shot. Arrows stop at walls and damage enemy bodies.
+
 No computer or home server is required after deployment. An internet connection is needed to load the app/emulator and reach PeerJS's public pairing service. After pairing, WebRTC streams game video/audio and control messages directly between devices. No TURN relay is configured. Guest Wi-Fi client isolation, VPNs, or networks that block direct peer connections can prevent pairing.
 
 ## Michelle's unicorn
@@ -23,6 +25,7 @@ Open the same game URL on Michelle's phone, choose **I'm Michelle**, and enter t
 
 - Drag the joystick to gallop. Walls block the unicorn; the character slides along them. It joins beside Link and follows him until Michelle starts steering, and returns beside him in a new room.
 - **Attack** fires magic toward the closest vulnerable enemy within 54 game pixels. Without a target it shoots in the last movement direction and bursts against walls. Recharge: 450 ms.
+- **Bomb** launches a bomb toward a nearby enemy or the unicorn's last movement direction. It explodes on enemy contact or after 0.8 seconds, damaging enemies within its blast with an explosion sound. Walls stop its flight. Recharge: two seconds, separate from Attack. Companion bombs and arrows have unlimited ammunition, leave Link's inventory unchanged, and cannot hurt the players.
 - Enemy contact knocks the unicorn back, followed by one second of recovery. It has no health to lose and cannot die. Enemies and bosses can bounce it; NPCs cannot. Both companions can damage enemy bodies, including jumping statues, armored enemies and bosses. Their attacks share the game's native damage and defeat handling.
 - The small **heart button** sends a visible heart toward Link. On arrival it queues one heart through Zelda's original refill animation and sound, clamped to his heart capacity. Recharge: five seconds. It cannot revive Link after death. Room changes and dialogue discard hearts in flight.
 - Pausing or losing the connection stops movement. The host expires movement input after 350 ms without a refresh. Each player has a separate connection; Michelle joining/leaving does not replace JJ or his video stream. Only JJ receives video, keeping Michelle's connection lightweight.

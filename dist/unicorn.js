@@ -1,4 +1,5 @@
 import {Fairy} from './fairy.js';
+import {BombLauncher} from './bombs.js';
 export const HEAL_COOLDOWN=5000;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const placementOffsets=[];
@@ -8,6 +9,7 @@ export class Unicorn extends Fairy {
   constructor(){
     super();this.offsetX=-22;this.offsetY=10;this.enabled=false;this.inputX=0;this.inputY=0;this.inputAge=1;
     this.knockX=0;this.knockY=0;this.invulnerable=0;this.bounces=0;this.healCooldown=0;this.hearts=[];this.facing=1;
+    this.bombs=new BombLauncher();
   }
   setInput(x,y){
     if(!Number.isFinite(x)||!Number.isFinite(y))return;
@@ -16,6 +18,7 @@ export class Unicorn extends Fairy {
   }
   stop(){this.inputX=0;this.inputY=0;this.inputAge=1;}
   update(dt,world){
+    this.bombs.update(dt,this.enabled?world:null);
     this.healCooldown=Math.max(0,this.healCooldown-dt*1000);this.inputAge+=dt;
     this.invulnerable=Math.max(0,this.invulnerable-dt);
     if(!this.enabled||!world?.active){super.update(dt,null);this.hearts=[];this.knockX=this.knockY=0;this.stop();return;}
@@ -102,6 +105,7 @@ export class Unicorn extends Fairy {
     this.walking=Math.hypot(this.x-startX,this.y-startY)>.1;
   }
   fire(hit){const result=super.fire(hit);if(result==='fired')this.cooldown=450;return result;}
+  fireBomb(hit,explode,aim){return this.bombs.fire(this,hit,explode,aim);}
   heal(heal){
     if(!this.active||this.healCooldown>0)return 'wait';
     this.healCooldown=HEAL_COOLDOWN;this.hearts.push({x:this.x,y:this.y-9,life:0,heal});return 'sent';
@@ -109,6 +113,7 @@ export class Unicorn extends Fairy {
   draw(ctx,time){
     if(!this.active)return;
     super.draw(ctx,time);
+    this.bombs.draw(ctx);
     ctx.save();ctx.fillStyle='#ff9ac6';ctx.strokeStyle='#8b395d';ctx.lineWidth=.8;
     for(const h of this.hearts){ctx.save();ctx.translate(h.x,h.y);ctx.beginPath();ctx.moveTo(0,5);ctx.bezierCurveTo(-11,-1,-4,-8,0,-3);ctx.bezierCurveTo(4,-8,11,-1,0,5);ctx.fill();ctx.stroke();ctx.restore();}
     ctx.restore();

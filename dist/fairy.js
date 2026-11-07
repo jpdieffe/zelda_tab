@@ -1,5 +1,6 @@
 export const RANGE = 54;
 export const COOLDOWN = 650;
+export const ARROW_COOLDOWN=1200;
 const clamp = (v, lo, hi) => Math.max(lo,Math.min(hi,v));
 export function nearestEnemy(enemies, fairy, range = RANGE) {
   let result = null, distance = range;
@@ -11,13 +12,14 @@ export function nearestEnemy(enemies, fairy, range = RANGE) {
   return result;
 }
 export class Fairy {
-  constructor() {this.x=136;this.y=100;this.tx=136;this.ty=100;this.offsetX=18;this.offsetY=-16;this.aimX=0;this.aimY=-1;this.cooldown=0;this.shots=[];this.sparks=[];this.scene=null;this.world=null;this.active=false;this.follow=true;}
+  constructor() {this.x=136;this.y=100;this.tx=136;this.ty=100;this.offsetX=18;this.offsetY=-16;this.aimX=0;this.aimY=-1;this.cooldown=0;this.arrowCooldown=0;this.shots=[];this.sparks=[];this.scene=null;this.world=null;this.active=false;this.follow=true;}
   move(x,y) {
     if (!Number.isFinite(x)||!Number.isFinite(y)) return;
     this.tx=clamp(x,5,251);this.ty=clamp(y,36,218);this.follow=false;
   }
   update(dt,world) {
     this.world=world;this.cooldown=Math.max(0,this.cooldown-dt*1000);
+    this.arrowCooldown=Math.max(0,this.arrowCooldown-dt*1000);
     this.active=Boolean(world?.active);
     if (!this.active) {this.shots=[];this.sparks=[];return;}
     if(this.scene!==world.scene) {
@@ -70,13 +72,32 @@ export class Fairy {
     this.shots.push({x:this.x,y:this.y,vx:this.aimX,vy:this.aimY,target:target?{slot:target.slot,type:target.type}:null,life:0,hit});
     return 'fired';
   }
+  fireArrows(hit,aim){
+    if(!this.active||!this.world?.active||this.arrowCooldown>0)return 'wait';
+    const target=nearestEnemy(this.world.enemies,this);
+    const direction=aim||(target?{x:target.x-this.x,y:target.y-this.y}:{x:this.aimX,y:this.aimY});
+    const angle=Math.atan2(direction.y,direction.x);this.arrowCooldown=ARROW_COOLDOWN;
+    for(let i=-2;i<=2;i++){
+      const a=angle+i*Math.PI/8;
+      this.shots.push({kind:'arrow',x:this.x,y:this.y,vx:Math.cos(a),vy:Math.sin(a),target:null,life:0,hit});
+    }
+    return 'fired';
+  }
   draw(ctx,time) {
     if(!this.active)return;
     ctx.save();
     ctx.strokeStyle=this.target?'#d8f1a565':'#dbf4cb20';ctx.lineWidth=.6;
     ctx.setLineDash([2,4]);ctx.beginPath();ctx.arc(this.x,this.y,RANGE,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
     if(this.target){ctx.strokeStyle='#f7ed9f';ctx.lineWidth=1;ctx.beginPath();ctx.arc(this.target.x,this.target.y,11,0,Math.PI*2);ctx.stroke();}
-    for(const shot of this.shots){ctx.shadowColor='#fbf0a7';ctx.shadowBlur=8;ctx.fillStyle='#fff9ba';ctx.beginPath();ctx.arc(shot.x,shot.y,2.5,0,Math.PI*2);ctx.fill();}
+    for(const shot of this.shots){
+      ctx.shadowColor='#fbf0a7';ctx.shadowBlur=8;ctx.fillStyle='#fff9ba';
+      if(shot.kind==='arrow'){
+        ctx.save();ctx.translate(shot.x,shot.y);ctx.rotate(Math.atan2(shot.vy,shot.vx));
+        ctx.strokeStyle='#edc476';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(-8,0);ctx.lineTo(4,0);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(7,0);ctx.lineTo(1,-3);ctx.lineTo(1,3);ctx.closePath();ctx.fill();
+        ctx.fillStyle='#83ffcb';ctx.fillRect(-8,-2,3,4);ctx.restore();
+      }else{ctx.beginPath();ctx.arc(shot.x,shot.y,2.5,0,Math.PI*2);ctx.fill();}
+    }
     for(const s of this.sparks){ctx.globalAlpha=s.life/.3;ctx.fillStyle='#fff0a3';ctx.fillRect(s.x,s.y,1.7,1.7);}ctx.globalAlpha=1;
     this.drawBody(ctx,time);ctx.restore();
   }

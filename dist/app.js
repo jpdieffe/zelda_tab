@@ -81,6 +81,10 @@ function hostNetwork(){
         if(data.type==='unicorn-move'){if(game.lasers.steering('michelle'))game.lasers.setAim('michelle',data.x,data.y);else game.unicorn.setInput(data.x,data.y);}
         if(data.type==='unicorn-fire'){const result=game.unicorn.fire((target,source)=>game.bridge.hit(target,source));if(result==='fired')game.bridge.fireSound();game.network.send({type:'unicorn-shot',result},'michelle');}
         if(data.type==='unicorn-heal'){const result=game.unicorn.heal(()=>game.bridge.heal());game.network.send({type:'unicorn-heart',result},'michelle');}
+        if(data.type==='unicorn-bomb'){
+          const result=game.unicorn.fireBomb((target,source)=>game.bridge.hit(target,source),()=>game.bridge.bombSound(),game.lasers.steering('michelle')?game.lasers.aim.michelle:null);
+          if(result==='fired')game.bridge.fireSound();sendState();
+        }
         return;
       }
       if(role!=='jj')return;
@@ -89,6 +93,10 @@ function hostNetwork(){
         else game.fairy?.move(data.x,data.y);
       }
       if(data.type==='fire'&&game.ready&&!game.paused){const result=game.fairy.fire((target,fairy)=>game.bridge.hit(target,fairy));if(result==='fired')game.bridge.fireSound();game.network.send({type:'shot',result},'jj');}
+      if(data.type==='arrows'&&game.ready&&!game.paused){
+        const result=game.fairy.fireArrows((target,source)=>game.bridge.hit(target,source),game.lasers.steering('jj')?game.lasers.aim.jj:null);
+        if(result==='fired')game.bridge.fireSound();sendState();
+      }
       if(data.type==='sound'){setPhoneAudio(!Boolean(data.enabled));}
       if(data.type==='video-retry')game.network.sendVideo();
       if(data.type==='kid-lock-state')game.tabletLocked=Boolean(data.locked);
@@ -187,8 +195,8 @@ function sendState(){
   $('dad-learning-text').textContent=learning?(learning.phase==='ready'?'Get ready for questions on the tablet.':`${learning.name}'s turn on the tablet. Zelda is paused.`):game.lasers.label();
   $('pause').disabled=Boolean(learning);
   const common={type:'state',ready:game.ready,paused:game.paused,active:game.fairy?.active||false,bridge:Boolean(game.bridge?.ram),objective:game.guidanceEnabled?game.guidance?.label||'':'',learning,lasers};
-  game.network?.send({...common,target:Boolean(game.fairy?.target),cooldown:game.fairy?.cooldown||0},'jj');
-  game.network?.send({...common,target:Boolean(game.unicorn?.target),cooldown:game.unicorn?.cooldown||0,healCooldown:game.unicorn?.healCooldown||0,bouncing:(game.unicorn?.invulnerable||0)>.5},'michelle');
+  game.network?.send({...common,target:Boolean(game.fairy?.target),cooldown:game.fairy?.cooldown||0,arrowCooldown:game.fairy?.arrowCooldown||0},'jj');
+  game.network?.send({...common,target:Boolean(game.unicorn?.target),cooldown:game.unicorn?.cooldown||0,healCooldown:game.unicorn?.healCooldown||0,bombCooldown:game.unicorn?.bombs.cooldown||0,bouncing:(game.unicorn?.invulnerable||0)>.5},'michelle');
 }
 function setPhoneAudio(enabled){
   if(enabled===phoneAudio)return;phoneAudio=enabled;
@@ -228,7 +236,7 @@ function releaseUnicorn(){unicornJoystick.reset();}
 setInterval(()=>{if(unicornJoystick.vector.x||unicornJoystick.vector.y)sendUnicornMove();},100);
 window.addEventListener('blur',releaseUnicorn);
 $('michelle-leave').onclick=()=>{releaseUnicorn();game.network?.close();game.network=null;michelleReady=false;show('michelle-setup');};
-for(const [id,type] of [['unicorn-fire','unicorn-fire'],['unicorn-heal','unicorn-heal']]){
+for(const [id,type] of [['unicorn-fire','unicorn-fire'],['unicorn-heal','unicorn-heal'],['unicorn-bomb','unicorn-bomb']]){
   const action=e=>{e.preventDefault();if($(id).disabled||!michelleReady)return;game.network?.send({type});$(id).disabled=true;};
   $(id).onpointerdown=e=>{if(e.button===0)action(e);};
   $(id).onkeydown=e=>{if(!e.repeat&&(e.key==='Enter'||e.key===' '))action(e);};
@@ -240,7 +248,7 @@ $('michelle-form').onsubmit=async e=>{
   game.network=new Connection({role:'michelle',code,
     onStatus:(message,error)=>{status('michelle-join-status',message,error);status('michelle-status',message,error);if(error)$('michelle-join').disabled=false;},
     onConnected:()=>{show('unicorn-controller');$('michelle-join').disabled=false;$('michelle-room').textContent=code;releaseUnicorn();},
-    onDisconnected:()=>{michelleReady=false;releaseUnicorn();$('unicorn-fire').disabled=true;$('unicorn-heal').disabled=true;},
+    onDisconnected:()=>{michelleReady=false;releaseUnicorn();$('unicorn-fire').disabled=true;$('unicorn-heal').disabled=true;$('unicorn-bomb').disabled=true;},
     onData:data=>{
       if(data.type==='state'){
         michelleReady=data.ready&&data.active&&data.bridge&&!data.paused;
@@ -252,6 +260,8 @@ $('michelle-form').onsubmit=async e=>{
         $('michelle-objective').textContent=data.objective||'';
         $('unicorn-fire').disabled=!michelleReady||data.cooldown>0;
         $('unicorn-heal').disabled=!michelleReady||data.healCooldown>0;
+        $('unicorn-bomb').disabled=!michelleReady||data.bombCooldown>0;
+        $('bomb-label').textContent=data.bombCooldown>0?Math.ceil(data.bombCooldown/1000)+'s':'BOMB';
         $('unicorn-fire').classList.toggle('ready',data.target);
         $('heal-label').textContent=data.healCooldown>0?Math.ceil(data.healCooldown/1000)+'s':'HEAL LINK';
         $('unicorn-hint').textContent=data.paused?'Dad paused the adventure.':!data.bridge?'Magic unavailable — check Dad’s phone.':!data.active?'Waiting for the adventure…':data.bouncing?'Boing! You’re invincible.':data.target?'A baddie is in range!':'Watch the big screen. You can’t die!';
@@ -308,7 +318,7 @@ $('join-form').onsubmit=async e=>{
   game.network=new Connection({role:'jj',code,
     onStatus:(message,error)=>{status('join-status',message,error);status('tablet-status',message,error);if(error)$('join').disabled=false;},
     onConnected:()=>{show('tablet');questionView.setConnected(true);$('join').disabled=false;$('screen-message').hidden=false;game.network.send({type:'sound',enabled:tabSound});},
-    onDisconnected:()=>{questionView.setConnected(false);$('screen-message').hidden=false;$('screen-message').querySelector('p').textContent='Reconnecting to Dad… Keep both tabs open.';$('fire').disabled=true;},
+    onDisconnected:()=>{questionView.setConnected(false);$('screen-message').hidden=false;$('screen-message').querySelector('p').textContent='Reconnecting to Dad… Keep both tabs open.';$('fire').disabled=true;$('arrows').disabled=true;},
     onStream:async media=>{$('video').srcObject=media;try{await $('video').play();$('screen-message').hidden=true;}catch{$('screen-message').querySelector('p').textContent='Tap Sound on to start the video.';}},
     onData:onTabletData,
   });
@@ -326,6 +336,8 @@ function onTabletData(data){
     $('tablet-learning').textContent=data.lasers?`${data.lasers.giant?'GIANT LASERS! ':''}${data.lasers.roles.includes('jj')?'JJ, drag on the game to aim! ':''}${data.lasers.roles.includes('michelle')?'Michelle, aim with your joystick! ':''}${Math.ceil(data.lasers.remaining)}s`:'';
     $('tablet-objective').textContent=data.objective||'';$('tablet-objective').hidden=!data.objective;
     $('fire').disabled=!data.ready||data.paused||!data.active||!data.bridge||data.cooldown>0;
+    $('arrows').disabled=!data.ready||data.paused||!data.active||!data.bridge||data.arrowCooldown>0;
+    $('arrow-label').textContent=data.arrowCooldown>0?Math.ceil(data.arrowCooldown/1000)+'s':'5 ARROWS';
     $('fire').classList.toggle('ready',data.target&&data.cooldown===0);
     if(data.paused){$('screen-message').hidden=false;$('screen-message').querySelector('p').textContent='A little rest. Dad will resume the adventure.';}
     else if($('video').readyState>=2)$('screen-message').hidden=true;
@@ -349,6 +361,9 @@ $('tap-surface').onpointermove=e=>{if(touches.has(e.pointerId))moveFairy(e);};
 for(const name of ['onpointerup','onpointercancel','onlostpointercapture'])$('tap-surface')[name]=e=>touches.delete(e.pointerId);
 $('fire').onpointerdown=e=>{e.preventDefault();if(e.button!==0||$('fire').disabled)return;game.network?.send({type:'fire'});$('fire').disabled=true;navigator.vibrate?.(20);setTimeout(()=>{if(tabletState?.active&&!tabletState.paused&&tabletState.bridge)$('fire').disabled=false;},COOLDOWN);};
 $('fire').onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&!$('fire').disabled){e.preventDefault();game.network?.send({type:'fire'});}};
+function shootArrows(e){e.preventDefault();if($('arrows').disabled||tabletState?.paused||questionView.question)return;game.network?.send({type:'arrows'});$('arrows').disabled=true;navigator.vibrate?.(20);}
+$('arrows').onpointerdown=e=>{if(e.button===0)shootArrows(e);};
+$('arrows').onkeydown=e=>{if(!e.repeat&&(e.key==='Enter'||e.key===' '))shootArrows(e);};
 $('tablet-sound').onclick=async()=>{
   tabSound=!tabSound;$('video').muted=!tabSound;
   try{await $('video').play();$('tablet-sound').textContent=tabSound?'Sound off':'Sound on';game.network?.send({type:'sound',enabled:tabSound});}

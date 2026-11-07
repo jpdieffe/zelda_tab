@@ -4,6 +4,7 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { serve } from './serve.mjs';
 import { learningChecks } from './learning-browser-checks.mjs';
+import { weaponChecks } from './weapon-browser-checks.mjs';
 const server=serve();
 const browser=await chromium.launch({executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:['--autoplay-policy=no-user-gesture-required','--disable-background-timer-throttling','--disable-renderer-backgrounding']});
 const tabletBrowser=await chromium.launch({executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:['--autoplay-policy=no-user-gesture-required']});
@@ -147,8 +148,9 @@ try{
   await michelle.locator('#unicorn-fire').click();
   await dad.waitForFunction(old=>testGame.bridge.ram[0xe50+14]<old,unicornHp,{timeout:5000});
   console.log('Unicorn homing attack dealt native enemy damage');
+  await weaponChecks({dad,jj,michelle,shot});
   const bounces=await dad.evaluate(()=>{
-    const u=testGame.unicorn,r=testGame.bridge.ram;u.x=120;u.y=145;u.follow=false;u.stop();
+    const u=testGame.unicorn,r=testGame.bridge.ram;u.x=120;u.y=145;u.follow=false;u.stop();u.invulnerable=0;u.knockX=u.knockY=0;
     const x=u.x+testGame.bridge.read().cameraX-3,y=u.y+testGame.bridge.read().cameraY-8,k=14;
     r[0xd10+k]=x&255;r[0xd30+k]=x>>8;r[0xd00+k]=y&255;r[0xd20+k]=y>>8;return u.bounces;
   });

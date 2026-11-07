@@ -56,6 +56,7 @@ test('a freely aimed shot hits an enemy that enters its path, even after the fai
 });
 test('laser firing queues audible fire-rod pulses, stopping during questions and at expiry',()=>{
   const r=enemy(0x53);assert.equal(playFireSound(r),true);assert.equal(r[A.sound],0x0e);
+  r[A.sound]=0;assert.equal(playFireSound(r,true),true);assert.equal(r[A.sound],0x0c,'Bombs queue the native explosion sound');
   r[A.sound]=0x22;assert.equal(playFireSound(r),false);assert.equal(r[A.sound],0x22,'Do not overwrite another queued game sound');
   r[A.sound]=0;r[A.module]=14;assert.equal(playFireSound(r),false);
   const l=new LaserReward(),w={active:true,enemies:[],wallAt:()=>false},c={jj:{active:true,x:50,y:100,aimX:1,aimY:0}};let sounds=0;

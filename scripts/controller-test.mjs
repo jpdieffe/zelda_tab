@@ -38,7 +38,7 @@ try{
   await page.evaluate(()=>document.querySelectorAll('.view').forEach(v=>v.hidden=v.id!=='unicorn-controller'));
   for(const [width,height] of [[900,430],[740,360],[390,844]]){
     await page.setViewportSize({width,height});
-    for(const selector of ['#unicorn-pad','#unicorn-fire','#unicorn-heal']){
+    for(const selector of ['#unicorn-pad','#unicorn-fire','#unicorn-heal','#unicorn-bomb']){
       const r=await page.locator(selector).boundingBox();assert.ok(r.width>=44&&r.height>=44);assert.ok(r.x>=0&&r.y>=0&&r.x+r.width<=width&&r.y+r.height<=height,selector+' within screen');
     }
     await page.screenshot({path:`test-results/michelle-layout-${width}.png`});

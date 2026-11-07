@@ -51,6 +51,15 @@
 #quiz-connection,#quiz-audio-help{font-size:13px;margin:5px 0;color:#ffe0a8}
 #quiz-parent-help{font-size:12px;color:var(--muted);margin-top:10px}#quiz-parent-help summary{cursor:pointer}#quiz-parent-prompt{margin:8px 0}
 .tablet.learning-active .fairy-bar{display:none}
+.fairy-weapons{display:flex;gap:14px;flex:2;max-width:760px;min-width:0}
+.fairy-weapons .fire{width:auto;flex:1;min-width:0;font-size:clamp(14px,1.8vw,22px);padding:8px}
+.fairy-weapons .fire>span{margin:0 5px}.arrow-button{background:#c6eeb9;box-shadow:0 5px 0 #80a578}
+.unicorn-weapons{display:flex;flex-direction:column;align-items:center;gap:14px;flex-shrink:0}
+.bomb-button{display:flex;align-items:center;justify-content:center;gap:10px;width:140px;min-height:60px;padding:6px;border-radius:22px;background:#f5c785;color:#433145;border:2px solid #ffe4ba;box-shadow:0 4px 0 #94704b;touch-action:none}
+.bomb-button>span{font-size:30px;position:relative}.bomb-button>span:after{content:'';position:absolute;right:0;top:2px;width:8px;height:7px;border-top:3px solid #433145;transform:rotate(-35deg)}
+@media(orientation:landscape) and (max-height:380px){.unicorn-weapons{gap:8px}.unicorn-weapons .unicorn-attack{width:106px;height:106px}.bomb-button{width:122px;min-height:50px}}
+@media(max-width:700px){.fairy-weapons{gap:10px;flex:3}.fairy-weapons .fire>span{display:none}}
+@media(orientation:portrait){.fairy-weapons{flex-basis:100%;width:100%}.unicorn-weapons .bomb-button{width:128px}}
 @media(max-height:600px){.quiz-panel{padding:10px}.quiz-card h2{font-size:28px;margin:4px 0 8px}.quiz-question{margin-bottom:10px}.quiz-choice{min-height:84px;padding:8px;font-size:40px}#quiz-feedback{font-size:17px;margin:8px 0}.quiz-card .primary{min-height:44px;padding:10px 16px}.quiz-turn{font-size:14px}}
 @media(orientation:portrait){.quiz-choices{gap:8px}.quiz-choice{font-size:clamp(24px,7vw,48px);min-height:100px;border-width:3px}.quiz-question{flex-direction:column;gap:10px}.learning-status{font-size:11px}}
 #controller .controller-body{display:grid;grid-template-columns:210px minmax(0,1fr) 250px;gap:12px}
