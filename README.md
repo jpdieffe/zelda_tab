@@ -1,6 +1,6 @@
 # JJ's Fairy Link
 
-A three-player companion for **The Legend of Zelda: A Link to the Past (USA)**. Dad's Android phone runs the SNES emulator and displays a controller. JJ's Android tablet receives the game video and audio, controls a fairy by tapping or dragging, and fires short-range homing sparks at nearby ordinary enemies. Michelle can join from another phone as an invincible unicorn with a joystick, magic attacks and healing hearts.
+A three-player companion for **The Legend of Zelda: A Link to the Past (USA)**. Dad's Android phone runs the SNES emulator and displays a controller. JJ's Android tablet receives the game video and audio, controls a fairy by tapping or dragging, and fires short-range homing sparks at nearby enemies and bosses. Michelle can join from another phone as an invincible unicorn with a joystick, magic attacks and healing hearts.
 
 **Play:** https://jpdieffe.github.io/zelda_tab/
 
@@ -12,7 +12,7 @@ Hosted on GitHub Pages. No ChatGPT account or login is required.
 2. On the phone, choose **I'm Dad → Take the controls**. The included Zelda game starts automatically; there is no ZIP or ROM picker.
 3. On the tablet, choose **I'm JJ → Let's fly**, and enter the two-letter code on the phone. You can also tap the code on the phone to copy a direct pairing link.
 4. Turn both devices sideways. Tap the full-screen button. Press **START** on the phone once Zelda's title animation finishes, and create/select an ordinary game file.
-5. JJ taps or drags on the game picture to fly. The fairy follows Link until JJ chooses a destination, follows scrolling, and returns beside Link when the room changes. A faint ring shows its range. When an ordinary enemy is close, the fire button lights up and sparks home toward it. With no target, sparks fire in the fairy's last flight direction (up before its first move), burst against walls, and can be fired just for fun.
+5. JJ taps or drags on the game picture to fly. The fairy follows Link until JJ chooses a destination, follows scrolling, and returns beside Link when the room changes. A faint ring shows its range. When an enemy is close, the fire button lights up and sparks home toward it. With no target, sparks fire in the fairy's last flight direction (up before its first move), burst against walls, and can be fired just for fun.
 6. Tap **Sound on** on the tablet to move game sound there. Leave both browser tabs open and the phone unlocked. The app requests a screen wake lock where supported.
 
 No computer or home server is required after deployment. An internet connection is needed to load the app/emulator and reach PeerJS's public pairing service. After pairing, WebRTC streams game video/audio and control messages directly between devices. No TURN relay is configured. Guest Wi-Fi client isolation, VPNs, or networks that block direct peer connections can prevent pairing.
@@ -22,8 +22,8 @@ No computer or home server is required after deployment. An internet connection 
 Open the same game URL on Michelle's phone, choose **I'm Michelle**, and enter the same pairing code shown on Dad's phone. Turn it sideways. Her phone is a controller; everyone watches JJ's shared tablet. Michelle does not need an APK, ROM or download. The existing tablet APK loads the updated web game when reopened.
 
 - Drag the joystick to gallop. Walls block the unicorn; the character slides along them. It joins beside Link and follows him until Michelle starts steering, and returns beside him in a new room.
-- **Attack** fires magic toward the closest vulnerable ordinary enemy within 54 game pixels. Without a target it shoots in the last movement direction and bursts against walls. Recharge: 450 ms.
-- Enemy contact knocks the unicorn back, followed by one second of recovery. It has no health to lose and cannot die. Common enemies and supported bosses can bounce it; NPCs cannot. Attacks use the same conservative ordinary-enemy damage rules as JJ's fairy.
+- **Attack** fires magic toward the closest vulnerable enemy within 54 game pixels. Without a target it shoots in the last movement direction and bursts against walls. Recharge: 450 ms.
+- Enemy contact knocks the unicorn back, followed by one second of recovery. It has no health to lose and cannot die. Enemies and bosses can bounce it; NPCs cannot. Both companions can damage enemy bodies, including jumping statues, armored enemies and bosses. Their attacks share the game's native damage and defeat handling.
 - The small **heart button** sends a visible heart toward Link. On arrival it queues one heart through Zelda's original refill animation and sound, clamped to his heart capacity. Recharge: five seconds. It cannot revive Link after death. Room changes and dialogue discard hearts in flight.
 - Pausing or losing the connection stops movement. The host expires movement input after 350 ms without a refresh. Each player has a separate connection; Michelle joining/leaving does not replace JJ or his video stream. Only JJ receives video, keeping Michelle's connection lightweight.
 
@@ -31,9 +31,9 @@ The host accepts one JJ and one Michelle per code. A duplicate role receives an 
 
 ## Learning magic
 
-Every minute of active play with JJ's tablet connected (30 seconds while enemies are present), Zelda pauses at **Get ready for questions** on the big tablet. Tap **We’re ready!** to start. JJ answers first: listen to a letter name and tap it from three choices. Michelle answers next, also on the tablet: addition/subtraction with an answer from 0 through 10, alternating with a spoken sight word to find among three choices. **Hear again** repeats the prompt. A wrong answer prompts **Try again** until the child finds the answer; only a correct first attempt earns a bonus. Tap the next-turn button between children, then release the magic to resume.
+Every minute of active play with JJ's tablet connected (30 seconds while enemies are present), Zelda pauses at **Get ready for questions** on the big tablet. Tap **We’re ready!** to start. JJ answers first: listen to a letter name and tap it from three choices. Michelle answers next, also on the tablet: addition/subtraction with an answer from 0 through 10 and a full ordered keypad (0?9 plus 10), alternating with a spoken sight word to find among three choices. **Hear again** repeats the prompt. A wrong answer prompts **Try again** until the child finds the answer; only a correct first attempt earns a bonus. Tap the next-turn button between children, then release the magic to resume.
 
-One correct first attempt earns one minute of steerable laser blasts from that child's character. Two correct first attempts earn two giant lasers for one minute. For every laser, JJ drags on the tablet's game picture to aim the fairy's beam; Michelle uses her phone joystick to aim the unicorn's beam smoothly in any direction. Normal movement returns when the reward ends. Lasers stop at walls and use the original game's ordinary-enemy damage rules; they do not damage NPCs or bosses. Reward time freezes during questions, pauses and dialogue. Question timing continues during laser rewards. Later rounds preserve any previously earned time remaining; a new bonus refreshes that child's laser to a full minute.
+One correct first attempt earns one minute of steerable laser blasts from that child's character. Two correct first attempts earn two giant lasers for one minute. For every laser, JJ drags on the tablet's game picture to aim the fairy's beam; Michelle uses her phone joystick to aim the unicorn's beam smoothly in any direction. Normal movement returns when the reward ends. Lasers hit enemy bodies and bosses, stop at walls, and play repeating Fire Rod firing sounds through the game audio. Regular shots also make a firing sound. NPCs and scenery remain protected. Reward time freezes during questions, pauses and dialogue. Question timing continues during laser rewards. Later rounds preserve any previously earned time remaining; a new bonus refreshes that child's laser to a full minute.
 
 Question timing excludes dialogue, Zelda menus, manual pauses, and Dad's More menu. Reconnecting the tablet restores the same pending question. Dad can use **Skip this round** to resume without a reward. Both children answer each round even if Michelle temporarily disconnects her phone; reconnect her phone to use her character's laser.
 
@@ -99,7 +99,7 @@ All app assets use relative URLs so they work at the `/zelda_tab/` project path.
 
 - Range: **54 SNES pixels**; movement: **125 pixels/second**; cooldown: **650 ms**.
 - Each spark queues **1 damage unit** through the original game's pending-damage and recoil timers. Zelda itself handles health reduction, defeat, drops and room progression.
-- Targets are an explicit allowlist of ordinary enemies. NPCs, tutorial guards, switches, bosses and enemies with special damage requirements are excluded. This is deliberately a first-version limitation, not full enemy coverage.
+- Targets cover the game's hostile creature and boss types, including Armos statues/Knights, high-HP enemies and armored enemies. Magic bypasses ordinary weapon immunity. NPCs, tutorial guards, switches, items, scenery, duplicate boss images and scripted defeat sequences remain excluded. Blind counts native recoil hits; Trinexx side heads and yellow Stalfos first react to stun hits, and Ganon's final phase first becomes vulnerable before taking damage. Trinexx's side heads still unlock its final body phase.
 - Sprite state, health, invulnerability flags, floor, screen position, type, scene and distance are checked. A target is revalidated on impact. Dialogues, pause menus and room transitions disable shooting.
 - The fairy is an overlay tied to the emulator's live RAM, not a ROM patch. It is not persisted inside Zelda save states. Projectiles read live dungeon tile attributes and decode overworld collision through the bundled ROM's tile tables. They sweep in small steps to stop at walls and closed doors, while flying over pits and water. Sparks at the screen boundary burst and disappear. They do not activate switches or damage scenery.
 - The included USA ROM is verified against SHA-256 `66871d66be19ad2c34c927d6b14cd8eb6fc3181965b6e517cb361f7316009cfb` before starting. Randomizers, ROM hacks and other regions need separate memory profiles.
@@ -126,8 +126,9 @@ The browser integration test starts the bundled game without selecting any file 
 
 - `dist/app.js`: UI, automatic bundled-game loading, ROM validation, controller input, save states, audio routing and canvas streaming.
 - `dist/network.js`: one host with independent JJ and Michelle connections, role validation, targeted/broadcast messages, WebRTC video to JJ, heartbeat and reconnection.
-- `dist/zelda.js`: verified USA RAM map and conservative damage adapter. It locates the 128 KiB live WRAM by matching a Snes9x save snapshot, excluding serialized copies, checking the live frame counter, then verifying a second snapshot. It never writes to an unverified memory address.
+- `dist/zelda.js`: verified USA RAM map and native damage adapter. It locates the 128 KiB live WRAM by matching a Snes9x save snapshot, excluding serialized copies, checking the live frame counter, then verifying a second snapshot. It never writes to an unverified memory address.
 - `dist/fairy.js`: shared companion movement hooks, auto-targeting, free shots, projectile sweeps, bursts and fairy drawing.
+- `dist/enemies.js`: hostile sprite classification and boss body/phase guards.
 - `dist/unicorn.js`: joystick movement, wall sliding, enemy knockback, unicorn drawing, and healing projectiles.
 - Healing uses `link_hearts_filler` at WRAM `0xF372`, verified against [the original HUD refill path](https://github.com/snesrev/zelda3/blob/master/src/hud.c); one heart is eight units. Link's current health is never directly overwritten by companion healing.
 - `dist/collision.js`: live dungeon and overworld wall detection.
@@ -138,3 +139,5 @@ The browser integration test starts the bundled game without selecting any file 
 - [PeerJS](https://peerjs.com/client/getting-started) 1.5.5 is vendored with its license in `dist/vendor/`. EmulatorJS is GPL-3.0; Snes9x uses its own license and is fetched by EmulatorJS from its CDN. The Google Fonts stylesheet is optional; system font fallbacks are provided.
 
 Real Android performance, Wi-Fi latency, heat and audio behavior depend on the devices. Desktop browser integration testing cannot replace a session on the physical phone and tablet.
+
+Combat verification: `node scripts/combat-browser-test.mjs` uses the ignored `test-results/active-game.state` (or `TEST_SAVE`) in an isolated emulator. It checks real enemy HP loss, special boss reactions, both players' normal/giant laser damage, native firing sounds, and the Armos boss defeat/drop sequence.

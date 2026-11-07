@@ -8,12 +8,12 @@ function fixture(){
   ram[A.state]=9;ram[A.type]=0x41;ram[A.hp]=4;ram[A.xLo]=100;ram[A.yLo]=100;
   return ram;
 }
-test('only live ordinary enemies on Link’s floor are targetable',()=>{
+test('live enemies on Link’s floor are targetable while NPCs and scenery remain protected',()=>{
   const ram=fixture();assert.equal(readWorld(ram).enemies.length,1);
-  for(const type of [0x73,0x76,0x52,0x1e,0x3f,0x40,0x09,0x53,0x7a,0x92]){ram[A.type]=type;assert.equal(readWorld(ram).enemies.length,0,`excluded ${type}`);}
+  for(const type of [0x73,0x76,0x52,0x1e,0x3f,0x40,0xab,0xc1,0xea]){ram[A.type]=type;assert.equal(readWorld(ram).enemies.length,0,`excluded ${type}`);}
   ram[A.type]=0x41;ram[A.spriteFloor]=1;assert.equal(readWorld(ram).enemies.length,0);
   ram[A.spriteFloor]=0;ram[A.state]=6;assert.equal(readWorld(ram).enemies.length,0);
-  ram[A.state]=9;ram[A.flags3]=0x40;assert.equal(readWorld(ram).enemies.length,0);
+  ram[A.state]=9;ram[A.flags3]=0x40;assert.equal(readWorld(ram).enemies.length,1,'Companion magic bypasses ordinary weapon immunity');
 });
 test('dialogue, menus and transitions disable targeting and writes',()=>{
   const ram=fixture(),target=readWorld(ram).enemies[0];

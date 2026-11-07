@@ -68,6 +68,8 @@ export async function learningChecks({dad,jj,michelle,shot}){
   await answer(true);await jj.locator('#quiz-next').click();
   await jj.waitForFunction(()=>document.getElementById('quiz-turn').textContent.startsWith('Michelle'));
   assert.equal(await dad.evaluate(()=>testGame.learning.round.questions[1].kind),'math');
+  assert.deepEqual(await jj.locator('.quiz-choice').allTextContents(),Array.from({length:11},(_,n)=>String(n)));
+  assert.ok(await jj.locator('.quiz-choice').evaluateAll(buttons=>buttons.every(b=>{const r=b.getBoundingClientRect();return r.width>=44&&r.height>=44&&r.bottom<=innerHeight;})),'Every number is visible and easy to tap');
   await shot(jj,'quiz-michelle-math.png');
   assert.ok(await jj.evaluate(()=>questionSpeech.some(text=>text.startsWith('Michelle, what is'))));
   await answer(true);assert.match(await jj.locator('#quiz-feedback').textContent(),/Two giant lasers/);

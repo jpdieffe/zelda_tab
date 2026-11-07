@@ -6,7 +6,9 @@ export function beamEnd(source,direction,world,radius=0){
   let end={x:source.x,y:source.y};
   for(let distance=2;distance<=320;distance+=2){
     const x=source.x+dx*distance,y=source.y+dy*distance;
-    if(x<1||x>255||y<33||y>223||[-radius,0,radius].some(offset=>world.wallAt?.(x-dy*offset,y+dx*offset)))break;
+    // Clip the actual ray. A wide glow grazing a side wall must not collapse
+    // the entire giant beam to zero length beside a doorway or corridor.
+    if(x<1||x>255||y<33||y>223||world.wallAt?.(x,y))break;
     end={x,y};
   }
   return end;
@@ -15,7 +17,8 @@ export function touchesBeam(target,source,end,radius){
   const dx=end.x-source.x,dy=end.y-source.y,length=dx*dx+dy*dy;
   if(!length)return false;
   const t=((target.x-source.x)*dx+(target.y-source.y)*dy)/length;
-  return t>=0&&t<=1&&Math.hypot(target.x-source.x-dx*t,target.y-source.y-dy*t)<=radius+4;
+  const body=target.radius??4,nearest=Math.max(0,Math.min(1,t));
+  return t>=0&&Math.hypot(target.x-source.x-dx*nearest,target.y-source.y-dy*nearest)<=radius+body;
 }
 export class LaserReward {
   constructor(){this.timers={};this.aim={};this.beams=[];this.cooldown=0;}
@@ -35,17 +38,20 @@ export class LaserReward {
     if(!this.steering(role)||!Number.isFinite(x)||!Number.isFinite(y))return;
     const length=Math.hypot(x,y);if(length>.01)this.aim[role]={x:x/length,y:y/length};
   }
-  update(dt,world,characters,hit,paused=false){
+  update(dt,world,characters,hit,paused=false,fireSound=()=>{}){
     this.beams=[];
     if(!this.active||paused||!world?.active)return;
     this.cooldown-=dt;const fire=this.cooldown<=0;if(fire)this.cooldown=.16;
+    let firing=false;
     for(const role of this.roles){
       const source=characters[role];if(!source?.active||(role==='michelle'&&!source.enabled))continue;
       const direction=this.aim[role]||{x:source.aimX,y:source.aimY};
       const radius=this.timers[role].giant>0?10:2,end=beamEnd(source,direction,world,radius);
       this.beams.push({role,x:source.x,y:source.y,end,radius});
+      firing=true;
       if(fire)for(const enemy of world.enemies)if(enemy.vulnerable&&touchesBeam(enemy,source,end,radius))hit(enemy,source,end,radius);
     }
+    if(fire&&firing)fireSound();
     for(const timer of Object.values(this.timers)){timer.remaining=Math.max(0,timer.remaining-dt);timer.giant=Math.max(0,timer.giant-dt);}
     if(!this.active)this.beams=[];
   }

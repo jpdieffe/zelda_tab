@@ -44,9 +44,11 @@ export class Fairy {
         shot.x+=shot.vx*travel;shot.y+=shot.vy*travel;
         if(shot.x<1||shot.x>255||shot.y<33||shot.y>223||world.wallAt?.(shot.x,shot.y)){
           this.burst(shot.x,shot.y);shot.done=true;
-        }else if(target&&Math.hypot(target.x-shot.x,target.y-shot.y)<=4){
-          // Keep the original short-range damage and live-sprite validation.
-          shot.hit?.(target,this);this.burst(shot.x,shot.y);shot.done=true;
+        }else{
+          // Free shots can hit too, and large/jumping enemies use their body
+          // instead of a four-pixel dot. Validate from the actual impact point.
+          const struck=world.enemies.find(e=>e.vulnerable&&Math.hypot(e.x-shot.x,e.y-shot.y)<=(e.radius??4));
+          if(struck){shot.hit?.(struck,{x:shot.x,y:shot.y});this.burst(shot.x,shot.y);shot.done=true;}
         }
       }
       if(shot.life>1.5)shot.done=true;

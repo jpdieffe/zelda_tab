@@ -118,9 +118,9 @@ test('healing queues one native heart and never revives, overheals, or writes du
   r[A.health]=24;assert.equal(applyHeal(r),false);
   r[A.health]=8;r[A.module]=14;assert.equal(applyHeal(r),false);assert.equal(r[A.heartFill],0);
 });
-test('boss contact can bounce the unicorn without enabling boss damage or NPC contact',()=>{
+test('bosses can bounce the unicorn and be targeted; NPCs cannot',()=>{
   const r=new Uint8Array(0x20000);r[A.module]=9;r[A.state]=9;r[A.hp]=5;r[A.xLo]=80;r[A.yLo]=80;r[A.type]=0x53;
-  assert.equal(readWorld(r).contacts.length,1);assert.equal(readWorld(r).enemies.length,0);
+  assert.equal(readWorld(r).contacts.length,1);assert.equal(readWorld(r).enemies.length,1);
   r[A.type]=0x73;assert.equal(readWorld(r).contacts.length,0);
 });
 class Channel extends EventEmitter{

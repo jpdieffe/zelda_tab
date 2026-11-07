@@ -9,13 +9,14 @@ test('curriculum has the 23 current agenda words and every math fact stays withi
   const facts=mathFacts();assert.equal(facts.length,132);
   for(const f of facts){assert.ok(f.a>=0&&f.a<=10&&f.b>=0&&f.b<=10);assert.equal(Number(f.answer),f.operator==='+'?f.a+f.b:f.a-f.b);assert.ok(Number(f.answer)>=0&&Number(f.answer)<=10);}
 });
-test('spoken questions have three unique choices, shuffle decks, and alternate Michelle math and sight words',()=>{
+test('letters and words have three choices; math shows the complete ordered 0–10 keypad',()=>{
   const deck=new QuestionDeck(),letters=new Set(),words=new Set();
   for(let i=0;i<46;i++){
     const jj=deck.next('jj'),m=deck.next('michelle');
     if(i<26)letters.add(jj.answer);
     assert.equal(m.kind,i%2===0?'math':'word');if(m.kind==='word')words.add(m.answer);
-    for(const q of [jj,m]){assert.equal(q.choices.length,3);assert.equal(new Set(q.choices).size,3);assert.ok(q.choices.includes(q.answer));assert.ok(q.speech.includes(q.role==='jj'?'JJ':'Michelle'));}
+    for(const q of [jj,m]){assert.equal(q.choices.length,q.kind==='math'?11:3);assert.equal(new Set(q.choices).size,q.choices.length);assert.ok(q.choices.includes(q.answer));assert.ok(q.speech.includes(q.role==='jj'?'JJ':'Michelle'));}
+    if(m.kind==='math')assert.deepEqual(m.choices,Array.from({length:11},(_,n)=>String(n)));
   }
   assert.equal(letters.size,26);assert.equal(words.size,23);
 });
@@ -34,6 +35,13 @@ test('one-minute rounds pause on a ready screen; combat shortens the interval to
 });
 function begin(quiz){quiz.tick(60,eligible);quiz.advance(quiz.token());}
 function answer(quiz,correct){const r=quiz.round,q=r.questions[r.index],index=q.choices.findIndex(v=>correct?v===q.answer:v!==q.answer);assert.equal(quiz.answer(quiz.token(),index),true);}
+test('the host accepts every math keypad index including 9 and 10, but rejects out-of-range input',()=>{
+  for(let n=0;n<=10;n++){
+    const quiz=new LearningRound();begin(quiz);answer(quiz,true);quiz.advance(quiz.token());
+    quiz.round.questions[1].answer=String(n);
+    assert.equal(quiz.answer(quiz.token(),11),false);assert.equal(quiz.answer(quiz.token(),n),true);assert.equal(quiz.snapshot().correct,true);
+  }
+});
 test('wrong answers require retries without a bonus; stale and repeated messages are rejected',()=>{
   const quiz=new LearningRound();begin(quiz);const token=quiz.token();
   for(const i of [-1,3,NaN,1.5,'0'])assert.equal(quiz.answer(token,i),false);
@@ -91,13 +99,13 @@ test('lasers stop at walls and cannot hit enemies behind or beside the beam',()=
   assert.equal(touchesBeam({x:80,y:130},source,end,2),false);
   const laser=new LaserReward();laser.start({roles:['jj'],giant:false});let hits=0;laser.update(.1,w,characters(),()=>hits++);assert.equal(hits,0);
 });
-test('long-range laser damage uses native enemy rules, rechecks walls, and never enables NPC or boss damage',()=>{
+test('long-range lasers recheck walls, damage bosses and protect NPCs',()=>{
   const ram=new Uint8Array(0x20000),source={x:50,y:100},end={x:240,y:100};
   ram[A.module]=9;ram[A.state]=9;ram[A.hp]=6;ram[A.type]=0x41;ram[A.xLo]=142;ram[A.yLo]=92;
   const target={slot:0,type:0x41};assert.equal(applyHit(ram,target,source),false,'normal shots keep their short range');
   assert.equal(applyLaserHit(ram,target,source,end,2,x=>x>=110),false);
   assert.equal(applyLaserHit(ram,target,source,end,2,()=>false),true);assert.equal(ram[A.damage],1);assert.equal(ram[A.hp],6);
   assert.equal(applyLaserHit(ram,target,source,end,2,()=>false),false,'invulnerability prevents repeated damage');
-  for(const type of [0x53,0x73]){ram[A.type]=type;ram[A.damage]=0;ram[A.hit]=0;assert.equal(applyLaserHit(ram,{slot:0,type},source,end,10,()=>false),false);}
+  for(const type of [0x51,0x53,0x73]){ram[A.type]=type;ram[A.damage]=0;ram[A.hit]=0;assert.equal(applyLaserHit(ram,{slot:0,type},source,end,10,()=>false),type!==0x73);}
   ram[A.type]=0x41;ram[A.module]=14;assert.equal(applyLaserHit(ram,target,source,end,2,()=>false),false);
 });

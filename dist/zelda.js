@@ -1,3 +1,4 @@
+import {BOSSES,ZERO_HEALTH_ENEMIES,enemyBody} from './enemies.js';
 import { wallAt } from './collision.js';
 import { readGuidance } from './guidance.js';
 import { beamEnd, touchesBeam } from './lasers.js';
@@ -13,46 +14,10 @@ export const ADDR = Object.freeze({
   flags3: 0xe60, hit: 0xef0, recoil: 0xea0, damage: 0xce2,
   recoilX: 0xf40, recoilY: 0xf30, spriteFloor: 0xf20, pause: 0xf00,
   health: 0xf36d, capacity: 0xf36c, heartFill: 0xf372,
+  ai:0xd80,a:0xd90,c:0xdb0,e:0xe90,anim:0xec0,aux1:0xe00,aux4:0xf10,sword:0xf359,sound:0x12f,trinexxFinal:0xb10,
 });
-// Conservative allowlist: common, ordinary enemies. Bosses, NPCs, traps,
-// switches, scripted entities and enemies with special death logic excluded.
-export const ENEMIES = new Set([
-  0x08, 0x0a, // Octoroks
-  0x0e, // Snap dragon
-  0x0f, // Octoballoon
-  0x10, // Octoballoon baby
-  0x12, // Moblin
-  0x13, // Mini helmasaur
-  0x18, // Mini moldorm
-  0x19, // Poe
-  0x20, // Sluggula
-  0x22, // Ropa
-  0x23, // Red bari
-  0x24, // Blue bari
-  0x41, 0x42, 0x43, // Guards
-  0x44, 0x45, 0x46, // Guards
-  0x47, 0x48, 0x49, 0x4a, // Bush, javelin and bomb guards
-  0x4b, // Green recruit
-  0x4c, // Geldman
-  0x4e, 0x4f, // Popos
-  0x56, // Walking Zora
-  0x58, // Crab
-  0x6a, // Ball and chain guard
-  0x6d, // Rat
-  0x6e, // Rope
-  0x6f, // Keese
-  0x71, // Leever
-  0x7c, 0x85, // Green and yellow Stalfos
-  0x8b, // Gibdo
-  0x8f, // Blob
-  0x99, // Pengator
-  0xa5, 0xa6, // Zazaks
-  0xa7, // Stalfos
-  0xd0, // Lynel
-]);
-
+export {ENEMIES} from './enemies.js';
 export const word = (ram, offset) => ram[offset] | (ram[offset + 1] << 8);
-const CONTACT_TYPES=new Set([...ENEMIES,0x53,0x54,0x88,0x8c,0x92,0xa2,0xbd,0xcb,0xcc,0xcd,0xce,0xd6]);
 const signedDifference = (a, b) => ((a - b + 0x8000) & 0xffff) - 0x8000;
 
 export function snapshotRam(state) {
@@ -124,6 +89,7 @@ export class ZeldaBridge {
   hit(target, fairy) { return this.ram ? applyHit(this.ram, target, fairy) : false; }
   laserHit(target,source,end,radius) { return this.ram ? applyLaserHit(this.ram,target,source,end,radius,this.read().wallAt) : false; }
   heal() { return this.ram ? applyHeal(this.ram) : false; }
+  fireSound(){return this.ram?playFireSound(this.ram):false;}
 }
 
 export function readWorld(ram) {
@@ -137,16 +103,17 @@ export function readWorld(ram) {
   };
   if (!active) return world;
   for (let slot = 0; slot < 16; slot++) {
-    if (ram[ADDR.state+slot] !== 9 || !CONTACT_TYPES.has(ram[ADDR.type+slot]) ||
-        !ram[ADDR.hp+slot] || ram[ADDR.hp+slot] >= 0xf0 ||
+    if (![9,11].includes(ram[ADDR.state+slot]) || !enemyBody(ram,ADDR,slot) ||
+        (!ram[ADDR.hp+slot]&&!ZERO_HEALTH_ENEMIES.has(ram[ADDR.type+slot])) ||
         ram[ADDR.pause+slot] ||
         ram[ADDR.spriteFloor+slot] !== ram[ADDR.floor]) continue;
     const x = signedDifference(ram[ADDR.xLo+slot] | ram[ADDR.xHi+slot]<<8, cameraX)+8;
     const y = signedDifference(ram[ADDR.yLo+slot] | ram[ADDR.yHi+slot]<<8, cameraY)+8-ram[ADDR.z+slot];
     if (x < 0 || x > 256 || y < 32 || y > 224) continue;
     world.contacts.push({slot,type:ram[ADDR.type+slot],x,y});
-    if(!ENEMIES.has(ram[ADDR.type+slot])||(ram[ADDR.flags3+slot]&0x40))continue;
-    world.enemies.push({slot, type:ram[ADDR.type+slot], x, y, vulnerable:!ram[ADDR.hit+slot] && !ram[ADDR.damage+slot]});
+    const type=ram[ADDR.type+slot];
+    world.enemies.push({slot,type,x,y,radius:BOSSES.has(type)||type===0x51?14:7,
+      vulnerable:!ram[ADDR.hit+slot]&&!ram[ADDR.damage+slot]&&!(type===0xce&&ram[ADDR.aux4+slot])});
   }
   return world;
 }
@@ -155,28 +122,45 @@ export function applyHit(ram, target, fairy) {
   return queueHit(ram,target,fairy,58);
 }
 export function applyLaserHit(ram,target,source,end,radius,wallAt){
-  if(![source.x,source.y,end.x,end.y].every(Number.isFinite)||![2,10].includes(radius)||typeof wallAt!=='function')return false;
+  if(![source.x,source.y,end.x,end.y].every(Number.isFinite)||![2,10].includes(radius)||typeof wallAt!=='function'||Math.hypot(end.x-source.x,end.y-source.y)<.01)return false;
   const world=readWorld(ram),current=world.enemies.find(e=>e.slot===target.slot&&e.type===target.type&&e.vulnerable);
   if(!world.active||!current)return false;
   const clipped=beamEnd(source,{x:end.x-source.x,y:end.y-source.y},{...world,wallAt},radius);
   // Revalidate the live enemy and walls immediately before queuing native damage.
   if(!touchesBeam(current,source,clipped,radius))return false;
+  // A wide beam can overlap a wall visually; damage still requires a clear
+  // line to the enemy body so the glow cannot hit through a side wall.
+  const sight=beamEnd(source,{x:current.x-source.x,y:current.y-source.y},{wallAt});
+  if(Math.hypot(sight.x-source.x,sight.y-source.y)+current.radius<Math.hypot(current.x-source.x,current.y-source.y))return false;
   return queueHit(ram,current,source,320);
 }
 function queueHit(ram, target, fairy, range) {
   const world = readWorld(ram);
   const current = world.enemies.find(e=>e.slot===target.slot && e.type===target.type && e.vulnerable);
-  if (!current || !world.active || Math.hypot(current.x - fairy.x, current.y - fairy.y) > range) return false;
+  if (!current || !world.active || ![fairy.x,fairy.y].every(Number.isFinite)||Math.hypot(current.x - fairy.x, current.y - fairy.y) > range+(current.radius||0)) return false;
   const slot = current.slot;
   // Queue a small hit in the game's own recoil/damage path. The game handles
   // health, death animations, drops, room counters and progression itself.
-  ram[ADDR.damage + slot] = 1;
+  // Blind counts recoil hits; Trinexx heads and yellow Stalfos consume the
+  // first hit to stun. Ganon's final phase consumes a hit to become silver-
+  // arrow vulnerable. Do not leave damage queued behind their cleared timers.
+  const type=current.type,ai=ram[ADDR.ai+slot];
+  const reactionOnly=type===0xce||((type===0xcc||type===0xcd)&&ai!==4)||
+    (type===0x85&&ram[ADDR.sword]<3&&ai!==5)||(type===0xd6&&(ai===17||ram[ADDR.aux1+slot]));
+  ram[ADDR.damage + slot] = reactionOnly?0:Math.min(1,ram[ADDR.hp+slot]||1);
   ram[ADDR.hit + slot] = 0x20;
-  ram[ADDR.recoil + slot] = current.type === 0x18 ? 11 : 15;
+  if(type===0xd7)ram[ADDR.aux4+slot]=32; // Native silver-arrow reaction.
+  ram[ADDR.recoil + slot] = type===0x09?20:(type===0x18||type===0x53)?11:15;
   const distance = Math.hypot(current.x-fairy.x,current.y-fairy.y) || 1;
   ram[ADDR.recoilX+slot] = Math.round((current.x-fairy.x)/distance*20) & 255;
   ram[ADDR.recoilY+slot] = Math.round((current.y-fairy.y)/distance*20) & 255;
   return true;
+}
+
+export function playFireSound(ram){
+  if(!readWorld(ram).active||ram[ADDR.sound])return false;
+  // Original Fire Rod launch sound, carried by the existing game audio stream.
+  ram[ADDR.sound]=0x0e;return true;
 }
 
 export function applyHeal(ram) {

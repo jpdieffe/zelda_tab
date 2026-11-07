@@ -79,7 +79,7 @@ function hostNetwork(){
       if(role==='michelle'){
         if(!game.ready||game.paused)return;
         if(data.type==='unicorn-move'){if(game.lasers.steering('michelle'))game.lasers.setAim('michelle',data.x,data.y);else game.unicorn.setInput(data.x,data.y);}
-        if(data.type==='unicorn-fire'){const result=game.unicorn.fire((target,source)=>game.bridge.hit(target,source));game.network.send({type:'unicorn-shot',result},'michelle');}
+        if(data.type==='unicorn-fire'){const result=game.unicorn.fire((target,source)=>game.bridge.hit(target,source));if(result==='fired')game.bridge.fireSound();game.network.send({type:'unicorn-shot',result},'michelle');}
         if(data.type==='unicorn-heal'){const result=game.unicorn.heal(()=>game.bridge.heal());game.network.send({type:'unicorn-heart',result},'michelle');}
         return;
       }
@@ -88,7 +88,7 @@ function hostNetwork(){
         if(game.lasers.steering('jj'))game.lasers.setAim('jj',data.x-game.fairy.x,data.y-game.fairy.y);
         else game.fairy?.move(data.x,data.y);
       }
-      if(data.type==='fire'&&game.ready&&!game.paused){const result=game.fairy.fire((target,fairy)=>game.bridge.hit(target,fairy));game.network.send({type:'shot',result},'jj');}
+      if(data.type==='fire'&&game.ready&&!game.paused){const result=game.fairy.fire((target,fairy)=>game.bridge.hit(target,fairy));if(result==='fired')game.bridge.fireSound();game.network.send({type:'shot',result},'jj');}
       if(data.type==='sound'){setPhoneAudio(!Boolean(data.enabled));}
       if(data.type==='video-retry')game.network.sendVideo();
       if(data.type==='kid-lock-state')game.tabletLocked=Boolean(data.locked);
@@ -171,7 +171,11 @@ function frame(now){
     const world=game.bridge?.read();
     if(game.learning.tick(elapsed,{playing:!game.paused&&world?.active&&world.link.health>0&&$('phone-options').hidden,tablet:game.network?.has('jj'),enemies:Boolean(world?.contacts?.length)})){setPaused(true);}
     if(!game.paused){game.fairy.update(dt,world);game.unicorn.update(dt,world);}
-    game.lasers.update(elapsed,world,{jj:game.fairy,michelle:game.unicorn},(target,source,end,radius)=>game.bridge.laserHit(target,source,end,radius),game.paused);
+    if(!game.paused&&world?.active&&game.lasers.steering('jj')&&world.wallAt(game.fairy.x,game.fairy.y)){
+      const point=game.unicorn.nearestClear(game.fairy.x,game.fairy.y,world)||game.unicorn.nearestClear(world.link.x,world.link.y,world);
+      if(point){game.fairy.x=game.fairy.tx=point.x;game.fairy.y=game.fairy.ty=point.y;game.fairy.follow=false;}
+    }
+    game.lasers.update(elapsed,world,{jj:game.fairy,michelle:game.unicorn},(target,source,end,radius)=>game.bridge.laserHit(target,source,end,radius),game.paused,()=>game.bridge.fireSound());
     game.guidance=world?.guidance;
     $('dad-objective').textContent=game.guidanceEnabled?(game.guidance?.label||'Story compass · waiting for the adventure'):'Story compass off';
     ctx.save();ctx.scale(2,2);if(game.unicorn.enabled)game.unicorn.draw(ctx,now);game.fairy.draw(ctx,now);if(game.guidanceEnabled)drawGuidance(ctx,world);game.lasers.draw(ctx,now);ctx.restore();

@@ -18,12 +18,16 @@ export class QuestionView {
     this.listen=document.getElementById('quiz-listen');
     this.listen.onclick=()=>this.speak();
     this.next.onclick=()=>{if(!this.question||this.pending||!this.connected)return;this.pending=true;this.updateDisabled();next(this.question.token);};
-    this.buttons=Array.from({length:3},(_,index)=>{
+    this.answer=answer;this.buttons=[];
+    document.addEventListener('visibilitychange',()=>{if(document.hidden)stopQuestionAudio();else if(this.question)this.speak();});
+  }
+  makeButtons(count){
+    this.choices.replaceChildren();
+    this.buttons=Array.from({length:count},(_,index)=>{
       const button=document.createElement('button');button.className='quiz-choice';
-      button.onclick=()=>{if(!this.question||this.pending||!this.connected||this.question.phase!=='question')return;this.pending=true;this.updateDisabled();answer(this.question.token,index);};
+      button.onclick=()=>{if(!this.question||this.pending||!this.connected||this.question.phase!=='question')return;this.pending=true;this.updateDisabled();this.answer(this.question.token,index);};
       this.choices.append(button);return button;
     });
-    document.addEventListener('visibilitychange',()=>{if(document.hidden)stopQuestionAudio();else if(this.question)this.speak();});
   }
   speak(){
     if(!this.question||document.hidden)return;
@@ -42,6 +46,7 @@ export class QuestionView {
     this.question=question;this.panel.hidden=false;
     if(changed){
       this.pending=false;this.panel.dataset.player=question.role;this.panel.dataset.kind=question.kind;
+      if(this.buttons.length!==question.choices.length)this.makeButtons(question.choices.length);
       document.getElementById('quiz-turn').textContent=question.phase==='ready'?'Learning magic · JJ and Michelle':`${question.name}’s turn · ${question.number} of ${question.total}`;
       document.getElementById('quiz-title').textContent=question.phase==='ready'?'Get ready for questions':question.phase==='retry'?'Try again!':question.phase==='feedback'?(question.giant?'Team magic!':'You did it!'):question.kind==='math'?'A little number magic':question.kind==='word'?'Find the sight word':'Find the letter';
       document.getElementById('quiz-prompt').textContent=question.prompt;

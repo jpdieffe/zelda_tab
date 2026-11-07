@@ -27,7 +27,7 @@ export class QuestionDeck {
     }
     if(this.michelleTurns++%2===0){
       const fact=this.take('math',mathFacts()),{a,b,operator,answer}=fact;
-      return {role,kind:'math',answer,choices:this.choices(answer,NUMBERS),prompt:`${a} ${operator} ${b} = ?`,speech:`Michelle, what is ${a} ${operator==='+'?'plus':'minus'} ${b}?`,...fact};
+      return {role,kind:'math',answer,choices:[...NUMBERS],prompt:`${a} ${operator} ${b} = ?`,speech:`Michelle, what is ${a} ${operator==='+'?'plus':'minus'} ${b}?`,...fact};
     }
     const answer=this.take('words',SIGHT_WORDS);
     return {role,kind:'word',answer,choices:this.choices(answer,SIGHT_WORDS),prompt:'Listen, then tap the word.',speech:`Michelle, find the word ${answer}.`};
@@ -45,7 +45,7 @@ export class LearningRound {
     return true;
   }
   answer(token,index){
-    const r=this.round;if(!r||r.phase!=='question'||token!==this.token()||!Number.isInteger(index)||index<0||index>2)return false;
+    const r=this.round;if(!r||r.phase!=='question'||token!==this.token()||!Number.isInteger(index)||index<0||index>=r.questions[r.index].choices.length)return false;
     const q=r.questions[r.index];
     if(q.choices[index]!==q.answer){r.missed=true;r.phase='retry';}
     else{r.results.push({role:q.role,correct:!r.missed});r.phase='feedback';}
