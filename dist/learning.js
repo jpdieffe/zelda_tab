@@ -34,11 +34,11 @@ export class QuestionDeck {
 }
 export class LearningRound {
   constructor(random=Math.random){this.deck=new QuestionDeck(random);this.sequence=0;this.round=null;this.rewardBag=[];this.lastReward=null;}
-  start({playing,tablet}){
+  start({playing,tablet,tank=false}){
     if(this.round||!playing||!tablet)return false;
-    const roles=['jj','michelle'];
+    const roles=tank?['jj','jj','michelle','michelle']:['jj','michelle'];
     if(!this.rewardBag.length){this.rewardBag=shuffled(REWARD_TYPES,this.deck.random);if(this.rewardBag.at(-1)===this.lastReward)this.rewardBag.unshift(this.rewardBag.pop());}
-    const rewardType=this.rewardBag.pop();this.lastReward=rewardType;
+    const rewardType=tank?'tank':this.rewardBag.pop();if(!tank)this.lastReward=rewardType;
     this.round={id:++this.sequence,rewardType,index:0,revision:0,missed:false,questions:roles.map(role=>this.deck.next(role)),results:[],phase:'ready'};
     return true;
   }
@@ -52,6 +52,7 @@ export class LearningRound {
   token(){return this.round?`${this.round.id}:${this.round.index}:${this.round.revision}`:null;}
   reward(){
     const roles=this.round?.results.filter(r=>r.correct).map(r=>r.role)||[];
+    if(this.round?.rewardType==='tank'){const earned=this.round.results.length===4&&this.round.results.every(r=>r.correct);return {roles:earned?['jj','michelle']:[],giant:earned,type:'tank'};}
     return {roles,giant:roles.includes('jj')&&roles.includes('michelle'),type:this.round?.rewardType};
   }
   advance(token){
@@ -64,19 +65,22 @@ export class LearningRound {
   skip(){this.round=null;}
   snapshot(){
     const r=this.round;if(!r)return null;
+    const tank=r.rewardType==='tank';
+    if(r.phase==='ready'&&tank)return {token:this.token(),phase:'ready',role:'both',name:'JJ and Michelle',kind:'ready',prompt:'Two questions each. Four first-try answers combine everyone into a giant tank!',choices:[],speech:'Tank challenge! JJ and Michelle, answer two questions each. Get all four right on your first try to build the giant tank. Tap We are ready to start.',feedback:'Dad drives. JJ launches missiles. Michelle fires rainbow lasers and heart missiles.',number:0,total:4,correct:null,answer:null,next:'We are ready!',giant:false};
     if(r.phase==='ready')return {token:this.token(),phase:'ready',role:'both',name:'JJ and Michelle',kind:'ready',prompt:'JJ and Michelle, take turns answering on the big tablet.',choices:[],speech:'Get ready for questions! JJ and Michelle, take turns answering on the big tablet. Tap We are ready to start.',feedback:'Get it right the first time to earn a surprise superpower. You can always try again!',number:0,total:2,correct:null,answer:null,next:'We’re ready!',giant:false};
     const q=r.questions[r.index],last=r.index===r.questions.length-1,correct=r.results.at(-1)?.correct;
     const name=q.role==='jj'?'JJ':'Michelle',reward=this.reward();
     let feedback='',speech=q.speech;
     if(r.phase==='feedback'){
       feedback=correct?`Great job, ${name}!`:`You got it, ${name}! No superpower bonus this time, but well done for trying again.`;
-      if(last)feedback+=' '+(reward.giant?`Team magic! ${rewardAnnouncement(reward.type,true)}`:reward.roles.length?`${reward.roles[0]==='jj'?'JJ':'Michelle'} earned a superpower! ${rewardAnnouncement(reward.type,false)}`:'Keep practicing. More magic next time!');
+      if(last&&tank)feedback+=' '+(reward.giant?'Tank power earned! All three of you combine into the giant tank!':'Finish practicing, then try another tank challenge. All four answers must be right on the first try.');
+      if(last&&!tank)feedback+=' '+(reward.giant?`Team magic! ${rewardAnnouncement(reward.type,true)}`:reward.roles.length?`${reward.roles[0]==='jj'?'JJ':'Michelle'} earned a superpower! ${rewardAnnouncement(reward.type,false)}`:'Keep practicing. More magic next time!');
       speech=feedback;
     }
     if(r.phase==='retry'){feedback=`Try again, ${name}! You can still find the answer. The superpower bonus is for your first try.`;speech=`Try again, ${name}. ${q.speech}`;}
     return {token:this.token(),phase:r.phase,role:q.role,name,kind:q.kind,prompt:q.prompt,choices:q.choices,speech,feedback,
       number:r.index+1,total:r.questions.length,correct:r.phase==='feedback'?correct:r.phase==='retry'?false:null,
-      answer:r.phase==='feedback'?q.answer:null,next:r.phase==='retry'?'Try again':last?(reward.roles.length?'Release the magic!':'Back to the adventure'):'Michelle’s turn',
+      answer:r.phase==='feedback'?q.answer:null,next:r.phase==='retry'?'Try again':last?(reward.roles.length?(tank?'Build the tank!':'Release the magic!'):'Back to the adventure'):(r.questions[r.index+1].role==='jj'?'JJ next question':'Michelle next question'),
       giant:r.phase==='feedback'&&last&&reward.giant};
   }
 }

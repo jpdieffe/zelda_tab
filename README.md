@@ -51,6 +51,18 @@ Michelle's deck uses the 23 current words in `edu_games/weekly_agendas/heart-wor
 
 Tablet APK 1.2 adds native English speech for these prompts; Chrome uses its speech engine. Question audio is separate from the game-sound toggle. If speech is unavailable, **Grown-up prompt** reveals the text to read aloud. No microphone or AI service is used.
 
+## Team tank challenge
+
+Dad's separate **Tank challenge** button starts four questions on the tablet: two letters for JJ, then one math question and one sight word for Michelle. All four answers must be correct on the first try to earn the tank. Mistakes still allow retries, but that challenge cannot unlock the tank. Both children's controllers must be paired to begin. The ordinary **Questions** button keeps its two-question surprise rewards.
+
+After **Build the tank!**, Link, the fairy and the unicorn combine into one invulnerable tank. Dad's joystick drives it across walls, water, pits and other terrain in the current game view. Its tracks crush ordinary walls and objects into rubble and damage enemy bodies. Doors and entrances block the tank's whole body and are never destroyed. Puzzle objects and NPCs are protected.
+
+- JJ taps or drags on the game to launch three missiles along weaving paths toward that point. Recharge: 0.35 seconds.
+- Michelle holds her joystick to fire and aim a rainbow laser; releasing it stops firing. Her separate **HEART MISSILES** button launches three hearts toward a nearby enemy, or the laser's direction when no enemy is available. Recharge: 0.8 seconds.
+- Dad taps **Release tank power** to separate the characters and resume normal movement. There is no countdown. Release before using a doorway. If the tank is over water or another unsafe tile, Link returns to nearby clear ground.
+
+Pausing freezes tank movement and projectiles. Losing joystick input stops the rainbow beam. Saves and exported backups contain a normal, visible, vulnerable Link on safe ground, rather than an immobilized tank pilot. Rubble lasts for the current room visit; reloading a room or save restores its terrain. Tank powers do not persist across reloads.
+
 ## Phone controls
 
 Dad's phone shows the live game, including both companions, between the joystick and action buttons in landscape. In portrait the game sits above the controls. **Enlarge game** opens a bigger preview; close it to return to the controls.
@@ -141,6 +153,7 @@ The browser integration test starts the bundled game without selecting any file 
 - `dist/enemies.js`: hostile sprite classification and boss body/phase guards.
 - `dist/unicorn.js`: joystick movement, wall sliding, enemy knockback, unicorn drawing, and healing projectiles.
 - Healing uses `link_hearts_filler` at WRAM `0xF372`, verified against [the original HUD refill path](https://github.com/snesrev/zelda3/blob/master/src/hud.c); one heart is eight units. Link's current health is never directly overwritten by companion healing.
+- `dist/tank.js`, `dist/tank-terrain.js`: shared tank controls, native Link protection, door guards, terrain crushing, safe release and save cleanup.
 - `dist/powers.js`, `dist/reward-types.js`, `dist/dinosaur.js`: surprise reward selection, homing missiles, meteor impacts, dinosaur form and shared reward labels.
 - `dist/collision.js`: live dungeon and overworld wall detection.
 - `dist/guidance.js`: story milestones, ROM entrance coordinates, objective hints and compass drawing.

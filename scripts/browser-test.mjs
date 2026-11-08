@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { serve } from './serve.mjs';
 import { learningChecks } from './learning-browser-checks.mjs';
 import { weaponChecks } from './weapon-browser-checks.mjs';
+import { tankChecks } from './tank-browser-checks.mjs';
 import { powerChecks } from './power-browser-checks.mjs';
 const server=serve();
 const browser=await chromium.launch({executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:['--autoplay-policy=no-user-gesture-required','--disable-background-timer-throttling','--disable-renderer-backgrounding']});
@@ -192,7 +193,7 @@ try{
   }),true,'Dad sees the complete game and companion composite');
   for(const [width,height] of [[900,430],[844,390],[667,375],[568,320],[390,844],[360,640]]){
     await dad.setViewportSize({width,height});
-    const boxes=await dad.evaluate(()=>Object.fromEntries(['dad-canvas','dpad','start-questions'].map(id=>[id,document.getElementById(id).getBoundingClientRect().toJSON()]).concat([...document.querySelectorAll('#controller [data-key]')].map(el=>['key-'+el.dataset.key,el.getBoundingClientRect().toJSON()]))));
+    const boxes=await dad.evaluate(()=>Object.fromEntries(['dad-canvas','dpad','start-questions','tank-questions'].map(id=>[id,document.getElementById(id).getBoundingClientRect().toJSON()]).concat([...document.querySelectorAll('#controller [data-key]')].map(el=>['key-'+el.dataset.key,el.getBoundingClientRect().toJSON()]))));
     const screen=boxes['dad-canvas'];assert.ok(screen.width>=150&&screen.height>=120,`Readable game at ${width}x${height}`);
     for(const [id,box] of Object.entries(boxes)){
       assert.ok(box.x>=0&&box.y>=0&&box.right<=width+.5&&box.bottom<=height+.5,`${id} fits ${width}x${height}`);
@@ -203,6 +204,7 @@ try{
   console.log('Live Dad view verified at six phone sizes, with controls clear of the game');
   await learningChecks({dad,jj,michelle,shot});
   await powerChecks({dad,jj,michelle,shot});
+  await tankChecks({dad,jj,michelle,shot});
   await writeFile(new URL('source-canvas.png',results),Buffer.from(await dad.evaluate(()=>testGame.emulator.canvas.toDataURL().split(',')[1]),'base64'));
   assert.deepEqual(errors,[]);
   console.log('Browser checks passed');

@@ -8,6 +8,7 @@ export async function weaponChecks({dad,jj,michelle,shot}){
   });
   const prepare=async role=>dad.evaluate(async role=>{
     const {ADDR:A}=await import('/zelda.js'),r=testGame.bridge.ram,w=testGame.bridge.read(),k=14;
+    for(let i=0;i<16;i++)if(i!==k)r[A.state+i]=0; // Isolate the intended auto-target from roaming guards.
     const x=w.cameraX+120,y=w.cameraY+136;r[A.xLo+k]=x&255;r[A.xHi+k]=x>>8;r[A.yLo+k]=y&255;r[A.yHi+k]=y>>8;
     r[A.hit+k]=r[A.damage+k]=r[A.recoil+k]=r[A.z+k]=0;
     const c=role==='jj'?testGame.fairy:testGame.unicorn;c.x=c.tx=96;c.y=c.ty=144;c.follow=false;c.aimX=1;c.aimY=0;c.cooldown=0;
