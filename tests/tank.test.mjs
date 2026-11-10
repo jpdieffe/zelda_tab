@@ -12,15 +12,17 @@ function fixture(){
  const bridge={ram:r,rom:null,read:()=>readWorld(r),powerHit:(...args)=>applyPowerHit(r,...args),fireSound:()=>true,bombSound:()=>true};
  return {r,bridge,tank:new TeamTank(bridge)};
 }
-test('tank requires four first-try correct answers: two letters, one math and one sight word',()=>{
- for(const mistake of [-1,0,1,2,3]){
+test('tank unlocks after all four questions, including retries on any or every question',()=>{
+ for(const mistake of [-2,-1,0,1,2,3]){
   const q=new LearningRound();q.start({playing:true,tablet:true,tank:true});assert.equal(q.snapshot().total,4);q.advance(q.token());
   assert.deepEqual(q.round.questions.map(q=>q.role),['jj','jj','michelle','michelle']);assert.deepEqual(q.round.questions.map(q=>q.kind),['letter','letter','math','word']);
   for(let n=0;n<4;n++){
-   const item=q.round.questions[n];if(n===mistake){q.answer(q.token(),item.choices.findIndex(a=>a!==item.answer));q.advance(q.token());}
-   q.answer(q.token(),item.choices.indexOf(item.answer));if(n<3)q.advance(q.token());
+   const item=q.round.questions[n];if(n===mistake||mistake===-2){
+    for(let retry=0;retry<2;retry++){q.answer(q.token(),item.choices.findIndex(a=>a!==item.answer));assert.equal(q.reward().giant,false);assert.match(q.snapshot().feedback,/still earn the tank/);q.advance(q.token());}
+   }
+   q.answer(q.token(),item.choices.indexOf(item.answer));assert.doesNotMatch(q.snapshot().feedback,/No superpower|first try/);if(n<3){assert.equal(q.reward().giant,false);q.advance(q.token());}
   }
-  const reward=q.advance(q.token());assert.equal(reward.type,'tank');assert.equal(reward.giant,mistake===-1);assert.equal(reward.roles.length,mistake===-1?2:0);
+  const reward=q.advance(q.token());assert.equal(reward.type,'tank');assert.equal(reward.giant,true);assert.deepEqual(reward.roles,['jj','michelle']);
  }
 });
 test('tank crosses and crushes walls, crosses water, but stops its entire body before doors',()=>{

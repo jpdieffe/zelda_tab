@@ -13,12 +13,13 @@ export async function tankChecks({dad,jj,michelle,shot}){
    assert.equal(info.role,n<2?'jj':'michelle');
    if(n===mistake){await jj.locator('.quiz-choice').nth(info.wrong).click();await jj.locator('#quiz-next').click();await jj.waitForFunction(()=>document.getElementById('quiz-next').hidden);}
    await jj.locator('.quiz-choice').nth(info.correct).click();await jj.locator('#quiz-next').waitFor({state:'visible'});
-   if(n===3)assert.equal(await dad.evaluate(()=>testGame.learning.reward().giant),mistake<0);
+   if(n===3)assert.equal(await dad.evaluate(()=>testGame.learning.reward().giant),true);
    await jj.locator('#quiz-next').click();
   }
   await jj.locator('#quiz-panel').waitFor({state:'hidden'});
  };
- await challenge(1);assert.equal(await dad.evaluate(()=>testGame.tank.active),false,'One wrong first try prevents tank reward');
+ await challenge(1);await dad.waitForFunction(()=>testGame.tank.active);
+ await dad.locator('#release-tank').click();await dad.waitForFunction(()=>!testGame.tank.active);
  await challenge(-1);await dad.waitForFunction(()=>testGame.tank.active);
  assert.equal(await dad.locator('#release-tank').isVisible(),true);await michelle.locator('#tank-hearts').waitFor({state:'visible'});
  assert.equal(await michelle.locator('#unicorn-fire').isVisible(),false);assert.equal(await jj.locator('#arrows').isVisible(),false);
@@ -62,5 +63,5 @@ export async function tankChecks({dad,jj,michelle,shot}){
  await dad.locator('#release-tank').click();await dad.waitForFunction(()=>!testGame.tank.active&&testGame.bridge.ram[0x2e4]===0&&testGame.bridge.ram[0x37b]===0&&testGame.bridge.ram[0x4b]===0);
  await michelle.locator('#unicorn-fire').waitFor({state:'visible'});await jj.locator('#arrows').waitFor({state:'visible'});
  await dad.evaluate(()=>{for(const [a,v] of tankOriginalTiles)testGame.bridge.ram[a]=v;});
- console.log('Tank challenge first-try gate, all three controls, native damage, invulnerability, wall/water crossing, door protection, safe saving and Dad release passed');
+ console.log('Tank challenge retry reward, all three controls, native damage, invulnerability, wall/water crossing, door protection, safe saving and Dad release passed');
 }

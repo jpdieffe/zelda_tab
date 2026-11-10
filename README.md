@@ -53,7 +53,7 @@ Tablet APK 1.2 adds native English speech for these prompts; Chrome uses its spe
 
 ## Team tank challenge
 
-Dad's separate **Tank challenge** button starts four questions on the tablet: two letters for JJ, then one math question and one sight word for Michelle. All four answers must be correct on the first try to earn the tank. Mistakes still allow retries, but that challenge cannot unlock the tank. Both children's controllers must be paired to begin. The ordinary **Questions** button keeps its two-question surprise rewards.
+Dad's separate **Tank challenge** button starts four questions on the tablet: two letters for JJ, then one math question and one sight word for Michelle. Completing all four questions earns the tank. Wrong answers prompt another try, and retries never take away the tank reward. Both children's controllers must be paired to begin. The ordinary **Questions** button keeps its two-question surprise rewards.
 
 After **Build the tank!**, Link, the fairy and the unicorn combine into one invulnerable tank. Dad's joystick drives it across walls, water, pits and other terrain in the current game view. Its tracks crush ordinary walls and objects into rubble and damage enemy bodies. Doors and entrances block the tank's whole body and are never destroyed. Puzzle objects and NPCs are protected.
 
