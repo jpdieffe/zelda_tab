@@ -69,3 +69,24 @@ test('scripted scene changes re-anchor the tank and discard old missiles without
  tank.update(.05,{...bridge.read(),scene:'new',cameraX:512,link:{x:80,y:100}},{x:0,y:0});
  assert.equal(tank.active,true);assert.equal(tank.x,592);assert.equal(tank.missiles.length,0);
 });
+
+test('tank leaves the viewport and accumulates movement once per native frame for camera scrolling',()=>{
+ const {r,bridge,tank}=fixture();tank.start(bridge.read());
+ tank.update(.01,bridge.read(),{x:1,y:0});tank.update(.01,bridge.read(),{x:1,y:0});assert.equal(r[0x31],2);
+ r[0x1a]++;tank.update(.01,bridge.read(),{x:1,y:0});assert.equal(r[0x31],1);assert.equal(r[0x67],1);
+ const velocity=r[0x31];tank.cleanState(()=>r.slice(),bridge.read());assert.equal(r[0x31],velocity,'Saving preserves pending camera movement');
+ for(let i=0;i<50;i++){r[0x1a]++;tank.update(.05,bridge.read(),{x:1,y:0});}
+ assert.ok(tank.x>256);assert.equal(r[0xa9],1,'Crossing a room quadrant adjusts native camera bounds');
+ tank.update(.01,bridge.read(),{x:0,y:0},true);assert.equal(r[0x31],0);
+});
+
+test('native transitions own Link until fully finished, then the tank resumes at the final destination',()=>{
+ const {r,bridge,tank}=fixture();tank.start(bridge.read());tank.launch(200,100,bridge.read());
+ r[A.submodule]=2;put(r,A.room,1);put(r,A.linkX,490);
+ tank.update(.05,bridge.read(),{x:1,y:0});assert.equal(r[A.linkX]|r[A.linkX+1]<<8,490);assert.equal(tank.missiles.length,0);
+ assert.throws(()=>tank.cleanState(()=>r.slice(),bridge.read()),/crossing/);
+ put(r,A.linkX,540);tank.update(.05,bridge.read(),{x:1,y:0});assert.equal(r[A.linkX]|r[A.linkX+1]<<8,540);
+ r[A.submodule]=0;tank.update(.05,bridge.read(),{x:0,y:0});assert.equal(tank.x,548);assert.equal(tank.active,true);
+ r[A.submodule]=2;tank.release(bridge.read());assert.equal(tank.active,true,'Release waits for native transition completion');
+ tank.update(.05,bridge.read(),{x:0,y:0});r[A.submodule]=0;tank.update(.05,bridge.read(),{x:0,y:0});assert.equal(tank.active,false);assert.equal(r[0x2e4],0);
+});

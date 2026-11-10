@@ -219,7 +219,7 @@ function sendState(){
   $('start-questions').disabled=Boolean(learning)||!eligible.playing||!eligible.tablet;
   $('tank-questions').disabled=!eligible.playing||!eligible.tablet||!game.network?.has('michelle')||Boolean(learning)||Boolean(game.bridge?.ram?.[0x2e4])||Boolean(game.bridge?.ram?.[0x5d])||Boolean(game.bridge?.ram?.[0x4b]);
   $('tank-questions').hidden=Boolean(tank);$('start-questions').hidden=Boolean(tank);$('release-tank').hidden=!tank;
-  document.querySelectorAll('#controller [data-key]').forEach(button=>button.disabled=Boolean(tank));
+  document.querySelectorAll('#controller [data-key]').forEach(button=>button.disabled=Boolean(tank)&&!tankDialogueInput(button.dataset.key));
   const common={type:'state',ready:game.ready,paused:game.paused,active:game.fairy?.active||false,bridge:Boolean(game.bridge?.ram),objective:game.guidanceEnabled?game.guidance?.label||'':'',learning,lasers,powers,tank};
   game.network?.send({...common,target:Boolean(game.fairy?.target),cooldown:game.fairy?.cooldown||0,arrowCooldown:game.fairy?.arrowCooldown||0},'jj');
   game.network?.send({...common,target:Boolean(game.unicorn?.target),cooldown:game.unicorn?.cooldown||0,healCooldown:game.unicorn?.healCooldown||0,bombCooldown:game.unicorn?.bombs.cooldown||0,bouncing:(game.unicorn?.invulnerable||0)>.5},'michelle');
@@ -233,8 +233,11 @@ function setPhoneAudio(enabled){
   try{if(enabled)al.gain.connect(al.audioCtx.destination);else al.gain.disconnect(al.audioCtx.destination);}catch{}
 }
 
+function tankDialogueInput(key){
+  const r=game.bridge?.ram;return r?.[0x10]===14&&r[0x11]===2&&['0','8','4','5','6','7'].includes(key);
+}
 function input(key,pressed){
-  if(!game.ready||game.paused||game.tank?.active)return;
+  if(!game.ready||pressed&&(game.paused||game.tank?.active&&!tankDialogueInput(key)))return;
   game.emulator.gameManager.simulateInput(0,Number(key),pressed?1:0);
 }
 function press(key,source){
@@ -325,6 +328,7 @@ $('pair-info').onclick=async()=>{
 };
 async function saveGame(notify=true){
   if(!game.ready||game.saving)return false;game.saving=true;
+  if(game.tank.active&&!game.bridge.read()?.active){game.saving=false;if(notify)toast('Finish crossing to the next screen before saving.');return false;}
   try{const state=game.tank.cleanState(()=>game.emulator.gameManager.getState(),game.bridge.read());snapshotRam(state);await storage.put('save',{rom:ROM_SHA256,state,date:Date.now()});if(notify)toast('Adventure saved on this phone.');return true;}
   catch{toast('Could not save in this browser. Use More → Download save backup.');return false;}
   finally{game.saving=false;}
@@ -334,6 +338,7 @@ $('resume-save').onclick=async()=>{
   try{const saved=await storage.get('save');if(!saved)throw new Error('No saved adventure yet.');snapshotRam(saved.state);game.tank.reset(game.bridge.read());game.emulator.gameManager.loadState(saved.state);game.fairy.scene=null;game.unicorn.scene=null;$('phone-options').hidden=true;toast('Last save loaded.');}catch(e){toast(e.message);}
 };
 $('export-save').onclick=()=>{
+  if(game.tank?.active&&!game.bridge.read()?.active){toast('Finish crossing to the next screen before saving.');return;}
   if(!game.ready)return;const state=game.tank.cleanState(()=>game.emulator.gameManager.getState(),game.bridge.read());const blob=new Blob([state]);const url=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;a.download='jj-fairy-link-'+new Date().toISOString().slice(0,10)+'.state';a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
 };

@@ -11,8 +11,8 @@ export class TeamTank{
   if(!point){this.link.restore(origin.x,origin.y,world);return false;}
   this.x=point.x;this.y=point.y;this.scene=world.scene;this.active=true;this.missiles=[];this.blasts=[];this.aimAge=1;this.firing=false;this.rocketCooldown=this.heartCooldown=this.hitCooldown=0;this.link.hold(this.x,this.y);return true;
  }
- release(world){if(!this.active)return;this.link.restore(this.x,this.y,world);this.active=false;this.firing=false;this.beam=null;this.missiles=[];this.blasts=[];}
- reset(world){this.release(world);this.terrain.reset();}
+ release(world){if(!this.active)return;if(!world?.active){this.releasePending=true;return;}this.link.restore(this.x,this.y,world);this.active=false;this.transitioning=this.releasePending=false;this.firing=false;this.beam=null;this.missiles=[];this.blasts=[];}
+ reset(world){this.release({...world,active:true});this.terrain.reset();}
  setAim(x,y){if(!Number.isFinite(x)||!Number.isFinite(y))return;const d=Math.hypot(x,y);this.aimAge=0;this.firing=d>.1;if(this.firing)this.aim={x:x/d,y:y/d};}
  launch(x,y,world,heart=false){
   if(!this.active||!world?.active||![x,y].every(Number.isFinite)||(heart?this.heartCooldown:this.rocketCooldown)>0)return false;
@@ -26,18 +26,24 @@ export class TeamTank{
  }
  update(dt,world,drive,paused=false){
   if(!world)return;
+  if(this.active&&!world.active){this.transitioning=true;this.beam=null;this.missiles=[];this.blasts=[];return;}
+  if(this.active&&this.transitioning){
+   this.transitioning=false;this.x=world.link.x+world.cameraX;this.y=world.link.y+world.cameraY;this.link.origin={x:this.x,y:this.y};this.link.hold(this.x,this.y);
+  }
   if(this.terrain.scene!==world.scene){
    this.terrain.enter(world);
    if(this.active){this.scene=world.scene;this.x=world.link.x+world.cameraX;this.y=world.link.y+world.cameraY;this.link.origin={x:this.x,y:this.y};this.missiles=[];this.blasts=[];this.firing=false;}
   }
-  if(!this.active||paused||!world.active)return;
+  if(this.releasePending){this.releasePending=false;this.release(world);}
+  if(!this.active||!world.active)return;
+  if(paused){this.link.hold(this.x,this.y);return;}
   this.aimAge+=dt;this.rocketCooldown=Math.max(0,this.rocketCooldown-dt);this.heartCooldown=Math.max(0,this.heartCooldown-dt);this.hitCooldown-=dt;
   const d=Math.max(1,Math.hypot(drive.x,drive.y)),dx=drive.x/d*95*dt,dy=drive.y/d*95*dt,steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/2));
   for(let i=0;i<steps;i++){
    if(!this.terrain.blocked(this.x+dx/steps,this.y,world))this.x+=dx/steps;
    if(!this.terrain.blocked(this.x,this.y+dy/steps,world))this.y+=dy/steps;
   }
-  this.terrain.smash(this.x,this.y);this.link.hold(this.x,this.y);
+  this.terrain.smash(this.x,this.y);this.link.hold(this.x,this.y,true);
   const source={x:this.x-world.cameraX,y:this.y-world.cameraY};
   const area=(point,type,radius)=>{for(const e of world.enemies)if(e.vulnerable&&Math.hypot(e.x-point.x,e.y-point.y)<=radius+(e.radius??7))this.bridge.powerHit(e,point,type,false);};
   this.beam=this.firing&&this.aimAge<.35?{source,end:beamEnd(source,this.aim)}:null;
@@ -58,9 +64,9 @@ export class TeamTank{
   this.missiles=this.missiles.filter(p=>!p.done);for(const b of this.blasts)b.life-=dt;this.blasts=this.blasts.filter(b=>b.life>0);
  }
  snapshot(){return this.active?{active:true,heartCooldown:this.heartCooldown,rocketCooldown:this.rocketCooldown}:null;}
- cleanState(action,world){return this.link.clean(action,this.x,this.y,world);}
+ cleanState(action,world){if(this.active&&!world?.active)throw new Error('Finish crossing to the next screen before saving.');return this.link.clean(action,this.x,this.y,world);}
  draw(ctx,world,time){
-  if(!this.active||!world?.active)return;ctx.save();const x=this.x-world.cameraX,y=this.y-world.cameraY;
+  if(!this.active||!world)return;ctx.save();const x=world.active?this.x-world.cameraX:world.link.x,y=world.active?this.y-world.cameraY:world.link.y;
   if(this.beam){
    const {source,end}=this.beam,dx=end.x-source.x,dy=end.y-source.y,d=Math.hypot(dx,dy)||1;
    ['#ff5468','#ffa852','#fff16a','#8fff83','#6bdcff','#9a9bff','#ee92ff'].forEach((color,i)=>{const offset=(i-3)*2.5;ctx.strokeStyle=color;ctx.lineWidth=3.5;ctx.beginPath();ctx.moveTo(source.x-dy/d*offset,source.y+dx/d*offset);ctx.lineTo(end.x-dy/d*offset,end.y+dx/d*offset);ctx.stroke();});

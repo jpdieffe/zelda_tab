@@ -55,7 +55,7 @@ Tablet APK 1.2 adds native English speech for these prompts; Chrome uses its spe
 
 Dad's separate **Tank challenge** button starts four questions on the tablet: two letters for JJ, then one math question and one sight word for Michelle. Completing all four questions earns the tank. Wrong answers prompt another try, and retries never take away the tank reward. Both children's controllers must be paired to begin. The ordinary **Questions** button keeps its two-question surprise rewards.
 
-After **Build the tank!**, Link, the fairy and the unicorn combine into one invulnerable tank. Dad's joystick drives it across walls, water, pits and other terrain in the current game view. Its tracks crush ordinary walls and objects into rubble and damage enemy bodies. Doors and entrances block the tank's whole body and are never destroyed. Puzzle objects and NPCs are protected.
+After **Build the tank!**, Link, the fairy and the unicorn combine into one invulnerable tank. Dad's joystick drives it across walls, water, pits and other terrain. The camera follows it, and driving across a room or outdoor area boundary carries the tank into the next screen. Its tracks crush ordinary walls and objects into rubble and damage enemy bodies. Doors and entrances block the tank's whole body and are never destroyed. Puzzle objects and NPCs are protected.
 
 - JJ taps or drags on the game to launch three missiles along weaving paths toward that point. Recharge: 0.35 seconds.
 - Michelle holds her joystick to fire and aim a rainbow laser; releasing it stops firing. Her separate **HEART MISSILES** button launches three hearts toward a nearby enemy, or the laser's direction when no enemy is available. Recharge: 0.8 seconds.
@@ -141,6 +141,8 @@ Local preview: `http://localhost:4173`. HTTPS is required on real phones/tablets
 ```sh
 npm run test:browser
 ```
+
+With the opening-game fixture at `test-results/active-game.state`, run `node scripts/tank-scroll-browser-test.mjs` to check native tank scrolling, outdoor crossings in all four directions, indoor round trips, and continuing past room-entry dialogue.
 
 The browser integration test starts the bundled game without selecting any file and uses the installed Windows Chrome executable. Set `CHROME_PATH` for another installation. Test screenshots and local save states go in ignored `test-results/`. They are never included in `dist/`. The Node tests cover bundled-ROM integrity, memory location, target filtering, native damage queuing, coordinate transforms, cooldown, free shots, wall sweeps, target loss, scrolling, dungeon floors, ROM collision decoding, story progression, compass coordinates, and invalid inputs. The browser test verifies an empty-room shot hitting a real house wall, compass text/toggle relaying to the tablet, and native enemy damage through the emulator.
 
