@@ -1,0 +1,35 @@
+/* JJ steers directly on the picture, with one large fire button below it. */
+body[data-role=jj] #game-layout{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;gap:8px}
+body[data-role=jj] .steering{display:none}
+body[data-role=jj] #screen-wrap{grid-column:1;grid-row:1}
+body[data-role=jj] .actions{grid-column:1;grid-row:2;gap:0}
+body[data-role=jj] #fire{width:min(360px,90vw);height:76px;border-radius:22px;font-size:23px}
+body[data-role=jj] #fire small{display:inline-block;margin:0 0 0 18px;font-size:14px}
+body[data-role=jj] #control-hint{display:none}
+
+/* Michelle's action buttons are twice their former width and height. */
+body[data-role=michelle]{--action-size:200px;--heart-height:116px}
+body[data-role=michelle] #game-layout{grid-template-columns:minmax(150px,1fr) minmax(0,2fr);grid-template-rows:minmax(0,1fr) auto;gap:12px}
+body[data-role=michelle] .steering{grid-column:1;grid-row:1}
+body[data-role=michelle] .actions{grid-column:2;grid-row:1;flex-wrap:nowrap;gap:12px}
+body[data-role=michelle] .action{flex:none;width:var(--action-size);height:var(--action-size);font-size:28px}
+body[data-role=michelle] .action small{font-size:18px;margin-top:10px}
+body[data-role=michelle] #control-hint{display:none}
+body[data-role=michelle] #michelle-card{grid-column:1/-1;grid-row:2;display:flex;justify-content:center;align-items:center}
+body[data-role=michelle] #michelle-card canvas,body[data-role=michelle] #michelle-card h2,body[data-role=michelle] #michelle-card p{display:none}
+body[data-role=michelle] #heart{width:280px;height:var(--heart-height);min-height:var(--heart-height);font-size:24px;border-radius:22px;padding:10px 20px}
+body[data-role=michelle] #heart>span{font-size:38px}
+body[data-role=michelle] #heart small{font-size:16px;margin-top:5px}
+@media(max-height:520px) and (orientation:landscape){
+  body[data-role=jj] #fire{height:64px;font-size:21px}
+  body[data-role=michelle]{--action-size:172px;--heart-height:104px}
+  body[data-role=michelle] #game-layout{gap:8px;grid-template-columns:minmax(145px,1fr) minmax(356px,2fr)}
+}
+@media(max-width:620px) and (orientation:portrait){
+  body[data-role=michelle]{--action-size:152px}
+  body[data-role=michelle] #game-layout{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(150px,1fr) auto auto;gap:16px;padding:12px}
+  body[data-role=michelle] .steering{grid-column:1;grid-row:1;width:170px}
+  body[data-role=michelle] .actions{grid-column:1;grid-row:2;gap:12px}
+  body[data-role=michelle] #michelle-card{grid-column:1;grid-row:3}
+  body[data-role=michelle] .action{font-size:24px}
+}
