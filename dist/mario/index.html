@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#101e29"><title>Mario & the Magic Crew</title><link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="kid-lock.css"></head>
+<body>
+  <main id="lobby">
+    <div class="eyebrow">A THREE-PLAYER FAMILY ADVENTURE</div>
+    <h1>Mario &amp; the<br><em>Magic Crew</em></h1>
+    <p class="intro">One Mushroom Kingdom. Three heroes.<br>A little learning. A whole lot of magic.</p>
+    <a class="game-switch" data-zelda href="https://jpdieffe.github.io/zelda_tab/">← Play Zelda instead</a>
+    <div class="roles">
+      <button class="role dad" data-role="dad"><canvas id="portrait-dad" width="180" height="130"></canvas><strong>I'm Dad</strong><span>Mario · lead the adventure</span><small>Move, jump &amp; start questions</small></button>
+      <button class="role jj" data-role="jj"><canvas id="portrait-jj" width="180" height="130"></canvas><strong>I'm JJ</strong><span>Dragon · take to the skies</span><small>Fly &amp; breathe trailing fireballs</small></button>
+      <button class="role michelle" data-role="michelle"><canvas id="portrait-michelle" width="180" height="130"></canvas><strong>I'm Michelle</strong><span>Unicorn · make some magic</span><small>Tap to fly &amp; float gently down</small></button>
+    </div>
+    <form id="join-form" hidden><label for="code-input">Dad's two-letter room code</label><div class="join-row"><input id="code-input" autocomplete="off" autocapitalize="characters" maxlength="4" placeholder="AB" required><button type="submit">Join the crew →</button></div></form>
+    <p class="promise">The children always come back safely. Only Mario can lose a life.</p>
+    <p class="setup">Dad hosts on his phone. JJ's tablet shows the game for everyone.<br>Michelle joins with another phone. Use the same Wi-Fi and keep Dad's tab open.</p>
+    <p class="setup">On JJ's tablet, turn sound on, then tap <strong>Kid lock</strong>. In the tablet app, accept Android's pinning prompt and wait for <strong>Android buttons locked</strong>. Dad can unlock remotely, or hold the parent button for 3 seconds.</p>
+    <details class="instructions"><summary>Controls &amp; learning</summary><p>Dad: joystick + Jump / Run. Keyboard: arrows, Z or Space to jump, X to run, Enter to start. JJ: drag on the game or steer with arrows, hold Fire / X. Michelle: joystick or arrows, tap Jump / Z repeatedly to fly, hold Magic / X to shoot. Children regroup safely when the camera moves away.</p><p>Dad starts questions whenever you're ready. JJ finds a spoken letter; Michelle alternates math (0–10) and sight words. First-try answers earn lasers, homing missiles, dinosaur form or a meteor. Two first-try answers earn stronger team magic.</p></details>
+  </main>
+  <section id="play" hidden>
+    <header class="toolbar"><strong id="player-label"></strong><span class="room">ROOM <b id="room-code">…</b></span><span id="connection">Starting…</span><button id="kid-lock" hidden>Kid lock</button><button id="sound">Sound on</button><button id="fullscreen">Full screen</button><button id="leave">Leave</button></header>
+    <div class="kid-lock-bar"><span id="kid-system-status">Kid lock on</span><button id="kid-system-lock" hidden>Lock Android buttons</button><button id="kid-fullscreen" hidden>Restore fullscreen</button><button id="kid-unlock" aria-label="Hold for three seconds to unlock tablet controls">Hold 3 sec to unlock</button></div>
+    <div id="game-layout">
+      <div class="steering"><div id="joystick" aria-label="Movement joystick"><span class="pad-arrows">↑<br>← &nbsp; →<br>↓</span><i></i></div><span id="move-label">MOVE</span></div>
+      <div id="screen-wrap"><canvas id="game" width="768" height="720"></canvas><video id="remote-video" autoplay playsinline muted hidden></video><div id="screen-message" hidden></div></div>
+      <div class="actions"><button id="jump" class="action jump" data-button="0">JUMP <small>A</small></button><button id="fire" class="action fire" data-button="1">RUN <small>B</small></button><p id="control-hint"></p></div>
+      <div id="michelle-card" hidden><canvas id="controller-unicorn" width="180" height="130"></canvas><h2>Float like magic.</h2><p>Watch JJ's tablet.<br>Tap jump again to fly higher.</p></div>
+    </div>
+    <footer id="dad-controls" hidden><button data-button="3">Start / Pause</button><button data-button="2">Select</button><button id="questions" class="gold">Questions ✦</button><button id="skip" hidden>Skip this round</button><button id="save">Save game</button><button id="load">Load save</button><button id="regroup">Bring kids back</button><button id="new-game">New game</button></footer>
+    <p id="power-status" aria-live="polite"></p>
+    <button id="unlock-tablet" hidden>Unlock JJ's tablet</button>
+  </section>
+  <section id="quiz-panel" role="dialog" aria-modal="true" aria-labelledby="quiz-title" hidden><div class="quiz-card">
+    <div id="quiz-turn" class="eyebrow"></div><h2 id="quiz-title"></h2><p id="quiz-prompt"></p><div id="quiz-choices"></div><p id="quiz-feedback" aria-live="polite"></p><div class="quiz-buttons"><button id="quiz-listen">Hear again ♫</button><button id="quiz-next" class="gold"></button></div><p id="quiz-audio-help"></p><details id="quiz-parent-help"><summary>Grown-up prompt</summary><p id="quiz-parent-prompt"></p></details><p id="quiz-connection"></p>
+    <button id="quiz-skip" hidden>Dad: skip this round</button>
+  </div></section>
+  <div id="status" role="status" aria-live="polite"></div>
+  <script src="vendor/peerjs.min.js"></script><script type="module" src="app.js"></script>
+</body></html>

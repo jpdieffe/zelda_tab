@@ -6,6 +6,16 @@ A three-player companion for **The Legend of Zelda: A Link to the Past (USA)**. 
 
 Hosted on GitHub Pages. No ChatGPT account or login is required.
 
+## Switch to Mario
+
+**Play Mario & the Magic Crew** on the home screen, or **Play Mario instead** on JJ's and Michelle's setup screens, opens the three-player Mario game at https://jpdieffe.github.io/zelda_tab/mario/. Dad is Mario, JJ flies a segmented dragon with trailing fireballs, and Michelle controls a unicorn that gains height with each jump tap and falls slowly. Only Dad can die. The game includes the same letter, math and sight-word question flow and surprise powers.
+
+The existing **Fairy Link Tablet APK** opens Mario inside the same app; no separate APK or reinstall is needed. Turn sound on, tap **Kid lock**, accept Android's pinning prompt, and wait for **Android buttons locked**. Back/Home/Recents are then restricted as in Zelda. Hold the parent button for three seconds, or tap **Unlock JJ's tablet** on Dad's Mario controls. If Android pinning was cancelled, **Lock Android buttons** retries. Mario's parent unlock remains accessible during question rounds and without a network connection. Ordinary Android unpin gestures still work; enable a device PIN for unpinning if needed.
+
+Choose Mario on all three devices and join Dad's new code. **Play Zelda instead** returns from Mario's setup screen. Save and leave before switching games. Zelda and Mario saves and pairing codes remain separate. Only Dad handles Mario's bosses with the original mechanics; companion attacks target ordinary enemies.
+
+Mario's deployed files are tracked in `dist/mario/`; `node scripts/sync-mario.mjs` refreshes them from the sibling `mario3-family/site/` working project. The shared deployment tests cover both games. `node scripts/mario-switch-test.mjs` checks setup navigation, and `node scripts/android-mario-test.mjs` checks the existing native app against an isolated Android emulator, including video/audio, pinning, gameplay, question delivery, short/cancelled holds, parent unlock and remote unlock.
+
 ## Play
 
 1. Open https://jpdieffe.github.io/zelda_tab/ in Chrome on both Android devices, on the same Wi-Fi.

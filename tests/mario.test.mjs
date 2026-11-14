@@ -1,0 +1,32 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import {NES} from '../dist/mario/vendor/jsnes/index.js';
+import {CoopEngine,player} from '../dist/mario/engine.js';
+import {M} from '../dist/mario/memory.js';
+import {Companions} from '../dist/mario/companions.js';
+import {LearningRound,QuestionDeck,mathFacts} from '../dist/mario/learning.js';
+const rom=readFileSync(new URL('../dist/mario/roms/mario3.nes',import.meta.url));
+let level;
+function boot(){const e=new CoopEngine(rom,{NES});if(level)e.nes[0].fromJSON(structuredClone(level));else{
+  e.nes[0].fromJSON(JSON.parse(readFileSync(new URL('../dist/mario/start.json',import.meta.url))));
+  const run=n=>{for(let i=0;i<n;i++)e.step();},press=(mask,n)=>{e.input(0,mask);run(n);e.input(0,0);run(20);};
+  press(128,20);press(16,20);press(1,2);run(180);level=structuredClone(e.nes[0].toJSON());
+}e.resetWorld();const kids=new Companions(e);kids.step(0);return {e,kids};}
+test('bundled original ROM hash matches the supplied Mario 3 revision',()=>{assert.equal(createHash('sha256').update(rom).digest('hex'),'4377a7f5e6eb50bdd2ac6f249bf1a7085500aca8eb41f38545c3a2731c51a579');});
+test('Mario enters the real first level; companions never create a second playable Mario',()=>{const {e,kids}=boot();assert.equal(e.nes[0].cpu.mem[M.Level_Tileset],1);assert.equal(kids.playable(),true);assert.equal(e.joined,false);assert.equal(kids.kids.jj.segments.length,8);});
+test('dragon flies independently and its segments stay linked while turning',()=>{const {e,kids}=boot(),k=kids.kids.jj,p=player(e.nes[0]);k.hurt=0;const before={x:k.x,y:k.y};kids.input('jj',{mask:144},0);for(let i=0;i<20;i++)kids.step(i*10);assert.ok(k.x>before.x+25);assert.ok(k.y<before.y-25);let head=k;for(const s of k.segments){assert.ok(Math.hypot(head.x-s.x,head.y-s.y)<5.01);head=s;}assert.deepEqual(player(e.nes[0]),p);});
+test('unicorn jump taps flap repeatedly; holding jump does not auto-fly; descent is gentle',()=>{const {kids,e}=boot(),k=kids.kids.michelle,p=player(e.nes[0]);k.x=p.cameraX+80;k.y=p.cameraY+90;
+  kids.input('michelle',{mask:1},0);kids.step(0);const y=k.y;assert.ok(k.vy<0);for(let i=1;i<8;i++)kids.step(i*10);assert.ok(k.y<y);const v=k.vy;kids.input('michelle',{mask:1},85);kids.step(85);assert.ok(k.vy>v,'holding must not retrigger flap');kids.input('michelle',{mask:0},90);kids.input('michelle',{mask:1},91);kids.step(92);assert.ok(k.vy<-3.4);k.y=p.cameraY+60;k.vy=0;kids.release('michelle');for(let i=0;i<50;i++)kids.step(100+i*10);assert.ok(k.vy<=.65);assert.ok(k.y<p.cameraY+93);});
+test('children recover from pits without writing Mario health, lives, position or death state',()=>{const {kids,e}=boot(),m=e.nes[0].cpu.mem;const before=Array.from(m);for(const k of Object.values(kids.kids)){k.y=player(e.nes[0]).cameraY+300;}kids.step(0);assert.equal(kids.stats.returns,2);assert.deepEqual(Array.from(m),before);m[M.Player_IsDying]=1;kids.step(20);assert.equal(m[M.Player_IsDying],1,'Dad death must never be cleared by companions');assert.equal(e.joined,false);});
+test('release, stale input and pause stop movement and freeze reward timers',()=>{const {kids,e}=boot(),k=kids.kids.jj;kids.input('jj',{mask:128},0);kids.step(10);const x=k.x;kids.step(351);assert.equal(k.x,x);kids.input('jj',{mask:128},400);kids.release('jj');kids.step(410);assert.equal(k.x,x);kids.grant({roles:['jj'],type:'laser',giant:true});const left=k.power.left;e.paused=true;kids.step(500);assert.equal(k.power.left,left);assert.equal(k.x,x);assert.equal(kids.input('jj',{mask:NaN},0),false);assert.equal(kids.input('dad',{mask:1},0),false);});
+test('real enemy receives a dragon fireball hit; child and Mario remain unharmed',()=>{const {kids,e}=boot();let targets=e.weapons.targets();assert.ok(targets.length);const t=targets[0],x=(t.left+t.right)/2,y=(t.top+t.bottom)/2;const k=kids.kids.jj;k.x=x-22;k.y=y;k.face=1;k.hurt=60;k.active=true;const p=player(e.nes[0]);kids.attack(k);for(let i=0;i<12;i++)kids.step(i);assert.ok(kids.stats.hits>=1);assert.equal(e.nes[0].cpu.mem[0x661+t.slot],0);assert.deepEqual(player(e.nes[0]),p);});
+test('scene transitions clear shots and regroup both children',()=>{const {kids,e}=boot();kids.attack(kids.kids.jj);assert.equal(kids.shots.length,1);e.nes[0].cpu.mem[M.Level_LayPtrOrig_AddrL]^=1;kids.step(0);assert.equal(kids.shots.length,0);assert.equal(kids.kids.jj.mask,0);assert.ok(Math.abs(kids.kids.jj.x-player(e.nes[0]).x)<50);});
+test('all four learning rewards apply and expire on simulation time',()=>{const {kids}=boot();for(const type of ['laser','missiles','dinosaur','meteor']){kids.grant({roles:['jj','michelle'],type,giant:true});assert.equal(kids.kids.jj.power.type,type);assert.equal(kids.kids.michelle.power.giant,true);kids.kids.jj.power.left=1;kids.step(0);assert.equal(kids.kids.jj.power,null);}});
+test('save/load restores original Mario progress and companion effects reset separately',()=>{const {e,kids}=boot();const saved=structuredClone(e.snapshot()),p=player(e.nes[0]);e.nes[0].cpu.mem[M.Player_X]+=30;e.restore(saved);e.resetWorld();kids.reset();assert.deepEqual(player(e.nes[0]),p);assert.equal(e.joined,false);assert.equal(kids.shots.length,0);});
+test('curriculum has nonrepeating letters, alternating math/words, ordered 0–10 math answers',()=>{const deck=new QuestionDeck(),letters=new Set();for(let i=0;i<26;i++){letters.add(deck.next('jj').answer);const q=deck.next('michelle');assert.equal(q.kind,i%2?'word':'math');assert.equal(q.choices.length,i%2?3:11);}assert.equal(letters.size,26);assert.equal(mathFacts().length,132);assert.ok(mathFacts().every(f=>Number(f.answer)>=0&&Number(f.answer)<=10));});
+test('question retries, stale messages, turn order, and first-answer team reward',()=>{
+  for(const missed of [true,false]){const q=new LearningRound();assert.ok(q.start({playing:true,tablet:true}));q.advance(q.token());const old=q.token();if(missed){const question=q.round.questions[0];q.answer(q.token(),question.choices.findIndex(x=>x!==question.answer));assert.equal(q.answer(old,0),false);q.advance(q.token());}
+  for(let i=0;i<2;i++){const question=q.round.questions[i];assert.equal(question.role,i?'michelle':'jj');q.answer(q.token(),question.choices.indexOf(question.answer));const result=q.advance(q.token());if(i===1){assert.deepEqual(result.roles,missed?['michelle']:['jj','michelle']);assert.equal(result.giant,!missed);}}assert.equal(q.round,null);}
+});

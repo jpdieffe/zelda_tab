@@ -10,7 +10,7 @@ export function serve(port = 4173, basePath = '/') {
       const url = new URL(req.url, 'http://localhost');
       if (!url.pathname.startsWith(basePath)) throw new Error('Outside base path');
       const pathname = '/' + url.pathname.slice(basePath.length);
-      const name = decodeURIComponent(pathname === '/' ? '/index.html' : pathname);
+      const name = decodeURIComponent(pathname.endsWith('/') ? pathname + 'index.html' : pathname);
       const target = path.resolve(root, '.' + name);
       if (!target.startsWith(root)) throw new Error('Outside root');
       const body = await readFile(target);

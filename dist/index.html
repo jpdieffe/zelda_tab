@@ -9,6 +9,7 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./game-switch.css">
   <script defer src="./vendor/peerjs.min.js"></script>
   <script type="module" src="./app.js"></script>
 </head>
@@ -24,13 +25,14 @@
       <section class="role-card jj-card"><span class="role-number">02 / THE BIG SCREEN</span><div class="role-title"><h2>I'm JJ!</h2><img src="./icon.svg" alt="" width="48" height="48"></div><p>Tap to fly your fairy.<br>Fly anywhere, then send a little spark!</p><button id="choose-jj" class="primary mint">Let's fly <span>↗</span></button></section>
       <section class="role-card michelle-card"><span class="role-number">03 / MICHELLE'S PHONE</span><div class="role-title"><h2>I'm Michelle.</h2><img src="./unicorn.svg" alt="" width="48" height="48"></div><p>Gallop as an invincible unicorn.<br>Send magic at baddies and hearts to Link.</p><button id="choose-michelle" class="primary lavender">Let's gallop <span>↗</span></button></section>
     </div>
+    <a class="game-switch" href="./mario/">Play Mario &amp; the Magic Crew →<small>Dad is Mario · JJ is a dragon · Michelle is a flying unicorn</small></a>
     <footer class="home-footer"><span>Same Wi-Fi · Android Chrome · No computer needed</span><button class="text-button" id="about-toggle">How it works +</button></footer>
     <div id="about" class="about" hidden><p>Dad starts Zelda on his phone. JJ joins on the tablet, and Michelle joins on her phone using the same pairing code. Everyone watches the shared tablet.</p><p>The game loads automatically. Internet is needed to open the game and pair through PeerJS. Play travels directly between your devices, and your saves stay on your phone. Keep both tabs open and the phone unlocked.</p><p>Fairy sparks help with ordinary enemies. Bosses and special enemies still need Dad's skills. This is an unofficial family project using <a href="https://emulatorjs.org/" target="_blank" rel="noreferrer">EmulatorJS</a> and <a href="https://peerjs.com/" target="_blank" rel="noreferrer">PeerJS</a>.</p></div>
   </main>
 
   <main id="michelle-setup" class="view setup" hidden>
     <button class="back" data-home>← Back</button><img src="./unicorn.svg" alt="" class="setup-mark"><div class="eyebrow">MICHELLE'S PHONE</div><h1>A little<br><em>unicorn magic.</em></h1><p>Enter Dad's pairing code, then turn your phone sideways.<br>Watch the shared tablet while you play.</p>
-    <form id="michelle-form" class="setup-panel"><label for="michelle-code">TWO-LETTER CODE</label><input id="michelle-code" class="code-input" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="AB" maxlength="2" required aria-label="Pairing code from Dad's phone"><button id="michelle-join" class="primary lavender" type="submit">Join as the unicorn <span>✦</span></button><p id="michelle-join-status" role="status">Use the same code as JJ. No download needed.</p></form>
+    <a class="game-switch" href="./mario/?role=michelle">Play Mario instead &#8594;</a><form id="michelle-form" class="setup-panel"><label for="michelle-code">TWO-LETTER CODE</label><input id="michelle-code" class="code-input" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="AB" maxlength="2" required aria-label="Pairing code from Dad's phone"><button id="michelle-join" class="primary lavender" type="submit">Join as the unicorn <span>✦</span></button><p id="michelle-join-status" role="status">Use the same code as JJ. No download needed.</p></form>
   </main>
 
   <main id="unicorn-controller" class="view controller unicorn-controller" hidden>
@@ -53,6 +55,7 @@
 
   <main id="jj-setup" class="view setup" hidden>
     <button class="back" data-home>← Back</button><img src="./icon.svg" alt="" class="setup-mark"><div class="eyebrow">JJ'S BIG SCREEN</div><h1>Ready to<br><em>take flight?</em></h1><p>Enter the code on Dad's phone.</p>
+    <a class="game-switch" href="./mario/?tablet=1">Play Mario instead →<small>Fly JJ's dragon in the same tablet app. Kid lock works there too.</small></a>
     <p class="tablet-app-download"><a class="primary" href="./downloads/fairy-link-tablet.apk" download>Install the Android tablet app</a><small>Blocks Back while locked. Accept Android's pinning prompt to block Home and Recents. Android 8 or newer.</small></p>
     <details class="kid-setup"><summary>Keep JJ in the game</summary><p>For no address bar, use Chrome's menu > Add to Home screen > Install, then open the Fairy Link icon. After joining, turn sound on and tap <strong>Kid lock</strong>.</p><p>For Android navigation buttons, search tablet Settings for <strong>App pinning</strong> (or <strong>Pin app</strong>). Enable it with a PIN to unpin, then pin Fairy Link from the Recent apps screen. A browser tab alone cannot lock Android's buttons.</p><p>Hold the unlock button for 3 seconds, or use Dad's <strong>More > Unlock JJ's tablet</strong>.</p></details>
     <form id="join-form" class="setup-panel"><label for="join-code">TWO-LETTER CODE</label><input id="join-code" class="code-input" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="AB" maxlength="2" required aria-label="Pairing code from Dad's phone"><button id="join" class="primary mint" type="submit">Join the adventure <span>✦</span></button><p id="join-status" role="status">Both devices should be on the same Wi-Fi.</p></form>

@@ -1,0 +1,10 @@
+.game-switch{display:inline-block;border:1px solid #667e83;border-radius:12px;padding:11px 18px;text-decoration:none;color:#ffe09b;background:#263c47;font-size:14px;font-weight:700}
+.kid-lock-bar{display:none;flex:none;align-items:center;justify-content:space-between;gap:8px;padding:4px 12px;font-size:11px;background:#172e3c;color:#cee3dc;position:relative;z-index:25}
+.kid-lock-bar button{font-size:11px;min-height:42px;padding:6px 12px;touch-action:none}
+.kid-locked .toolbar{display:none}.kid-locked .kid-lock-bar{display:flex}
+body.kid-locked #quiz-panel{top:52px}
+.kid-lock-bar .holding{background:linear-gradient(90deg,#ffd77560,#ffd77560) left/0% 100% no-repeat;animation:unlock-hold 3s linear forwards}
+@keyframes unlock-hold{to{background-size:100% 100%}}
+body:has(#play:not([hidden])){overscroll-behavior:none}
+#play,#play *{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+#unlock-tablet{align-self:center;font-size:11px;padding:7px 12px;margin:0 4px 4px}

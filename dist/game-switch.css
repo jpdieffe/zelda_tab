@@ -1,0 +1,3 @@
+.game-switch{display:block;text-align:center;text-decoration:none;padding:15px 20px;border:1px solid #aec58b;border-radius:14px;background:#233b31;color:#f4df9c;font-weight:750;margin:18px auto;max-width:640px}
+.game-switch small{display:block;font-size:12px;line-height:1.5;color:#bfd0bb;font-weight:400;margin-top:6px}
+.game-switch:hover{background:#314e3a}.game-switch:focus-visible{outline:3px solid #f4df9c;outline-offset:3px}
