@@ -8,6 +8,8 @@ Hosted on GitHub Pages. No ChatGPT account or login is required.
 
 ## Switch to Mario
 
+In both games, Michelle gets nine math questions with positive numbers and positive answers for every one involving zero. Zero practice is spaced every tenth math question; math still alternates with sight words.
+
 Both kids' Mario shots pass through walls, pipes and platforms. Defeating an enemy produces an orange explosion and a cannon boom through the game audio. These explosions do not damage Mario or the scenery.
 
 Mario levels have **no time limit**. The game disables the original countdown and time-up death, including after loading older saves. Normal hazards and the children's power/recharge timers remain active.

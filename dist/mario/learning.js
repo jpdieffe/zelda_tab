@@ -16,7 +16,7 @@ export function mathFacts(){
   return facts;
 }
 export class QuestionDeck {
-  constructor(random=Math.random){this.random=random;this.bags={};this.michelleTurns=0;}
+  constructor(random=Math.random){this.random=random;this.bags={};this.michelleTurns=0;this.mathTurns=0;}
   take(kind,items){if(!this.bags[kind]?.length)this.bags[kind]=shuffled(items,this.random);return this.bags[kind].pop();}
   choices(answer,pool){return shuffled([answer,...shuffled(pool.filter(v=>v!==answer),this.random).slice(0,2)],this.random);}
   next(role){
@@ -25,7 +25,10 @@ export class QuestionDeck {
       return {role,kind:'letter',answer,choices:this.choices(answer,LETTERS),prompt:'Listen, then tap the letter.',speech:`JJ, find the letter ${answer}.`};
     }
     if(this.michelleTurns++%2===0){
-      const fact=this.take('math',mathFacts()),{a,b,operator,answer}=fact;
+      // Keep zero practice occasional and spaced apart, including zero answers.
+      const zero=this.mathTurns++%10===9;
+      const pool=mathFacts().filter(f=>(f.a===0||f.b===0||f.answer==='0')===zero);
+      const fact=this.take(zero?'mathZero':'mathPositive',pool),{a,b,operator,answer}=fact;
       return {role,kind:'math',answer,choices:[...NUMBERS],prompt:`${a} ${operator} ${b} = ?`,speech:`Michelle, what is ${a} ${operator==='+'?'plus':'minus'} ${b}?`,...fact};
     }
     const answer=this.take('words',SIGHT_WORDS);
