@@ -8,6 +8,7 @@ import {M} from '../dist/mario/memory.js';
 import {Companions} from '../dist/mario/companions.js';
 import {tileAt} from '../dist/mario/weapons.js';
 import {LearningRound,QuestionDeck,mathFacts} from '../dist/mario/learning.js';
+import {FamilyLearning} from '../dist/mario/jet-learning.js';
 const rom=readFileSync(new URL('../dist/mario/roms/mario3.nes',import.meta.url));
 let level;
 function boot(){const e=new CoopEngine(rom,{NES});if(level)e.nes[0].fromJSON(structuredClone(level));else{
@@ -17,6 +18,71 @@ function boot(){const e=new CoopEngine(rom,{NES});if(level)e.nes[0].fromJSON(str
 }e.resetWorld();const kids=new Companions(e);kids.step(0);return {e,kids};}
 test('bundled original ROM hash matches the supplied Mario 3 revision',()=>{assert.equal(createHash('sha256').update(rom).digest('hex'),'4377a7f5e6eb50bdd2ac6f249bf1a7085500aca8eb41f38545c3a2731c51a579');});
 test('Mario enters the real first level; companions never create a second playable Mario',()=>{const {e,kids}=boot();assert.equal(e.nes[0].cpu.mem[M.Level_Tileset],1);assert.equal(kids.playable(),true);assert.equal(e.joined,false);assert.equal(kids.kids.jj.segments.length,8);});
+
+test('jet challenge requires three answers each, allows retries, and cannot be earned by skipping',()=>{
+  const q=new FamilyLearning();assert.equal(q.start({jet:true,playing:true,tablet:true}),true);
+  assert.deepEqual(q.round.questions.map(x=>x.role),['jj','jj','jj','michelle','michelle','michelle']);assert.equal(q.snapshot().total,6);
+  q.advance(q.token());
+  for(let i=0;i<6;i++){
+    const item=q.round.questions[i],old=q.token();q.answer(old,item.choices.findIndex(x=>x!==item.answer));assert.equal(q.snapshot().phase,'retry');assert.equal(q.answer(old,0),false);q.advance(q.token());
+    q.answer(q.token(),item.choices.indexOf(item.answer));assert.equal(q.snapshot().correct,true);
+    if(i<5)assert.deepEqual(q.reward().roles,[]);const result=q.advance(q.token());
+    if(i===5)assert.deepEqual(result,{finished:true,roles:['jj','michelle'],giant:true,type:'jet'});
+  }
+  q.start({jet:true,playing:true,tablet:true});q.skip();assert.equal(q.round,null);assert.equal(q.advance('old'),null);
+});
+test('jet flies in the real ROM, hovers, scrolls, survives enemies, and leaves ROM bytes clean',()=>{
+  const {e,kids}=boot(),n=e.nes[0],m=n.cpu.mem,original=structuredClone(n.rom.rom);
+  assert.equal(kids.jet.start(),true);assert.equal(kids.sendHeart('michelle'),false);
+  const step=(count,mask)=>{e.input(0,mask);for(let i=0;i<count;i++){e.step();kids.step(i);}};
+  const before=player(n);step(25,16);assert.ok(player(n).y<before.y-40);const high=player(n);step(30,0);assert.equal(player(n).y,high.y,'jet hovers without gravity');
+  step(180,128);assert.ok(player(n).x>before.x+300);assert.ok(player(n).cameraX>0);assert.equal(m[M.Player_IsDying],0);assert.equal(kids.jet.active,true);
+  const target=e.weapons.targets()[0];if(target){m[M.Player_X]=target.x&255;m[M.Player_XHi]=target.x>>8;m[M.Player_Y]=(target.y-10)&255;m[M.Player_YHi]=(target.y-10)>>8;step(20,0);assert.equal(m[M.Player_IsDying],0);assert.equal(m[M.Player_Suit],0);}
+  step(180,32);assert.equal(m[M.Player_IsDying],0,'bottom camera bound prevents pit death');assert.ok(player(n).y-player(n).cameraY<=175);
+  assert.deepEqual(n.rom.rom,original);assert.equal(kids.jet.patched,false);assert.equal(m[M.Player_FlashInv],0);
+  kids.jet.stop();assert.equal(kids.jet.active,false);
+});
+test('jet persists across a room and a save, ends at a goal or map, and normal Mario can still die afterward',()=>{
+  const {e,kids}=boot(),m=e.nes[0].cpu.mem;kids.jet.start();e.step();kids.step(0);
+  e.paused=true;const p=player(e.nes[0]);e.input(0,128);e.step();kids.step(0);assert.deepEqual(player(e.nes[0]),p);e.paused=false;
+  m[M.Level_LayPtrOrig_AddrL]^=1;e.step();kids.step(0);assert.equal(kids.jet.active,true);
+  const saved=structuredClone(e.snapshot());kids.reset();assert.equal(kids.jet.active,false);e.restore(saved);kids.reset({keepJet:true});assert.equal(kids.jet.active,true);
+  const restored=e.nes[0].cpu.mem;restored[M.Player_EndLevel]=20;e.step();assert.equal(kids.jet.active,false);assert.equal(kids.jet.patched,false);
+  restored[M.Player_EndLevel]=0;restored[M.Player_IsDying]=1;e.step();assert.notEqual(restored[M.Player_IsDying],0);
+  const fresh=boot();fresh.kids.jet.start();fresh.e.nes[0].cpu.mem[M.Level_Tileset]=0;fresh.e.step();assert.equal(fresh.kids.jet.active,false);
+});
+test('jet weapons use separate aim and colored missiles; stale inputs and pauses stop firing',()=>{
+  const {e,kids}=boot();kids.jet.start();e.step();
+  kids.input('jj',{mask:2,aim:{x:0,y:-1}},0);kids.input('michelle',{mask:2,aim:{x:0,y:1}},0);kids.step(1);
+  assert.deepEqual(kids.jet.beams.map(b=>[b.role,b.dx,b.dy]),[['jj',0,-1],['michelle',0,1]]);
+  assert.deepEqual(kids.jet.shots.map(s=>s.role),['jj','michelle']);const shots=structuredClone(kids.jet.shots);e.paused=true;kids.step(100);assert.deepEqual(kids.jet.shots,shots);e.paused=false;
+  kids.step(351);assert.equal(kids.jet.beams.length,0);assert.equal(kids.kids.jj.mask,0);assert.equal(kids.kids.michelle.mask,0);
+  kids.release('jj');assert.equal(kids.kids.jj.aim,null);
+});
+test('jet can fly through World 1-1 and collect the native goal card',()=>{
+  const {e,kids}=boot(),n=e.nes[0],m=n.cpu.mem;kids.jet.start();let sawCard=false;
+  for(let i=0;i<1800&&kids.jet.active;i++){
+    const p=player(n),card=e.readActors(0).find(a=>m[0x671+a.slot]===0x41);
+    let dx=1,dy=p.y>p.cameraY+25?-1:0;
+    if(card){sawCard=true;dx=Math.sign(card.x-p.x);dy=Math.sign(card.y-18-p.y);}
+    e.input(0,(dx>0?128:dx<0?64:0)|(dy>0?32:dy<0?16:0));e.step();kids.step(i);
+  }
+  assert.equal(sawCard,true);assert.equal(kids.jet.active,false,'native goal ends jet reward');assert.equal(m[M.Player_IsDying],0);
+});
+test('both jet lasers and missiles defeat actual enemies through terrain with explosions and sound',()=>{
+  for(const role of ['jj','michelle'])for(const weapon of ['laser','missile']){
+    const {e,kids}=boot(),m=e.nes[0].cpu.mem;kids.jet.start();e.step();
+    const target=e.weapons.targets()[0];assert.ok(target);
+    const origin=kids.jet.turret(role),point={x:(target.left+target.right)/2,y:(target.top+target.bottom)/2};
+    const wall=tileAt(e.nes[0],(origin.x+point.x)/2,(origin.y+point.y)/2);m[0x6000+wall.index]=0x67;
+    const terrain=Array.from(m.slice(0x6000,0x7950));
+    kids.input(role,{mask:weapon==='missile'?2:0,aim:{x:point.x-origin.x,y:point.y-origin.y}},0);
+    if(weapon==='missile'){kids.kids[role].jetAim=kids.kids[role].aim;kids.kids[role].aim=null;}
+    for(let i=0;i<70&&!kids.stats.hits;i++)kids.step(i);
+    assert.equal(m[0x661+target.slot],0,`${role} ${weapon}`);assert.equal(kids.stats.hits,1);assert.equal(kids.explosions.length,1);assert.ok(m[M.Sound_QLevel1]&8);
+    assert.deepEqual(Array.from(m.slice(0x6000,0x7950)),terrain);
+  }
+});
 test('level clock stays frozen at one second while Mario and the world keep moving',()=>{
   const {e}=boot(),m=e.nes[0].cpu.mem;m[M.Level_TimerMSD]=0;m[M.Level_TimerMid]=0;m[M.Level_TimerLSD]=1;m[M.Level_TimerTick]=0;m[M.Level_TimerEn]=0;
   const start=player(e.nes[0]);e.input(0,1);for(let i=0;i<10;i++)e.step();assert.ok(player(e.nes[0]).y<start.y,'ordinary jump physics still run');e.input(0,0);

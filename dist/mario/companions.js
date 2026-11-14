@@ -1,6 +1,7 @@
 import {player, inLevel, sceneKey} from './engine.js';
 import {M} from './memory.js';
 import {tileAt} from './weapons.js';
+import {FamilyJet} from './jet.js';
 
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -12,20 +13,23 @@ export class Companions {
     this.engine=engine;this.key=null;this.time=0;this.shots=[];this.particles=[];this.explosions=[];this.meteors=[];this.hearts=[];this.heartCooldown=0;
     this.kids=Object.fromEntries(['jj','michelle'].map(role=>[role,{role,x:0,y:0,vx:0,vy:0,face:1,mask:0,until:0,target:null,flap:false,segments:[],cooldown:0,hurt:0,power:null,active:false}]));
     this.stats={shots:0,hits:0,returns:0};
+    this.jet=new FamilyJet(engine,this);
   }
   playable(){const n=this.engine.nes[0],m=n.cpu.mem;return inLevel(n)&&!m[M.Player_IsDying]&&!m[M.Player_InPipe]&&!m[M.Player_EndLevel]&&!m[M.Player_HaltGame]&&!m[M.Player_HaltTick];}
   input(role,data,now=performance.now()){
     const k=this.kids[role];if(!k||!Number.isInteger(data.mask)||data.mask<0||data.mask>255)return false;
     if((data.mask&1)&&!(k.mask&1))k.flap=true;
     k.mask=data.mask;k.until=now+350;if(data.mask&241||data.target)k.active=true;
+    k.aim=null;
+    if(data.aim&&Number.isFinite(data.aim.x)&&Number.isFinite(data.aim.y)){const length=Math.hypot(data.aim.x,data.aim.y);if(length>.01)k.aim={x:data.aim.x/length,y:data.aim.y/length};}
     if(data.target&&Number.isFinite(data.target.x)&&Number.isFinite(data.target.y)){
       const p=player(this.engine.nes[0]);k.target={x:p.cameraX+clamp(data.target.x,8,248),y:p.cameraY+clamp(data.target.y,8,200)};
     }else k.target=null;
     return true;
   }
-  release(role){const k=this.kids[role];if(k){k.mask=0;k.until=0;k.target=null;k.flap=false;}}
-  reset(){this.key=null;this.shots=[];this.particles=[];this.explosions=[];this.meteors=[];this.hearts=[];this.heartCooldown=0;this.heartSuitBag=[];for(const k of Object.values(this.kids)){this.release(k.role);k.power=null;}}
-  heartReady(){return !this.engine.paused&&this.playable()&&!this.heartCooldown;}
+  release(role){const k=this.kids[role];if(k){k.mask=0;k.until=0;k.target=null;k.aim=null;k.jetAim=null;k.flap=false;}}
+  reset({keepJet=false}={}){if(!keepJet)this.jet.stop();this.key=null;this.shots=[];this.particles=[];this.explosions=[];this.meteors=[];this.hearts=[];this.heartCooldown=0;this.heartSuitBag=[];for(const k of Object.values(this.kids)){this.release(k.role);k.power=null;}}
+  heartReady(){return !this.jet.active&&!this.engine.paused&&this.playable()&&!this.heartCooldown;}
   sendHeart(role){
     if(role!=='michelle'||!this.heartReady())return false;
     const k=this.kids.michelle;this.hearts.push({x:k.x,y:k.y,life:180,age:0,trail:[]});this.heartCooldown=300;return true;
@@ -72,6 +76,7 @@ export class Companions {
     k.vx=k.vy=0;k.segments=Array.from({length:8},(_,i)=>({x:k.x-(i+1)*5,y:k.y}));k.hurt=45;
   }
   grant({roles,giant,type}){
+    if(type==='jet'){if(roles.includes('jj')&&roles.includes('michelle'))this.jet.start();return;}
     for(const role of roles){const k=this.kids[role];if(!k)continue;
       k.power={type,giant,left:type==='missiles'?300:type==='meteor'?120:1200};
       if(type==='meteor')this.meteors.push({x:k.x,y:k.y,left:65,giant,role});
@@ -115,6 +120,13 @@ export class Companions {
     this.time++;
     this.explosions=this.explosions.filter(explosion=>--explosion.life>0);
     if(this.heartCooldown>0)this.heartCooldown--;
+    if(this.jet.active){
+      this.jet.step(now);
+      for(const particle of this.particles){particle.life--;particle.x+=particle.vx;particle.y+=particle.vy;}
+      this.particles=this.particles.filter(p=>p.life>0).slice(-220);
+      for(const k of Object.values(this.kids)){k.x=this.jet.x;k.y=this.jet.y;}
+      return;
+    }
     const dad={x:p.x+8,y:p.y+32-p.height/2};
     for(const heart of this.hearts){
       heart.age++;heart.life--;heart.trail.unshift({x:heart.x,y:heart.y});heart.trail.length=Math.min(heart.trail.length,10);
@@ -187,7 +199,7 @@ export class Companions {
       for(let i=s.trail.length-1;i>=0;i--){ctx.globalAlpha=(1-i/16)*.75;ctx.fillStyle=s.role==='jj'?(i>6?'#f34c31':'#ffb52e'):['#ff9cdd','#ffd767','#a4f5eb','#b59bff'][i%4];circle(ctx,s.trail[i].x,s.trail[i].y,Math.max(.6,4-i*.23));}
       ctx.globalAlpha=1;ctx.fillStyle=s.role==='jj'?'#fff4a8':'#fff5ff';circle(ctx,s.x,s.y,3.6);
     }
-    for(const k of Object.values(this.kids)){
+    for(const k of (this.jet.active?[]:Object.values(this.kids))){
       ctx.save();ctx.globalAlpha=k.hurt&&this.time%8<4?.55:1;
       const scale=k.power?.type==='dinosaur'?(k.power.giant?2.2:1.65):1;
       if(k.role==='jj'&&scale===1){for(let i=k.segments.length-1;i>=0;i--){const s=k.segments[i];ctx.fillStyle=i%2?'#2bad75':'#46cf83';ctx.strokeStyle='#153c3b';ctx.lineWidth=.8;circle(ctx,s.x,s.y,Math.max(1.2,5-i*.4),true);ctx.fillStyle='#d5f897';triangle(ctx,s.x-2,s.y-3,s.x,s.y-7,s.x+2,s.y-3);}}
@@ -199,6 +211,7 @@ export class Companions {
       }
     }
     for(const m of this.meteors){ctx.strokeStyle='#ffda77';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(m.x,m.y,m.giant?24:16,0,Math.PI*2);ctx.stroke();line(ctx,m.x-10,m.y,m.x+10,m.y);line(ctx,m.x,m.y-10,m.x,m.y+10);const y=m.y-m.left*4;ctx.fillStyle='#ff9f32';triangle(ctx,m.x-10,y,m.x+10,y,m.x-16,y-45);circle(ctx,m.x,y,12);ctx.fillStyle='#fff1a5';circle(ctx,m.x+2,y+2,7);}
+    this.jet.draw(ctx);
     for(const blast of this.explosions){
       const progress=1-blast.life/blast.max,radius=7+progress*24;
       ctx.save();ctx.globalAlpha=Math.min(1,blast.life/12);

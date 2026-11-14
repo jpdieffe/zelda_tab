@@ -16,6 +16,8 @@ export const M = {
   "Player_Kuribo": 1399,
   "Sound_QLevel1": 1266,
   "Player_EndLevel": 1369,
+  "EndCard_Flag": 31092,
+  "Level_GetWandState": 1981,
   "Player_FlashInv": 1362,
   "Player_InPipe": 1420,
   "Level_PipeMove": 1393,

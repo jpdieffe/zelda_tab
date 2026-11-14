@@ -25,6 +25,19 @@ body[data-role=michelle] #heart small{font-size:16px;margin-top:5px}
   body[data-role=michelle]{--action-size:172px;--heart-height:104px}
   body[data-role=michelle] #game-layout{gap:8px;grid-template-columns:minmax(145px,1fr) minmax(356px,2fr)}
 }
+
+/* The jet brings JJ's aiming joystick back below the shared game picture. */
+body[data-jet=true] #jump,body[data-jet=true][data-role=dad] #fire,
+body[data-jet=true][data-role=michelle] #michelle-card{display:none!important}
+body[data-jet=true][data-role=jj] #game-layout{grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr) 150px}
+body[data-jet=true][data-role=jj] #screen-wrap{grid-column:1/-1;grid-row:1}
+body[data-jet=true][data-role=jj] .steering{display:block;grid-column:1;grid-row:2;width:130px}
+body[data-jet=true][data-role=jj] .actions{grid-column:2;grid-row:2}
+body[data-jet=true][data-role=jj] #fire{width:min(300px,42vw);background:#246799;color:#e3f5ff}
+body[data-jet=true][data-role=michelle] #fire{background:#a3417a;color:#fff0fa}
+body[data-jet=true][data-role=michelle] #game-layout{grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr)}
+body[data-jet=true][data-role=michelle] .steering{grid-column:1;grid-row:1}
+body[data-jet=true][data-role=michelle] .actions{grid-column:2;grid-row:1}
 @media(max-width:620px) and (orientation:portrait){
   body[data-role=michelle]{--action-size:152px}
   body[data-role=michelle] #game-layout{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(150px,1fr) auto auto;gap:16px;padding:12px}

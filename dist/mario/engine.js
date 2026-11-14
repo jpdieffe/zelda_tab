@@ -88,7 +88,7 @@ export class CoopEngine {
     this.masks[p]=mask&255;
   }
   applyInput(p) {
-    const n=this.nes[p], mask=this.masks[p] & (inLevel(n)?247:255);
+    const n=this.nes[p], mask=this.masks[p] & (this.vehicle?.flying?240:inLevel(n)?247:255);
     const port=p+1;
     for(let b=0;b<8;b++) (mask&(1<<b)) ? n.buttonDown(port,b) : n.buttonUp(port,b);
     for(let b=0;b<8;b++) n.buttonUp(3-port,b);
@@ -133,7 +133,8 @@ export class CoopEngine {
     for(const nes of this.nes)if(inLevel(nes))nes.cpu.mem[M.Level_TimerEn]|=1;
     this.frame++;
     if(!this.joined) {
-      this.applyInput(0);this.nes[0].frame();
+      this.vehicle?.beforeFrame();this.applyInput(0);
+      try{this.nes[0].frame();}finally{this.vehicle?.afterFrame();}
       if(inLevel(this.nes[0])&&(!this.tiles||sceneKey(this.nes[0])!==this.key))this.resetWorld();
       this.weapons.step();return;
     }
@@ -294,13 +295,15 @@ export class CoopEngine {
     const previous=n.ppu.vramMem[n.ppu.vramMirrorTable[addr]];
     n.ppu.mirroredWrite(addr,(previous&~(3<<shift))|((value>>6)<<shift));
   }
-  snapshot() {return {version:1,rom:'smb3-us-rev1',state:this.nes[0].toJSON(),weapons:[...this.weapons.equipped]};}
+  snapshot() {return {version:1,rom:'smb3-us-rev1',state:this.nes[0].toJSON(),weapons:[...this.weapons.equipped],jet:this.vehicle?.snapshot()};}
   restore(saved) {
     if(saved?.version!==1 || saved.rom!=='smb3-us-rev1')throw new Error('This save is for a different game version.');
+    this.vehicle?.stop();
     this.nes[0].fromJSON(saved.state); this.input(0,0); this.paused=false;this.transition=null;
     this.weapons.clear();this.weapons.equip(0,saved.weapons?.[0]??0);
     this.weapons.equip(1,saved.weapons?.[1]??0);
     if(this.joined)this.join();
+    this.vehicle?.restore(saved.jet);
   }
 }
 

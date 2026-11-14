@@ -8,6 +8,8 @@ Hosted on GitHub Pages. No ChatGPT account or login is required.
 
 ## Switch to Mario
 
+Mario's **Jet** button starts a six-question challenge: three letters for JJ, then three alternating math/word questions for Michelle. Retries count toward completion. The earned jet is invincible for the rest of the level, persists through rooms and saves, and ends at the goal/map. Dad flies with his joystick. Both kids aim continuous lasers with their joysticks and hold **Missiles** to shoot homing missiles: blue for JJ, pink for Michelle. JJ's joystick returns during jet mode, and ordinary controls return afterward.
+
 In both games, Michelle gets nine math questions with positive numbers and positive answers for every one involving zero. Zero practice is spaced every tenth math question; math still alternates with sight words.
 
 Both kids' Mario shots pass through walls, pipes and platforms. Defeating an enemy produces an orange explosion and a cannon boom through the game audio. These explosions do not damage Mario or the scenery.
