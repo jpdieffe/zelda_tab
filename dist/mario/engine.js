@@ -127,6 +127,10 @@ export class CoopEngine {
   }
   step() {
     if(this.paused) return;
+    // The ROM's own unlimited-time flag stops both countdown and timeout death.
+    // Preserve bit 7 (scripted scenery animation control) and the timer digits:
+    // end-of-level bonus scoring must still be able to count those down to zero.
+    for(const nes of this.nes)if(inLevel(nes))nes.cpu.mem[M.Level_TimerEn]|=1;
     this.frame++;
     if(!this.joined) {
       this.applyInput(0);this.nes[0].frame();

@@ -8,6 +8,8 @@ Hosted on GitHub Pages. No ChatGPT account or login is required.
 
 ## Switch to Mario
 
+Mario levels have **no time limit**. The game disables the original countdown and time-up death, including after loading older saves. Normal hazards and the children's power/recharge timers remain active.
+
 Michelle's **♥ HELP DAD** button sends Mario a heart that grants a Super Mushroom on arrival, with the game's growth animation and sound. It recharges in five seconds of active play, preserves stronger suits, and cannot revive Mario. Both children's attacks automatically aim at the nearest eligible enemy visible anywhere on the screen; off-screen enemies are excluded. Hearts and recharge freeze during questions and pauses.
 
 **Play Mario & the Magic Crew** on the home screen, or **Play Mario instead** on JJ's and Michelle's setup screens, opens the three-player Mario game at https://jpdieffe.github.io/zelda_tab/mario/. Dad is Mario, JJ flies a segmented dragon with trailing fireballs, and Michelle controls a unicorn that gains height with each jump tap and falls slowly. Only Dad can die. The game includes the same letter, math and sight-word question flow and surprise powers.

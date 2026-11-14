@@ -62,7 +62,7 @@ function state(){return {type:'state',quiz:learning.snapshot(),paused:engine?.pa
 function showState(data){
   if(role!=='dad'){const changed=!!remoteQuiz!==!!data.quiz;remoteQuiz=data.quiz;if(changed)clearInput();}
   if(role==='jj'||role==='dad'&&!connection?.has('jj'))quiz.render(data.quiz);else quiz.render(null);
-  $('power-status').textContent=data.quiz?'Question time — game paused':data.paused?'Paused':data.powers||'';
+  $('power-status').textContent=data.quiz?'Question time — game paused':data.paused?'Paused':data.powers||'No time limit';
   $('quiz-skip').hidden=role!=='dad';
   $('heart').disabled=role!=='michelle'||!data.heart?.ready||!!data.quiz;
   $('heart-caption').textContent=data.heart?.seconds?`${data.heart.seconds}s recharge`:'Mushroom for Dad';

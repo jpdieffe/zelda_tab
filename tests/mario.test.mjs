@@ -16,6 +16,19 @@ function boot(){const e=new CoopEngine(rom,{NES});if(level)e.nes[0].fromJSON(str
 }e.resetWorld();const kids=new Companions(e);kids.step(0);return {e,kids};}
 test('bundled original ROM hash matches the supplied Mario 3 revision',()=>{assert.equal(createHash('sha256').update(rom).digest('hex'),'4377a7f5e6eb50bdd2ac6f249bf1a7085500aca8eb41f38545c3a2731c51a579');});
 test('Mario enters the real first level; companions never create a second playable Mario',()=>{const {e,kids}=boot();assert.equal(e.nes[0].cpu.mem[M.Level_Tileset],1);assert.equal(kids.playable(),true);assert.equal(e.joined,false);assert.equal(kids.kids.jj.segments.length,8);});
+test('level clock stays frozen at one second while Mario and the world keep moving',()=>{
+  const {e}=boot(),m=e.nes[0].cpu.mem;m[M.Level_TimerMSD]=0;m[M.Level_TimerMid]=0;m[M.Level_TimerLSD]=1;m[M.Level_TimerTick]=0;m[M.Level_TimerEn]=0;
+  const start=player(e.nes[0]);e.input(0,1);for(let i=0;i<10;i++)e.step();assert.ok(player(e.nes[0]).y<start.y,'ordinary jump physics still run');e.input(0,0);
+  for(let i=0;i<180;i++){m[M.Player_FlashInv]=255;e.step();}
+  assert.equal(m[M.Level_TimerLSD],1);assert.equal(m[M.Level_TimerTick],0);assert.equal(m[M.Player_IsDying],0);assert.equal(m[M.Level_TimerEn]&1,1);assert.equal(m[M.Level_TimerEn]&0x80,0,'normal scenery animation remains enabled');
+});
+test('zero-time saves resume without time-up death; native animation flags and other deaths are preserved',()=>{
+  const {e}=boot();let m=e.nes[0].cpu.mem;for(const address of [M.Level_TimerMSD,M.Level_TimerMid,M.Level_TimerLSD,M.Level_TimerTick,M.Level_TimerEn])m[address]=0;
+  const saved=structuredClone(e.snapshot());e.restore(saved);m=e.nes[0].cpu.mem;
+  for(let i=0;i<60;i++)e.step();assert.equal(m[M.Player_IsDying],0);assert.deepEqual([m[M.Level_TimerMSD],m[M.Level_TimerMid],m[M.Level_TimerLSD]],[0,0,0],'do not refill timer digits and interfere with level-end scoring');
+  m[M.Level_TimerEn]=0x80;e.step();assert.equal(m[M.Level_TimerEn],0x81);
+  m[M.Player_IsDying]=1;e.step();assert.notEqual(m[M.Player_IsDying],0,'ordinary Mario death must not be cancelled');
+});
 test('dragon flies independently and its segments stay linked while turning',()=>{const {e,kids}=boot(),k=kids.kids.jj,p=player(e.nes[0]);k.hurt=0;const before={x:k.x,y:k.y};kids.input('jj',{mask:144},0);for(let i=0;i<20;i++)kids.step(i*10);assert.ok(k.x>before.x+25);assert.ok(k.y<before.y-25);let head=k;for(const s of k.segments){assert.ok(Math.hypot(head.x-s.x,head.y-s.y)<5.01);head=s;}assert.deepEqual(player(e.nes[0]),p);});
 test('unicorn jump taps flap repeatedly; holding jump does not auto-fly; descent is gentle',()=>{const {kids,e}=boot(),k=kids.kids.michelle,p=player(e.nes[0]);k.x=p.cameraX+80;k.y=p.cameraY+90;
   kids.input('michelle',{mask:1},0);kids.step(0);const y=k.y;assert.ok(k.vy<0);for(let i=1;i<8;i++)kids.step(i*10);assert.ok(k.y<y);const v=k.vy;kids.input('michelle',{mask:1},85);kids.step(85);assert.ok(k.vy>v,'holding must not retrigger flap');kids.input('michelle',{mask:0},90);kids.input('michelle',{mask:1},91);kids.step(92);assert.ok(k.vy<-3.4);k.y=p.cameraY+60;k.vy=0;kids.release('michelle');for(let i=0;i<50;i++)kids.step(100+i*10);assert.ok(k.vy<=.65);assert.ok(k.y<p.cameraY+93);});
