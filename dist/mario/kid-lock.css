@@ -8,3 +8,7 @@ body.kid-locked #quiz-panel{top:52px}
 body:has(#play:not([hidden])){overscroll-behavior:none}
 #play,#play *{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 #unlock-tablet{align-self:center;font-size:11px;padding:7px 12px;margin:0 4px 4px}
+#heart{background:#8b426d;border:2px solid #edb2d2;color:#fff3fa;padding:9px 20px;min-height:58px;touch-action:manipulation}
+#heart>span{color:#ffbad5;font-size:24px;vertical-align:middle;margin-right:7px}
+#heart small{display:block;font-size:11px;margin-top:3px;font-weight:400}
+@media(max-height:520px) and (orientation:landscape){#michelle-card canvas{width:160px;max-height:105px}#michelle-card h2{font-size:20px}#michelle-card p{margin:6px 0;font-size:12px}#heart{padding:5px 16px;min-height:52px}}

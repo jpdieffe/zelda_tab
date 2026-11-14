@@ -8,7 +8,7 @@ const center=t=>({x:(t.left+t.right)/2,y:(t.top+t.bottom)/2});
 const colors={jj:'#64ef9f',michelle:'#f6adff'};
 export class Companions {
   constructor(engine){
-    this.engine=engine;this.key=null;this.time=0;this.shots=[];this.particles=[];this.meteors=[];
+    this.engine=engine;this.key=null;this.time=0;this.shots=[];this.particles=[];this.meteors=[];this.hearts=[];this.heartCooldown=0;
     this.kids=Object.fromEntries(['jj','michelle'].map(role=>[role,{role,x:0,y:0,vx:0,vy:0,face:1,mask:0,until:0,target:null,flap:false,segments:[],cooldown:0,hurt:0,power:null,active:false}]));
     this.stats={shots:0,hits:0,returns:0};
   }
@@ -23,7 +23,31 @@ export class Companions {
     return true;
   }
   release(role){const k=this.kids[role];if(k){k.mask=0;k.until=0;k.target=null;k.flap=false;}}
-  reset(){this.key=null;this.shots=[];this.particles=[];this.meteors=[];for(const k of Object.values(this.kids)){this.release(k.role);k.power=null;}}
+  reset(){this.key=null;this.shots=[];this.particles=[];this.meteors=[];this.hearts=[];this.heartCooldown=0;for(const k of Object.values(this.kids)){this.release(k.role);k.power=null;}}
+  heartReady(){return !this.engine.paused&&this.playable()&&!this.heartCooldown;}
+  sendHeart(role){
+    if(role!=='michelle'||!this.heartReady())return false;
+    const k=this.kids.michelle;this.hearts.push({x:k.x,y:k.y,life:180,age:0,trail:[]});this.heartCooldown=300;return true;
+  }
+  deliverMushroom(){
+    if(this.engine.paused||!this.playable())return false;
+    const m=this.engine.nes[0].cpu.mem;
+    // Match the ROM's mushroom pickup: queued Super form, growth and pickup sound.
+    // Never replace an existing transformation, stronger suit, or death action.
+    if(!m[M.Player_Suit]&&!m[M.Player_QueueSuit]&&!m[M.Player_Grow]&&!m[M.Player_SuitLost]){
+      m[M.Player_QueueSuit]=2;
+      if(m[M.Player_Kuribo])m[M.Player_SuitLost]=0x1f;else m[M.Player_Grow]=0x2f;
+    }
+    m[M.Sound_QLevel1]|=0x20;return true;
+  }
+  nearestEnemy(origin){
+    const p=player(this.engine.nes[0]);let closest=null,best=Infinity;
+    for(const target of this.engine.weapons.targets()){
+      if(target.right<=p.cameraX||target.left>=p.cameraX+256||target.bottom<=p.cameraY||target.top>=p.cameraY+208)continue;
+      const point=center(target),d=distance(origin,point);if(d<best){closest=point;best=d;}
+    }
+    return closest;
+  }
   regroup(k,p=player(this.engine.nes[0])){
     k.x=clamp(p.x+(k.role==='jj'?-20:28),p.cameraX+16,p.cameraX+240);
     k.y=clamp(p.y+(k.role==='jj'?-16:12),p.cameraY+20,p.cameraY+182);
@@ -39,9 +63,8 @@ export class Companions {
   hit(target){this.engine.weapons.hit(target);this.stats.hits++;const p=center(target);this.burst(p.x,p.y,'#ffec9d');}
   attack(k,missile=false){
     let dx=k.face,dy=0;
-    const targets=this.engine.weapons.targets().map(t=>({t,p:center(t)})).sort((a,b)=>distance(k,a.p)-distance(k,b.p));
-    const near=targets[0];
-    if(near&&distance(k,near.p)<150){const d=Math.max(1,distance(k,near.p));dx=(near.p.x-k.x)/d;dy=(near.p.y-k.y)/d;}
+    const near=this.nearestEnemy(k);
+    if(near){const d=Math.max(1,distance(k,near));dx=(near.x-k.x)/d;dy=(near.y-k.y)/d;}
     else if(k.mask&48){dy=k.mask&16?-1:1;dx=k.mask&192?k.face:0;const d=Math.hypot(dx,dy);dx/=d;dy/=d;}
     this.shots.push({x:k.x,y:k.y,dx,dy,role:k.role,life:90,trail:[],missile});this.stats.shots++;
     this.engine.weapons.sound(k.x,k.y,0x4f1,0x20);
@@ -59,9 +82,17 @@ export class Companions {
   step(now=performance.now()){
     if(this.engine.paused)return;
     const p=player(this.engine.nes[0]),key=sceneKey(this.engine.nes[0]);
-    if(this.key!==key){this.key=key;this.shots=[];this.meteors=[];this.particles=[];for(const k of Object.values(this.kids)){this.regroup(k,p);this.release(k.role);}}
-    if(!this.playable()){this.shots=[];this.meteors=[];for(const k of Object.values(this.kids))this.release(k.role);return;}
+    if(this.key!==key){this.key=key;this.shots=[];this.meteors=[];this.particles=[];this.hearts=[];for(const k of Object.values(this.kids)){this.regroup(k,p);this.release(k.role);}}
+    if(!this.playable()){this.shots=[];this.meteors=[];this.hearts=[];for(const k of Object.values(this.kids))this.release(k.role);return;}
     this.time++;
+    if(this.heartCooldown>0)this.heartCooldown--;
+    const dad={x:p.x+8,y:p.y+32-p.height/2};
+    for(const heart of this.hearts){
+      heart.age++;heart.life--;heart.trail.unshift({x:heart.x,y:heart.y});heart.trail.length=Math.min(heart.trail.length,10);
+      const d=distance(heart,dad),speed=Math.min(3.2,d);heart.x+=(dad.x-heart.x)/Math.max(1,d)*speed;heart.y+=(dad.y-heart.y)/Math.max(1,d)*speed;
+      if(distance(heart,dad)<5&&heart.age>=12){this.deliverMushroom();this.burst(dad.x,dad.y,'#ff9bc6',18);heart.life=0;}
+    }
+    this.hearts=this.hearts.filter(heart=>heart.life>0);
     for(const k of Object.values(this.kids)){
       if(now>k.until){k.mask=0;k.target=null;k.flap=false;}
       if(k.cooldown>0)k.cooldown--;if(k.hurt>0)k.hurt--;
@@ -100,7 +131,7 @@ export class Companions {
     }
     for(const shot of this.shots){
       shot.life--;shot.trail.unshift({x:shot.x,y:shot.y});shot.trail.length=Math.min(shot.trail.length,15);
-      if(shot.missile){const target=this.engine.weapons.targets().map(center).sort((a,b)=>distance(a,shot)-distance(b,shot))[0];if(target){const d=Math.max(1,distance(shot,target));shot.dx+=(target.x-shot.x)/d*.18;shot.dy+=(target.y-shot.y)/d*.18;const v=Math.hypot(shot.dx,shot.dy);shot.dx/=v;shot.dy/=v;}}
+      if(shot.missile){const target=this.nearestEnemy(shot);if(target){const d=Math.max(1,distance(shot,target));shot.dx+=(target.x-shot.x)/d*.18;shot.dy+=(target.y-shot.y)/d*.18;const v=Math.hypot(shot.dx,shot.dy);shot.dx/=v;shot.dy/=v;}}
       for(let sub=0;sub<3&&shot.life>0;sub++){
         shot.x+=shot.dx*1.6;shot.y+=shot.dy*1.6;
         if(!shot.missile&&this.solid(shot.x,shot.y)){shot.life=0;this.burst(shot.x,shot.y,shot.role==='jj'?'#ffb73e':'#f6adff');break;}
@@ -114,10 +145,15 @@ export class Companions {
     for(const particle of this.particles){particle.life--;particle.x+=particle.vx;particle.y+=particle.vy;particle.vy+=.035;}
     this.particles=this.particles.filter(p=>p.life>0).slice(-220);
   }
-  aim(k){if(k.target){const d=Math.max(1,distance(k,k.target));return {x:(k.target.x-k.x)/d||k.face,y:(k.target.y-k.y)/d};}let x=k.mask&192?k.face:0,y=(k.mask&32?1:0)-(k.mask&16?1:0);if(!x&&!y)x=k.face;const d=Math.hypot(x,y);return {x:x/d,y:y/d};}
+  aim(k){const target=this.nearestEnemy(k)||k.target;if(target){const d=Math.max(1,distance(k,target));return {x:(target.x-k.x)/d,y:(target.y-k.y)/d};}let x=k.mask&192?k.face:0,y=(k.mask&32?1:0)-(k.mask&16?1:0);if(!x&&!y)x=k.face;const d=Math.hypot(x,y);return {x:x/d,y:y/d};}
   draw(ctx){
     if(!inLevel(this.engine.nes[0]))return;
     const p=player(this.engine.nes[0]);ctx.save();ctx.beginPath();ctx.rect(0,0,256,208);ctx.clip();ctx.translate(-p.cameraX,-p.cameraY);
+    for(const h of this.hearts){
+      for(let i=h.trail.length-1;i>=0;i--){ctx.globalAlpha=(1-i/10)*.45;ctx.fillStyle='#ff9bc6';circle(ctx,h.trail[i].x,h.trail[i].y,2-i*.12);}ctx.globalAlpha=1;
+      ctx.save();ctx.translate(h.x,h.y);ctx.fillStyle='#ff81b5';ctx.strokeStyle='#fff1f6';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(0,6);ctx.bezierCurveTo(-14,-2,-5,-10,0,-4);ctx.bezierCurveTo(5,-10,14,-2,0,6);ctx.fill();ctx.stroke();ctx.restore();
+    }
     for(const s of this.shots){
       for(let i=s.trail.length-1;i>=0;i--){ctx.globalAlpha=(1-i/16)*.75;ctx.fillStyle=s.role==='jj'?(i>6?'#f34c31':'#ffb52e'):['#ff9cdd','#ffd767','#a4f5eb','#b59bff'][i%4];circle(ctx,s.trail[i].x,s.trail[i].y,Math.max(.6,4-i*.23));}
       ctx.globalAlpha=1;ctx.fillStyle=s.role==='jj'?'#fff4a8':'#fff5ff';circle(ctx,s.x,s.y,3.6);

@@ -58,12 +58,14 @@ function tick(now){
   try{while(accumulator>=1000/60&&frames<4){engine.step();kids.step(now);accumulator-=1000/60;frames++;}if(frames)draw();}
   catch(error){engine.paused=true;notice('Game paused: '+error.message);console.error(error);}
 }
-function state(){return {type:'state',quiz:learning.snapshot(),paused:engine?.paused,powers:Object.values(kids?.kids||{}).filter(k=>k.power).map(k=>`${k.role==='jj'?'JJ':'Michelle'}: ${k.power.giant?'SUPER ':''}${({laser:'lasers',missiles:'homing missiles',dinosaur:'dinosaur',meteor:'meteor'})[k.power.type]} · ${Math.ceil(k.power.left/60)}s`).join('  ✦  ')};}
+function state(){return {type:'state',quiz:learning.snapshot(),paused:engine?.paused,heart:{ready:!!kids?.heartReady(),seconds:Math.ceil((kids?.heartCooldown||0)/60)},powers:Object.values(kids?.kids||{}).filter(k=>k.power).map(k=>`${k.role==='jj'?'JJ':'Michelle'}: ${k.power.giant?'SUPER ':''}${({laser:'lasers',missiles:'homing missiles',dinosaur:'dinosaur',meteor:'meteor'})[k.power.type]} · ${Math.ceil(k.power.left/60)}s`).join('  ✦  ')};}
 function showState(data){
   if(role!=='dad'){const changed=!!remoteQuiz!==!!data.quiz;remoteQuiz=data.quiz;if(changed)clearInput();}
   if(role==='jj'||role==='dad'&&!connection?.has('jj'))quiz.render(data.quiz);else quiz.render(null);
   $('power-status').textContent=data.quiz?'Question time — game paused':data.paused?'Paused':data.powers||'';
   $('quiz-skip').hidden=role!=='dad';
+  $('heart').disabled=role!=='michelle'||!data.heart?.ready||!!data.quiz;
+  $('heart-caption').textContent=data.heart?.seconds?`${data.heart.seconds}s recharge`:'Mushroom for Dad';
   if(role==='dad'){$('skip').hidden=!data.quiz;$('questions').disabled=!!data.quiz||!kids?.playable()||engine.paused;}
 }
 function broadcast(){if(!engine)return;const s=state();connection?.send(s);showState(s);}
@@ -84,13 +86,14 @@ function makeConnection(code){
     onStatus:text=>{$('connection').textContent=text;},
     onConnected:guest=>{quiz.setConnected(true);if(role==='dad'){kids.release(guest);broadcast();}else{sendInput();connection?.send({type:'kid-lock-state',locked:kidLock.locked});}},
     onDisconnected:guest=>{
-      if(role==='dad'){kids.release(guest);kids.kids[guest].active=false;broadcast();}
-      else{clearInput();quiz.setConnected(false);$('screen-message').hidden=role!=='jj';$('screen-message').textContent='Reconnecting to Dad…';}
+      if(role==='dad'){kids.release(guest);kids.kids[guest].active=false;if(guest==='michelle')kids.hearts=[];broadcast();}
+      else{clearInput();$('heart').disabled=true;quiz.setConnected(false);$('screen-message').hidden=role!=='jj';$('screen-message').textContent='Reconnecting to Dad…';}
     },
     onStream:stream=>{const v=$('remote-video');if(v.srcObject===stream)return;v.srcObject=stream;v.muted=true;v.onloadeddata=()=>{$('screen-message').hidden=true;};v.play().catch(error=>{if(error.name!=='AbortError')notice('Tap Sound on to start the game video.');});},
     onData:(data,from)=>{
       if(role==='dad'){
-        if(data.type==='input'&&!learning.round)kids.input(from,data);
+        if(data.type==='heart'&&from==='michelle'){if(!learning.round)kids.sendHeart(from);broadcast();}
+        else if(data.type==='input'&&!learning.round)kids.input(from,data);
         else if(data.type==='answer'||data.type==='next')questionAction(data,from);
       }else if(data.type==='unlock-tablet'&&role==='jj')kidLock.unlock();
       else if(data.type==='state')showState(data);
@@ -145,6 +148,7 @@ $('new-game').onclick=async()=>{if(!engine||!confirm('Start again at World 1? Yo
 $('sound').onclick=()=>{localSound=!localSound;if(role==='dad'){audio?.resume();if(audio?.gain)audio.gain.gain.value=localSound?1:0;}else{$('remote-video').muted=!localSound;$('remote-video').play().catch(()=>{});}$('sound').textContent=localSound?'Sound off':'Sound on';};
 $('fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{notice('Use your browser’s full-screen option.');}};
 $('unlock-tablet').onclick=()=>{if(connection?.has('jj')){connection.send({type:'unlock-tablet'},'jj');notice('JJ’s tablet unlocked.');}else notice('Pair JJ’s tablet first.');};
+$('heart').onclick=()=>{if(role!=='michelle'||blocked()||$('heart').disabled)return;connection?.send({type:'heart'});$('heart').disabled=true;};
 setInterval(()=>{if(role&&role!=='dad')sendInput();},90);
 setInterval(()=>{if(role==='dad')broadcast();},500);
 setInterval(()=>{if(role==='dad'&&engine&&!learning.round)save(false);},30000);

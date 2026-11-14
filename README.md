@@ -8,6 +8,8 @@ Hosted on GitHub Pages. No ChatGPT account or login is required.
 
 ## Switch to Mario
 
+Michelle's **♥ HELP DAD** button sends Mario a heart that grants a Super Mushroom on arrival, with the game's growth animation and sound. It recharges in five seconds of active play, preserves stronger suits, and cannot revive Mario. Both children's attacks automatically aim at the nearest eligible enemy visible anywhere on the screen; off-screen enemies are excluded. Hearts and recharge freeze during questions and pauses.
+
 **Play Mario & the Magic Crew** on the home screen, or **Play Mario instead** on JJ's and Michelle's setup screens, opens the three-player Mario game at https://jpdieffe.github.io/zelda_tab/mario/. Dad is Mario, JJ flies a segmented dragon with trailing fireballs, and Michelle controls a unicorn that gains height with each jump tap and falls slowly. Only Dad can die. The game includes the same letter, math and sight-word question flow and surprise powers.
 
 The existing **Fairy Link Tablet APK** opens Mario inside the same app; no separate APK or reinstall is needed. Turn sound on, tap **Kid lock**, accept Android's pinning prompt, and wait for **Android buttons locked**. Back/Home/Recents are then restricted as in Zelda. Hold the parent button for three seconds, or tap **Unlock JJ's tablet** on Dad's Mario controls. If Android pinning was cancelled, **Lock Android buttons** retries. Mario's parent unlock remains accessible during question rounds and without a network connection. Ordinary Android unpin gestures still work; enable a device PIN for unpinning if needed.

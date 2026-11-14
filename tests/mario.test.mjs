@@ -26,6 +26,35 @@ test('scene transitions clear shots and regroup both children',()=>{const {kids,
 test('all four learning rewards apply and expire on simulation time',()=>{const {kids}=boot();for(const type of ['laser','missiles','dinosaur','meteor']){kids.grant({roles:['jj','michelle'],type,giant:true});assert.equal(kids.kids.jj.power.type,type);assert.equal(kids.kids.michelle.power.giant,true);kids.kids.jj.power.left=1;kids.step(0);assert.equal(kids.kids.jj.power,null);}});
 test('save/load restores original Mario progress and companion effects reset separately',()=>{const {e,kids}=boot();const saved=structuredClone(e.snapshot()),p=player(e.nes[0]);e.nes[0].cpu.mem[M.Player_X]+=30;e.restore(saved);e.resetWorld();kids.reset();assert.deepEqual(player(e.nes[0]),p);assert.equal(e.joined,false);assert.equal(kids.shots.length,0);});
 test('curriculum has nonrepeating letters, alternating math/words, ordered 0–10 math answers',()=>{const deck=new QuestionDeck(),letters=new Set();for(let i=0;i<26;i++){letters.add(deck.next('jj').answer);const q=deck.next('michelle');assert.equal(q.kind,i%2?'word':'math');assert.equal(q.choices.length,i%2?3:11);}assert.equal(letters.size,26);assert.equal(mathFacts().length,132);assert.ok(mathFacts().every(f=>Number(f.answer)>=0&&Number(f.answer)<=10));});
+test('both children aim across the whole screen, ignoring closer enemies outside every edge and the HUD',()=>{
+  const {kids,e}=boot(),p=player(e.nes[0]);
+  const target=(x,y)=>({left:p.cameraX+x-5,right:p.cameraX+x+5,top:p.cameraY+y-5,bottom:p.cameraY+y+5});
+  for(const role of ['jj','michelle']){const k=kids.kids[role];k.x=p.cameraX+5;k.y=p.cameraY+100;k.face=-1;
+    e.weapons.targets=()=>[target(-8,100),target(240,100)];kids.attack(k);assert.equal(kids.shots.at(-1).dx,1);assert.equal(kids.shots.at(-1).dy,0,'visible enemy beyond old 150px limit wins');
+    for(const [x,y] of [[262,100],[5,-8],[5,215]]){k.x=p.cameraX+(x>256?250:5);k.y=p.cameraY+(y<0?5:y>208?200:100);e.weapons.targets=()=>[target(x,y),target(150,100)];const aim=kids.nearestEnemy(k);assert.deepEqual(aim,{x:p.cameraX+150,y:p.cameraY+100});}
+    k.x=p.cameraX+100;k.y=p.cameraY+100;e.weapons.targets=()=>[target(130,100),target(80,100)];kids.attack(k);assert.equal(kids.shots.at(-1).dx,-1,'nearest visible target wins');
+    e.weapons.targets=()=>[target(262,100)];k.face=1;k.mask=0;kids.attack(k);assert.equal(kids.shots.at(-1).dx,1,'no visible enemies retains free firing');
+  }
+});
+test('Michelle heart travels to moving Dad then triggers native mushroom growth, sound and five-second cooldown',()=>{
+  const {kids,e}=boot(),m=e.nes[0].cpu.mem,p=player(e.nes[0]);kids.kids.michelle.x=p.x+150;kids.kids.michelle.y=p.y-30;
+  assert.equal(kids.sendHeart('jj'),false);assert.equal(kids.sendHeart('michelle'),true);assert.equal(kids.sendHeart('michelle'),false);assert.equal(m[M.Player_QueueSuit],0);
+  for(let i=0;i<8;i++)kids.step(i);assert.equal(m[M.Player_Suit],0);assert.equal(m[M.Player_QueueSuit],0,'power arrives with the heart, not button press');
+  m[M.Player_X]+=20;for(let i=0;i<100&&kids.hearts.length;i++)kids.step(i+8);
+  assert.equal(kids.hearts.length,0);assert.equal(m[M.Player_QueueSuit],2);assert.equal(m[M.Player_Grow],0x2f);assert.ok(m[M.Sound_QLevel1]&0x20);
+  for(let i=0;i<90;i++)e.step();assert.equal(m[M.Player_Suit],1,'actual ROM completes growth into Super Mario');assert.equal(m[M.Player_IsDying],0);
+  assert.equal(kids.sendHeart('michelle'),false);assert.ok(kids.heartCooldown>0);
+});
+test('hearts preserve stronger forms and pending transformations and never revive Dad',()=>{
+  const {kids,e}=boot(),m=e.nes[0].cpu.mem;
+  for(const suit of [1,2,3,4,5,6]){m[M.Player_Suit]=suit;assert.equal(kids.deliverMushroom(),true);assert.equal(m[M.Player_Suit],suit);assert.equal(m[M.Player_QueueSuit],0);}
+  m[M.Player_Suit]=0;m[M.Player_QueueSuit]=4;kids.deliverMushroom();assert.equal(m[M.Player_QueueSuit],4);m[M.Player_QueueSuit]=0;
+  assert.equal(kids.sendHeart('michelle'),true);m[M.Player_IsDying]=1;kids.step(0);assert.equal(kids.hearts.length,0);assert.equal(kids.deliverMushroom(),false);assert.equal(m[M.Player_QueueSuit],0);assert.equal(m[M.Player_IsDying],1);
+});
+test('heart travel and recharge freeze on pause; scene changes and reset discard in-flight hearts',()=>{
+  const {kids,e}=boot();kids.sendHeart('michelle');e.paused=true;const hearts=structuredClone(kids.hearts),cooldown=kids.heartCooldown;kids.step(500);assert.deepEqual(kids.hearts,hearts);assert.equal(kids.heartCooldown,cooldown);assert.equal(kids.sendHeart('michelle'),false);
+  e.paused=false;e.nes[0].cpu.mem[M.Level_LayPtrOrig_AddrL]^=1;kids.step(501);assert.equal(kids.hearts.length,0);assert.equal(e.nes[0].cpu.mem[M.Player_QueueSuit],0);kids.reset();assert.equal(kids.heartCooldown,0);assert.equal(kids.hearts.length,0);
+});
 test('question retries, stale messages, turn order, and first-answer team reward',()=>{
   for(const missed of [true,false]){const q=new LearningRound();assert.ok(q.start({playing:true,tablet:true}));q.advance(q.token());const old=q.token();if(missed){const question=q.round.questions[0];q.answer(q.token(),question.choices.findIndex(x=>x!==question.answer));assert.equal(q.answer(old,0),false);q.advance(q.token());}
   for(let i=0;i<2;i++){const question=q.round.questions[i];assert.equal(question.role,i?'michelle':'jj');q.answer(q.token(),question.choices.indexOf(question.answer));const result=q.advance(q.token());if(i===1){assert.deepEqual(result.roles,missed?['michelle']:['jj','michelle']);assert.equal(result.giant,!missed);}}assert.equal(q.round,null);}
