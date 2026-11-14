@@ -6,6 +6,7 @@ import {NES} from '../dist/mario/vendor/jsnes/index.js';
 import {CoopEngine,player} from '../dist/mario/engine.js';
 import {M} from '../dist/mario/memory.js';
 import {Companions} from '../dist/mario/companions.js';
+import {tileAt} from '../dist/mario/weapons.js';
 import {LearningRound,QuestionDeck,mathFacts} from '../dist/mario/learning.js';
 const rom=readFileSync(new URL('../dist/mario/roms/mario3.nes',import.meta.url));
 let level;
@@ -35,6 +36,31 @@ test('unicorn jump taps flap repeatedly; holding jump does not auto-fly; descent
 test('children recover from pits without writing Mario health, lives, position or death state',()=>{const {kids,e}=boot(),m=e.nes[0].cpu.mem;const before=Array.from(m);for(const k of Object.values(kids.kids)){k.y=player(e.nes[0]).cameraY+300;}kids.step(0);assert.equal(kids.stats.returns,2);assert.deepEqual(Array.from(m),before);m[M.Player_IsDying]=1;kids.step(20);assert.equal(m[M.Player_IsDying],1,'Dad death must never be cleared by companions');assert.equal(e.joined,false);});
 test('release, stale input and pause stop movement and freeze reward timers',()=>{const {kids,e}=boot(),k=kids.kids.jj;kids.input('jj',{mask:128},0);kids.step(10);const x=k.x;kids.step(351);assert.equal(k.x,x);kids.input('jj',{mask:128},400);kids.release('jj');kids.step(410);assert.equal(k.x,x);kids.grant({roles:['jj'],type:'laser',giant:true});const left=k.power.left;e.paused=true;kids.step(500);assert.equal(k.power.left,left);assert.equal(k.x,x);assert.equal(kids.input('jj',{mask:NaN},0),false);assert.equal(kids.input('dad',{mask:1},0),false);});
 test('real enemy receives a dragon fireball hit; child and Mario remain unharmed',()=>{const {kids,e}=boot();let targets=e.weapons.targets();assert.ok(targets.length);const t=targets[0],x=(t.left+t.right)/2,y=(t.top+t.bottom)/2;const k=kids.kids.jj;k.x=x-22;k.y=y;k.face=1;k.hurt=60;k.active=true;const p=player(e.nes[0]);kids.attack(k);for(let i=0;i<12;i++)kids.step(i);assert.ok(kids.stats.hits>=1);assert.equal(e.nes[0].cpu.mem[0x661+t.slot],0);assert.deepEqual(player(e.nes[0]),p);});
+test('JJ and Michelle shoot through solid bricks, defeat the enemy once, and produce a harmless explosion with sound',()=>{
+  for(const role of ['jj','michelle']){
+    const {kids,e}=boot(),m=e.nes[0].cpu.mem,t=e.weapons.targets()[0],x=(t.left+t.right)/2,y=(t.top+t.bottom)/2,k=kids.kids[role];
+    k.x=t.left-70;k.y=y;k.active=true;k.hurt=60;
+    const wall=tileAt(e.nes[0],t.left-35,y);m[0x6000+wall.index]=0x67;assert.ok(kids.solid(t.left-35,y));
+    const mario=player(e.nes[0]),terrain=Array.from(m.slice(0x6000,0x7950));m[M.Sound_QLevel1]=0;
+    kids.attack(k);kids.attack(k);
+    for(let i=0;i<30&&!kids.explosions.length;i++)kids.step(i);
+    assert.equal(m[0x661+t.slot],0,role+' shot defeats the enemy beyond the brick');assert.equal(kids.stats.hits,1);assert.equal(kids.explosions.length,1);
+    assert.equal(kids.explosions[0].x,x);assert.equal(kids.explosions[0].y,y);assert.ok(m[M.Sound_QLevel1]&8,'native explosion sound queued');
+    assert.deepEqual(Array.from(m.slice(0x6000,0x7950)),terrain,'explosions do not destroy terrain');assert.deepEqual(player(e.nes[0]),mario,'explosions do not hurt Mario');
+    m[M.Sound_QLevel1]=0;assert.equal(kids.hit(t),false);assert.equal(m[M.Sound_QLevel1],0,'a defeated enemy cannot explode or play sound twice');
+    e.paused=true;const life=kids.explosions[0].life;kids.step(100);assert.equal(kids.explosions[0].life,life);e.paused=false;
+    for(let i=0;i<32;i++)kids.step(110+i);assert.equal(kids.explosions.length,0,'explosion finishes');
+  }
+});
+test('defeat explosion produces native audio samples and clears on room changes or reset',()=>{
+  const {kids,e}=boot();kids.hit(e.weapons.targets()[0]);assert.equal(kids.explosions.length,1);
+  const silent=new CoopEngine(rom,{NES});silent.nes[0].fromJSON(structuredClone(e.nes[0].toJSON()));silent.nes[0].cpu.mem[M.Sound_QLevel1]&=~8;
+  const heard=[],baseline=[];e.nes[0].opts.onAudioSample=(l,r)=>heard.push(l+r);silent.nes[0].opts.onAudioSample=(l,r)=>baseline.push(l+r);
+  for(let i=0;i<24;i++){e.step();silent.step();}
+  assert.ok(heard.length>1000);assert.ok(heard.some((sample,i)=>Math.abs(sample-baseline[i])>.001),'native boom changes the game audio output');
+  e.nes[0].cpu.mem[M.Level_LayPtrOrig_AddrL]^=1;kids.step(0);assert.equal(kids.explosions.length,0);
+  const target=e.weapons.targets()[0];if(target)kids.hit(target);kids.reset();assert.equal(kids.explosions.length,0);
+});
 test('scene transitions clear shots and regroup both children',()=>{const {kids,e}=boot();kids.attack(kids.kids.jj);assert.equal(kids.shots.length,1);e.nes[0].cpu.mem[M.Level_LayPtrOrig_AddrL]^=1;kids.step(0);assert.equal(kids.shots.length,0);assert.equal(kids.kids.jj.mask,0);assert.ok(Math.abs(kids.kids.jj.x-player(e.nes[0]).x)<50);});
 test('all four learning rewards apply and expire on simulation time',()=>{const {kids}=boot();for(const type of ['laser','missiles','dinosaur','meteor']){kids.grant({roles:['jj','michelle'],type,giant:true});assert.equal(kids.kids.jj.power.type,type);assert.equal(kids.kids.michelle.power.giant,true);kids.kids.jj.power.left=1;kids.step(0);assert.equal(kids.kids.jj.power,null);}});
 test('save/load restores original Mario progress and companion effects reset separately',()=>{const {e,kids}=boot();const saved=structuredClone(e.snapshot()),p=player(e.nes[0]);e.nes[0].cpu.mem[M.Player_X]+=30;e.restore(saved);e.resetWorld();kids.reset();assert.deepEqual(player(e.nes[0]),p);assert.equal(e.joined,false);assert.equal(kids.shots.length,0);});

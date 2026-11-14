@@ -8,6 +8,8 @@ Hosted on GitHub Pages. No ChatGPT account or login is required.
 
 ## Switch to Mario
 
+Both kids' Mario shots pass through walls, pipes and platforms. Defeating an enemy produces an orange explosion and a cannon boom through the game audio. These explosions do not damage Mario or the scenery.
+
 Mario levels have **no time limit**. The game disables the original countdown and time-up death, including after loading older saves. Normal hazards and the children's power/recharge timers remain active.
 
 Michelle's **♥ HELP DAD** button sends Mario a heart that grants a Super Mushroom on arrival, with the game's growth animation and sound. It recharges in five seconds of active play, preserves stronger suits, and cannot revive Mario. Both children's attacks automatically aim at the nearest eligible enemy visible anywhere on the screen; off-screen enemies are excluded. Hearts and recharge freeze during questions and pauses.

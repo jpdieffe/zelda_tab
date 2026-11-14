@@ -8,7 +8,7 @@ const center=t=>({x:(t.left+t.right)/2,y:(t.top+t.bottom)/2});
 const colors={jj:'#64ef9f',michelle:'#f6adff'};
 export class Companions {
   constructor(engine){
-    this.engine=engine;this.key=null;this.time=0;this.shots=[];this.particles=[];this.meteors=[];this.hearts=[];this.heartCooldown=0;
+    this.engine=engine;this.key=null;this.time=0;this.shots=[];this.particles=[];this.explosions=[];this.meteors=[];this.hearts=[];this.heartCooldown=0;
     this.kids=Object.fromEntries(['jj','michelle'].map(role=>[role,{role,x:0,y:0,vx:0,vy:0,face:1,mask:0,until:0,target:null,flap:false,segments:[],cooldown:0,hurt:0,power:null,active:false}]));
     this.stats={shots:0,hits:0,returns:0};
   }
@@ -23,7 +23,7 @@ export class Companions {
     return true;
   }
   release(role){const k=this.kids[role];if(k){k.mask=0;k.until=0;k.target=null;k.flap=false;}}
-  reset(){this.key=null;this.shots=[];this.particles=[];this.meteors=[];this.hearts=[];this.heartCooldown=0;for(const k of Object.values(this.kids)){this.release(k.role);k.power=null;}}
+  reset(){this.key=null;this.shots=[];this.particles=[];this.explosions=[];this.meteors=[];this.hearts=[];this.heartCooldown=0;for(const k of Object.values(this.kids)){this.release(k.role);k.power=null;}}
   heartReady(){return !this.engine.paused&&this.playable()&&!this.heartCooldown;}
   sendHeart(role){
     if(role!=='michelle'||!this.heartReady())return false;
@@ -60,7 +60,17 @@ export class Companions {
     }
   }
   burst(x,y,color,count=12){for(let i=0;i<count;i++){const angle=i/count*Math.PI*2;this.particles.push({x,y,vx:Math.cos(angle)*(1+i%3),vy:Math.sin(angle)*(1+i%3),life:22,max:22,color,size:2});}}
-  hit(target){this.engine.weapons.hit(target);this.stats.hits++;const p=center(target);this.burst(p.x,p.y,'#ffec9d');}
+  hit(target){
+    if(this.engine.entities.get(target.key)?.dead)return false;
+    this.engine.weapons.hit(target);
+    if(!this.engine.entities.get(target.key)?.dead)return false;
+    this.stats.hits++;const p=center(target);
+    this.explosions.push({x:p.x,y:p.y,life:30,max:30});this.explosions=this.explosions.slice(-32);
+    this.burst(p.x,p.y,'#ffce72',24);
+    // The native cannon boom travels through the same audio stream as the game.
+    this.engine.weapons.sound(p.x,p.y,M.Sound_QLevel1,0x08);
+    return true;
+  }
   attack(k,missile=false){
     let dx=k.face,dy=0;
     const near=this.nearestEnemy(k);
@@ -82,9 +92,10 @@ export class Companions {
   step(now=performance.now()){
     if(this.engine.paused)return;
     const p=player(this.engine.nes[0]),key=sceneKey(this.engine.nes[0]);
-    if(this.key!==key){this.key=key;this.shots=[];this.meteors=[];this.particles=[];this.hearts=[];for(const k of Object.values(this.kids)){this.regroup(k,p);this.release(k.role);}}
-    if(!this.playable()){this.shots=[];this.meteors=[];this.hearts=[];for(const k of Object.values(this.kids))this.release(k.role);return;}
+    if(this.key!==key){this.key=key;this.shots=[];this.meteors=[];this.particles=[];this.explosions=[];this.hearts=[];for(const k of Object.values(this.kids)){this.regroup(k,p);this.release(k.role);}}
+    if(!this.playable()){this.shots=[];this.meteors=[];this.hearts=[];this.explosions=[];for(const k of Object.values(this.kids))this.release(k.role);return;}
     this.time++;
+    this.explosions=this.explosions.filter(explosion=>--explosion.life>0);
     if(this.heartCooldown>0)this.heartCooldown--;
     const dad={x:p.x+8,y:p.y+32-p.height/2};
     for(const heart of this.hearts){
@@ -134,7 +145,7 @@ export class Companions {
       if(shot.missile){const target=this.nearestEnemy(shot);if(target){const d=Math.max(1,distance(shot,target));shot.dx+=(target.x-shot.x)/d*.18;shot.dy+=(target.y-shot.y)/d*.18;const v=Math.hypot(shot.dx,shot.dy);shot.dx/=v;shot.dy/=v;}}
       for(let sub=0;sub<3&&shot.life>0;sub++){
         shot.x+=shot.dx*1.6;shot.y+=shot.dy*1.6;
-        if(!shot.missile&&this.solid(shot.x,shot.y)){shot.life=0;this.burst(shot.x,shot.y,shot.role==='jj'?'#ffb73e':'#f6adff');break;}
+        // Companion magic passes through scenery; only hostile bodies stop it.
         const target=this.engine.weapons.targets().find(t=>shot.x>=t.left-4&&shot.x<=t.right+4&&shot.y>=t.top-4&&shot.y<=t.bottom+4);
         if(target){this.hit(target);shot.life=0;}
       }
@@ -170,6 +181,15 @@ export class Companions {
       }
     }
     for(const m of this.meteors){ctx.strokeStyle='#ffda77';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(m.x,m.y,m.giant?24:16,0,Math.PI*2);ctx.stroke();line(ctx,m.x-10,m.y,m.x+10,m.y);line(ctx,m.x,m.y-10,m.x,m.y+10);const y=m.y-m.left*4;ctx.fillStyle='#ff9f32';triangle(ctx,m.x-10,y,m.x+10,y,m.x-16,y-45);circle(ctx,m.x,y,12);ctx.fillStyle='#fff1a5';circle(ctx,m.x+2,y+2,7);}
+    for(const blast of this.explosions){
+      const progress=1-blast.life/blast.max,radius=7+progress*24;
+      ctx.save();ctx.globalAlpha=Math.min(1,blast.life/12);
+      ctx.fillStyle=progress<.4?'#ff9c32':'#dc7855';
+      for(let i=0;i<7;i++){const a=i*Math.PI*2/7;circle(ctx,blast.x+Math.cos(a)*radius*.55,blast.y+Math.sin(a)*radius*.55,radius*.48);}
+      ctx.strokeStyle='#ffe6a0';ctx.lineWidth=3*(1-progress)+.5;ctx.beginPath();ctx.arc(blast.x,blast.y,radius,0,Math.PI*2);ctx.stroke();
+      ctx.fillStyle=progress<.3?'#fffce0':'#ffd368';circle(ctx,blast.x,blast.y,Math.max(0,10-progress*14));
+      ctx.restore();
+    }
     for(const s of this.particles){ctx.globalAlpha=s.life/s.max;ctx.fillStyle=s.color;circle(ctx,s.x,s.y,s.size);}
     ctx.restore();
   }
