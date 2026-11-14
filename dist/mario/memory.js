@@ -11,6 +11,8 @@ export const M = {
   "Player_Suit": 237,
   "Player_Grow": 1361,
   "Player_SuitLost": 1364,
+  "Player_StarOff": 1365,
+  "Player_Statue": 1402,
   "Player_Kuribo": 1399,
   "Sound_QLevel1": 1266,
   "Player_EndLevel": 1369,

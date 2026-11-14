@@ -7,7 +7,8 @@ const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const center=t=>({x:(t.left+t.right)/2,y:(t.top+t.bottom)/2});
 const colors={jj:'#64ef9f',michelle:'#f6adff'};
 export class Companions {
-  constructor(engine){
+  constructor(engine,random=Math.random){
+    this.random=random;this.heartSuitBag=[];
     this.engine=engine;this.key=null;this.time=0;this.shots=[];this.particles=[];this.explosions=[];this.meteors=[];this.hearts=[];this.heartCooldown=0;
     this.kids=Object.fromEntries(['jj','michelle'].map(role=>[role,{role,x:0,y:0,vx:0,vy:0,face:1,mask:0,until:0,target:null,flap:false,segments:[],cooldown:0,hurt:0,power:null,active:false}]));
     this.stats={shots:0,hits:0,returns:0};
@@ -23,22 +24,39 @@ export class Companions {
     return true;
   }
   release(role){const k=this.kids[role];if(k){k.mask=0;k.until=0;k.target=null;k.flap=false;}}
-  reset(){this.key=null;this.shots=[];this.particles=[];this.explosions=[];this.meteors=[];this.hearts=[];this.heartCooldown=0;for(const k of Object.values(this.kids)){this.release(k.role);k.power=null;}}
+  reset(){this.key=null;this.shots=[];this.particles=[];this.explosions=[];this.meteors=[];this.hearts=[];this.heartCooldown=0;this.heartSuitBag=[];for(const k of Object.values(this.kids)){this.release(k.role);k.power=null;}}
   heartReady(){return !this.engine.paused&&this.playable()&&!this.heartCooldown;}
   sendHeart(role){
     if(role!=='michelle'||!this.heartReady())return false;
     const k=this.kids.michelle;this.hearts.push({x:k.x,y:k.y,life:180,age:0,trail:[]});this.heartCooldown=300;return true;
   }
-  deliverMushroom(){
+  nextHeartSuit(current){
+    // Fire, Raccoon, Frog, Tanooki, Hammer. Deal every suit before reshuffling.
+    // A normal pickup can leave only the current suit in the bag; start anew.
+    if(!this.heartSuitBag.some(suit=>suit!==current)){
+      this.heartSuitBag=[2,3,4,5,6];
+      for(let i=4;i>0;i--){const j=Math.floor(this.random()*(i+1));[this.heartSuitBag[i],this.heartSuitBag[j]]=[this.heartSuitBag[j],this.heartSuitBag[i]];}
+    }
+    const index=this.heartSuitBag.findLastIndex(suit=>suit!==current);
+    return this.heartSuitBag.splice(index,1)[0];
+  }
+  deliverHeartPower(){
     if(this.engine.paused||!this.playable())return false;
     const m=this.engine.nes[0].cpu.mem;
-    // Match the ROM's mushroom pickup: queued Super form, growth and pickup sound.
-    // Never replace an existing transformation, stronger suit, or death action.
-    if(!m[M.Player_Suit]&&!m[M.Player_QueueSuit]&&!m[M.Player_Grow]&&!m[M.Player_SuitLost]){
+    // Never overwrite an ongoing pickup, damage transformation, or death action.
+    if(m[M.Player_QueueSuit]||m[M.Player_Grow]||m[M.Player_SuitLost]||m[M.Player_StarOff])return false;
+    if(!m[M.Player_Suit]){
       m[M.Player_QueueSuit]=2;
       if(m[M.Player_Kuribo])m[M.Player_SuitLost]=0x1f;else m[M.Player_Grow]=0x2f;
+      m[M.Sound_QLevel1]|=0x20;
+    }else{
+      const suit=this.nextHeartSuit(m[M.Player_Suit]);
+      m[M.Player_QueueSuit]=suit+1;m[M.Player_Statue]=0;
+      // Match the ROM's flower flash or leaf/super-suit poof.
+      if(suit===2){m[M.Player_StarOff]=0x1f;m[M.Sound_QLevel1]|=0x20;}
+      else{m[M.Player_SuitLost]=0x17;m[M.Sound_QLevel1]|=0x80;}
     }
-    m[M.Sound_QLevel1]|=0x20;return true;
+    return true;
   }
   nearestEnemy(origin){
     const p=player(this.engine.nes[0]);let closest=null,best=Infinity;
@@ -101,7 +119,7 @@ export class Companions {
     for(const heart of this.hearts){
       heart.age++;heart.life--;heart.trail.unshift({x:heart.x,y:heart.y});heart.trail.length=Math.min(heart.trail.length,10);
       const d=distance(heart,dad),speed=Math.min(3.2,d);heart.x+=(dad.x-heart.x)/Math.max(1,d)*speed;heart.y+=(dad.y-heart.y)/Math.max(1,d)*speed;
-      if(distance(heart,dad)<5&&heart.age>=12){this.deliverMushroom();this.burst(dad.x,dad.y,'#ff9bc6',18);heart.life=0;}
+      if(distance(heart,dad)<5&&heart.age>=12){this.deliverHeartPower();this.burst(dad.x,dad.y,'#ff9bc6',18);heart.life=0;}
     }
     this.hearts=this.hearts.filter(heart=>heart.life>0);
     for(const k of Object.values(this.kids)){

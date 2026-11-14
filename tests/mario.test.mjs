@@ -84,11 +84,44 @@ test('Michelle heart travels to moving Dad then triggers native mushroom growth,
   for(let i=0;i<90;i++)e.step();assert.equal(m[M.Player_Suit],1,'actual ROM completes growth into Super Mario');assert.equal(m[M.Player_IsDying],0);
   assert.equal(kids.sendHeart('michelle'),false);assert.ok(kids.heartCooldown>0);
 });
-test('hearts preserve stronger forms and pending transformations and never revive Dad',()=>{
+test('heart bonuses shuffle all five suits without repeating the current suit, including after normal pickups',()=>{
+  for(const random of [()=>0,()=>.999999,Math.random]){
+    const {e}=boot(),kids=new Companions(e,random);let current=1;
+    for(let cycle=0;cycle<4;cycle++){
+      const seen=new Set();
+      for(let i=0;i<5;i++){const suit=kids.nextHeartSuit(current);assert.notEqual(suit,current);assert.ok(suit>=2&&suit<=6);seen.add(suit);current=suit;}
+      assert.equal(seen.size,5);
+    }
+    kids.heartSuitBag=[current];assert.notEqual(kids.nextHeartSuit(current),current,'normal pickups cannot leave a duplicate-only bonus');
+    kids.reset();assert.deepEqual(kids.heartSuitBag,[]);
+  }
+});
+test('native ROM transforms big and powered Mario into every heart suit with the matching effect and sound',()=>{
+  for(const current of [1,2,3,4,5,6])for(const suit of [2,3,4,5,6]){
+    if(current===suit)continue;
+    const {kids,e}=boot(),m=e.nes[0].cpu.mem;m[M.Player_Suit]=current;kids.heartSuitBag=[suit];m[M.Sound_QLevel1]=0;
+    if(current===5)m[M.Player_Statue]=0x40;
+    assert.equal(kids.deliverHeartPower(),true);assert.equal(m[M.Player_Suit],current,'ROM applies the queued change');
+    assert.equal(m[M.Player_QueueSuit],suit+1);assert.equal(m[M.Player_Statue],0);
+    assert.equal(m[suit===2?M.Player_StarOff:M.Player_SuitLost],suit===2?0x1f:0x17);assert.ok(m[M.Sound_QLevel1]&(suit===2?0x20:0x80));
+    for(let i=0;i<60;i++)e.step();
+    assert.equal(m[M.Player_Suit],suit,`native transformation ${current} -> ${suit}`);assert.equal(m[M.Player_IsDying],0);
+    assert.equal(m[M.Player_QueueSuit],0);assert.equal(m[M.Player_SuitLost],0);assert.equal(m[M.Player_StarOff],0);assert.equal(kids.playable(),true);
+  }
+});
+test('a traveling heart picks its bonus using Dad\'s suit on arrival',()=>{
+  const {kids,e}=boot(),m=e.nes[0].cpu.mem,p=player(e.nes[0]);kids.kids.michelle.x=p.x+150;kids.kids.michelle.y=p.y;
+  assert.equal(kids.sendHeart('michelle'),true);assert.equal(m[M.Player_QueueSuit],0);
+  m[M.Player_Suit]=1;kids.heartSuitBag=[6];
+  for(let i=0;i<100&&kids.hearts.length;i++)kids.step(i);
+  assert.equal(kids.hearts.length,0);assert.equal(m[M.Player_QueueSuit],7);assert.equal(m[M.Player_SuitLost],0x17);assert.ok(kids.heartCooldown>0);
+});
+test('hearts preserve pending transformations and never revive Dad',()=>{
   const {kids,e}=boot(),m=e.nes[0].cpu.mem;
-  for(const suit of [1,2,3,4,5,6]){m[M.Player_Suit]=suit;assert.equal(kids.deliverMushroom(),true);assert.equal(m[M.Player_Suit],suit);assert.equal(m[M.Player_QueueSuit],0);}
-  m[M.Player_Suit]=0;m[M.Player_QueueSuit]=4;kids.deliverMushroom();assert.equal(m[M.Player_QueueSuit],4);m[M.Player_QueueSuit]=0;
-  assert.equal(kids.sendHeart('michelle'),true);m[M.Player_IsDying]=1;kids.step(0);assert.equal(kids.hearts.length,0);assert.equal(kids.deliverMushroom(),false);assert.equal(m[M.Player_QueueSuit],0);assert.equal(m[M.Player_IsDying],1);
+  for(const flag of [M.Player_QueueSuit,M.Player_Grow,M.Player_SuitLost,M.Player_StarOff]){
+    m[flag]=4;const before=Array.from(m);assert.equal(kids.deliverHeartPower(),false);assert.deepEqual(Array.from(m),before);assert.deepEqual(kids.heartSuitBag,[]);m[flag]=0;
+  }
+  assert.equal(kids.sendHeart('michelle'),true);m[M.Player_IsDying]=1;kids.step(0);assert.equal(kids.hearts.length,0);assert.equal(kids.deliverHeartPower(),false);assert.equal(m[M.Player_QueueSuit],0);assert.equal(m[M.Player_IsDying],1);
 });
 test('heart travel and recharge freeze on pause; scene changes and reset discard in-flight hearts',()=>{
   const {kids,e}=boot();kids.sendHeart('michelle');e.paused=true;const hearts=structuredClone(kids.hearts),cooldown=kids.heartCooldown;kids.step(500);assert.deepEqual(kids.hearts,hearts);assert.equal(kids.heartCooldown,cooldown);assert.equal(kids.sendHeart('michelle'),false);

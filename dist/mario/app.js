@@ -65,7 +65,7 @@ function showState(data){
   $('power-status').textContent=data.quiz?'Question time — game paused':data.paused?'Paused':data.powers||'No time limit';
   $('quiz-skip').hidden=role!=='dad';
   $('heart').disabled=role!=='michelle'||!data.heart?.ready||!!data.quiz;
-  $('heart-caption').textContent=data.heart?.seconds?`${data.heart.seconds}s recharge`:'Mushroom for Dad';
+  $('heart-caption').textContent=data.heart?.seconds?`${data.heart.seconds}s recharge`:'Power-up for Dad';
   if(role==='dad'){$('skip').hidden=!data.quiz;$('questions').disabled=!!data.quiz||!kids?.playable()||engine.paused;}
 }
 function broadcast(){if(!engine)return;const s=state();connection?.send(s);showState(s);}
