@@ -2,6 +2,7 @@ import {player, inLevel, sceneKey} from './engine.js';
 import {M} from './memory.js';
 import {tileAt} from './weapons.js';
 import {FamilyJet} from './jet.js';
+import {FORMS} from './copy-forms/forms.js';
 
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -9,7 +10,7 @@ const center=t=>({x:(t.left+t.right)/2,y:(t.top+t.bottom)/2});
 const colors={jj:'#64ef9f',michelle:'#f6adff'};
 export class Companions {
   constructor(engine,random=Math.random){
-    this.random=random;this.heartSuitBag=[];
+    this.random=random;this.heartFormBag=[];
     this.engine=engine;this.key=null;this.time=0;this.shots=[];this.particles=[];this.explosions=[];this.meteors=[];this.hearts=[];this.heartCooldown=0;
     this.kids=Object.fromEntries(['jj','michelle'].map(role=>[role,{role,x:0,y:0,vx:0,vy:0,face:1,mask:0,until:0,target:null,flap:false,segments:[],cooldown:0,hurt:0,power:null,active:false}]));
     this.stats={shots:0,hits:0,returns:0};
@@ -28,39 +29,27 @@ export class Companions {
     return true;
   }
   release(role){const k=this.kids[role];if(k){k.mask=0;k.until=0;k.target=null;k.aim=null;k.jetAim=null;k.flap=false;}}
-  reset({keepJet=false}={}){if(!keepJet)this.jet.stop();this.key=null;this.shots=[];this.particles=[];this.explosions=[];this.meteors=[];this.hearts=[];this.heartCooldown=0;this.heartSuitBag=[];for(const k of Object.values(this.kids)){this.release(k.role);k.power=null;}}
+  reset({keepJet=false}={}){if(!keepJet)this.jet.stop();this.key=null;this.shots=[];this.particles=[];this.explosions=[];this.meteors=[];this.hearts=[];this.heartCooldown=0;this.heartFormBag=[];for(const k of Object.values(this.kids)){this.release(k.role);k.power=null;}}
   heartReady(){return !this.jet.active&&!this.engine.paused&&this.playable()&&!this.heartCooldown;}
   sendHeart(role){
     if(role!=='michelle'||!this.heartReady())return false;
     const k=this.kids.michelle;this.hearts.push({x:k.x,y:k.y,life:180,age:0,trail:[]});this.heartCooldown=300;return true;
   }
-  nextHeartSuit(current){
-    // Fire, Raccoon, Frog, Tanooki, Hammer. Deal every suit before reshuffling.
-    // A normal pickup can leave only the current suit in the bag; start anew.
-    if(!this.heartSuitBag.some(suit=>suit!==current)){
-      this.heartSuitBag=[2,3,4,5,6];
-      for(let i=4;i>0;i--){const j=Math.floor(this.random()*(i+1));[this.heartSuitBag[i],this.heartSuitBag[j]]=[this.heartSuitBag[j],this.heartSuitBag[i]];}
+  nextHeartForm(current){
+    // Deal the complete collection before reshuffling; skip Dad's current form.
+    if(!this.heartFormBag.some(key=>key!==current)){
+      this.heartFormBag=FORMS.map(form=>form.key);
+      for(let i=this.heartFormBag.length-1;i>0;i--){const j=Math.floor(this.random()*(i+1));[this.heartFormBag[i],this.heartFormBag[j]]=[this.heartFormBag[j],this.heartFormBag[i]];}
     }
-    const index=this.heartSuitBag.findLastIndex(suit=>suit!==current);
-    return this.heartSuitBag.splice(index,1)[0];
+    const index=this.heartFormBag.findLastIndex(key=>key!==current);
+    return this.heartFormBag.splice(index,1)[0];
   }
   deliverHeartPower(){
-    if(this.engine.paused||!this.playable())return false;
+    if(this.jet.active||this.engine.paused||!this.playable())return false;
     const m=this.engine.nes[0].cpu.mem;
     // Never overwrite an ongoing pickup, damage transformation, or death action.
     if(m[M.Player_QueueSuit]||m[M.Player_Grow]||m[M.Player_SuitLost]||m[M.Player_StarOff])return false;
-    if(!m[M.Player_Suit]){
-      m[M.Player_QueueSuit]=2;
-      if(m[M.Player_Kuribo])m[M.Player_SuitLost]=0x1f;else m[M.Player_Grow]=0x2f;
-      m[M.Sound_QLevel1]|=0x20;
-    }else{
-      const suit=this.nextHeartSuit(m[M.Player_Suit]);
-      m[M.Player_QueueSuit]=suit+1;m[M.Player_Statue]=0;
-      // Match the ROM's flower flash or leaf/super-suit poof.
-      if(suit===2){m[M.Player_StarOff]=0x1f;m[M.Sound_QLevel1]|=0x20;}
-      else{m[M.Player_SuitLost]=0x17;m[M.Sound_QLevel1]|=0x80;}
-    }
-    return true;
+    return this.engine.forms.receive(this.nextHeartForm(this.engine.forms.currentKey));
   }
   nearestEnemy(origin){
     const p=player(this.engine.nes[0]);let closest=null,best=Infinity;

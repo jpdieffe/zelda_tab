@@ -840,6 +840,10 @@ class CPU {
     // instruction address — a convenience so that the post-increment in
     // REG_PC += opinfo.size below lands on the next instruction.)
     let opcode = this.loadFromCartridge(this.REG_PC + 1);
+    // Copy Kingdom: optional, address-scoped runtime hooks. The ROM stays intact.
+    // An RTS substitution uses the CPU's normal stack and cycle implementation.
+    const copyHook = this.nes.copyHooks?.[this.REG_PC + 1];
+    if (copyHook) opcode = copyHook(this, opcode) ?? opcode;
     this.dataBus = opcode;
     this.instrBusCycles = 1;
     this.nes.ppu.advanceDots(3);

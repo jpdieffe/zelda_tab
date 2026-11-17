@@ -8,6 +8,7 @@ import {M} from '../dist/mario/memory.js';
 import {Companions} from '../dist/mario/companions.js';
 import {tileAt} from '../dist/mario/weapons.js';
 import {LearningRound,QuestionDeck,mathFacts} from '../dist/mario/learning.js';
+import {FORMS} from '../dist/mario/copy-forms/forms.js';
 import {FamilyLearning} from '../dist/mario/jet-learning.js';
 const rom=readFileSync(new URL('../dist/mario/roms/mario3.nes',import.meta.url));
 let level;
@@ -142,7 +143,7 @@ test('both children aim across the whole screen, ignoring closer enemies outside
   }
 });
 test('Michelle heart travels to moving Dad then triggers native mushroom growth, sound and five-second cooldown',()=>{
-  const {kids,e}=boot(),m=e.nes[0].cpu.mem,p=player(e.nes[0]);kids.kids.michelle.x=p.x+150;kids.kids.michelle.y=p.y-30;
+  const {kids,e}=boot(),m=e.nes[0].cpu.mem,p=player(e.nes[0]);kids.heartFormBag=['mario-1'];kids.kids.michelle.x=p.x+150;kids.kids.michelle.y=p.y-30;
   assert.equal(kids.sendHeart('jj'),false);assert.equal(kids.sendHeart('michelle'),true);assert.equal(kids.sendHeart('michelle'),false);assert.equal(m[M.Player_QueueSuit],0);
   for(let i=0;i<8;i++)kids.step(i);assert.equal(m[M.Player_Suit],0);assert.equal(m[M.Player_QueueSuit],0,'power arrives with the heart, not button press');
   m[M.Player_X]+=20;for(let i=0;i<100&&kids.hearts.length;i++)kids.step(i+8);
@@ -150,22 +151,22 @@ test('Michelle heart travels to moving Dad then triggers native mushroom growth,
   for(let i=0;i<90;i++)e.step();assert.equal(m[M.Player_Suit],1,'actual ROM completes growth into Super Mario');assert.equal(m[M.Player_IsDying],0);
   assert.equal(kids.sendHeart('michelle'),false);assert.ok(kids.heartCooldown>0);
 });
-test('heart bonuses shuffle all five suits without repeating the current suit, including after normal pickups',()=>{
+test('heart bonuses shuffle all 120 forms without repeating the current form, including after normal pickups',()=>{
   for(const random of [()=>0,()=>.999999,Math.random]){
-    const {e}=boot(),kids=new Companions(e,random);let current=1;
+    const {e}=boot(),kids=new Companions(e,random);let current='mario-1';
     for(let cycle=0;cycle<4;cycle++){
       const seen=new Set();
-      for(let i=0;i<5;i++){const suit=kids.nextHeartSuit(current);assert.notEqual(suit,current);assert.ok(suit>=2&&suit<=6);seen.add(suit);current=suit;}
-      assert.equal(seen.size,5);
+      for(let i=0;i<FORMS.length;i++){const suit=kids.nextHeartForm(current);assert.notEqual(suit,current);assert.ok(FORMS.some(f=>f.key===suit));seen.add(suit);current=suit;}
+      assert.equal(seen.size,120);
     }
-    kids.heartSuitBag=[current];assert.notEqual(kids.nextHeartSuit(current),current,'normal pickups cannot leave a duplicate-only bonus');
-    kids.reset();assert.deepEqual(kids.heartSuitBag,[]);
+    kids.heartFormBag=[current];assert.notEqual(kids.nextHeartForm(current),current,'normal pickups cannot leave a duplicate-only bonus');
+    kids.reset();assert.deepEqual(kids.heartFormBag,[]);
   }
 });
 test('native ROM transforms big and powered Mario into every heart suit with the matching effect and sound',()=>{
   for(const current of [1,2,3,4,5,6])for(const suit of [2,3,4,5,6]){
     if(current===suit)continue;
-    const {kids,e}=boot(),m=e.nes[0].cpu.mem;m[M.Player_Suit]=current;kids.heartSuitBag=[suit];m[M.Sound_QLevel1]=0;
+    const {kids,e}=boot(),m=e.nes[0].cpu.mem;m[M.Player_Suit]=current;kids.heartFormBag=[`mario-${suit}`];m[M.Sound_QLevel1]=0;
     if(current===5)m[M.Player_Statue]=0x40;
     assert.equal(kids.deliverHeartPower(),true);assert.equal(m[M.Player_Suit],current,'ROM applies the queued change');
     assert.equal(m[M.Player_QueueSuit],suit+1);assert.equal(m[M.Player_Statue],0);
@@ -178,16 +179,45 @@ test('native ROM transforms big and powered Mario into every heart suit with the
 test('a traveling heart picks its bonus using Dad\'s suit on arrival',()=>{
   const {kids,e}=boot(),m=e.nes[0].cpu.mem,p=player(e.nes[0]);kids.kids.michelle.x=p.x+150;kids.kids.michelle.y=p.y;
   assert.equal(kids.sendHeart('michelle'),true);assert.equal(m[M.Player_QueueSuit],0);
-  m[M.Player_Suit]=1;kids.heartSuitBag=[6];
+  m[M.Player_Suit]=1;kids.heartFormBag=['mario-6'];
   for(let i=0;i<100&&kids.hearts.length;i++)kids.step(i);
   assert.equal(kids.hearts.length,0);assert.equal(m[M.Player_QueueSuit],7);assert.equal(m[M.Player_SuitLost],0x17);assert.ok(kids.heartCooldown>0);
 });
 test('hearts preserve pending transformations and never revive Dad',()=>{
   const {kids,e}=boot(),m=e.nes[0].cpu.mem;
   for(const flag of [M.Player_QueueSuit,M.Player_Grow,M.Player_SuitLost,M.Player_StarOff]){
-    m[flag]=4;const before=Array.from(m);assert.equal(kids.deliverHeartPower(),false);assert.deepEqual(Array.from(m),before);assert.deepEqual(kids.heartSuitBag,[]);m[flag]=0;
+    m[flag]=4;const before=Array.from(m);assert.equal(kids.deliverHeartPower(),false);assert.deepEqual(Array.from(m),before);assert.deepEqual(kids.heartFormBag,[]);m[flag]=0;
   }
   assert.equal(kids.sendHeart('michelle'),true);m[M.Player_IsDying]=1;kids.step(0);assert.equal(kids.hearts.length,0);assert.equal(kids.deliverHeartPower(),false);assert.equal(m[M.Player_QueueSuit],0);assert.equal(m[M.Player_IsDying],1);
+});
+test('Michelle can grant every imported form to small Mario on the existing family simulation',()=>{
+  const {e,kids}=boot(),saved=structuredClone(e.snapshot());
+  for(const form of FORMS){
+    e.restore(saved);kids.reset();kids.heartFormBag=[form.key];
+    // Small Mario itself is also in the collection, but never replaces itself.
+    if(form.key==='mario-0')e.nes[0].cpu.mem[M.Player_Suit]=1;
+    assert.equal(kids.deliverHeartPower(),true,form.name);
+    for(let i=0;i<65;i++)e.step();
+    assert.equal(e.forms.form.key,form.key,form.name);
+    assert.equal(e.nes[0].cpu.mem[M.Player_Suit],form.suit??1,form.name);
+    assert.equal(e.nes[0].cpu.mem[M.Player_IsDying],0,form.name);
+    assert.equal(e.forms.nes,e.nes[0]);assert.equal(e.forms.pixels,e.frames[0]);
+    if(form.suit===undefined){assert.equal(e.nes[0].hideMario,true);assert.ok(e.forms.sprites.image(form,e.forms.frame,e.forms.spritePose),form.name+' has sprite art');}
+  }
+});
+test('family forms use Dad input, freeze during questions, survive saves and suspend during jet flight',()=>{
+  const {e,kids}=boot();kids.heartFormBag=['enemy-78'];assert.ok(kids.deliverHeartPower());
+  for(let i=0;i<65;i++)e.step();
+  const p=player(e.nes[0]);e.input(0,17);for(let i=0;i<20;i++)e.step();assert.ok(player(e.nes[0]).y<p.y,'Bullet Bill flies with Dad input');
+  e.input(0,2);e.step();assert.ok(e.forms.dashTime>0,'Run uses the form ability');
+  e.paused=true;const frame=e.forms.frame,dash=e.forms.dashTime;e.step();assert.equal(e.forms.frame,frame);assert.equal(e.forms.dashTime,dash);e.paused=false;
+  const saved=structuredClone(e.snapshot());e.forms.select('mario-3');e.restore(saved);assert.equal(e.forms.form.key,'enemy-78');assert.equal(e.masks[0],0);
+  assert.ok(kids.jet.start());assert.equal(kids.deliverHeartPower(),false);e.input(0,0);e.step();const y=player(e.nes[0]).y;
+  for(let i=0;i<30;i++)e.step();assert.equal(player(e.nes[0]).y,y,'custom flight does not override jet hover');assert.equal(e.forms.dashTime,0);assert.equal(e.nes[0].hideMario,false);
+  const jetSave=structuredClone(e.snapshot());e.restore(jetSave);assert.ok(kids.jet.active);assert.equal(e.forms.form.key,'enemy-78');
+  kids.jet.stop();e.step();assert.equal(e.forms.form.key,'enemy-78');assert.equal(e.nes[0].hideMario,true);
+  const oldSave=structuredClone(saved);delete oldSave.form;e.restore(oldSave);assert.equal(e.forms.form.key,'mario-1','legacy saves use their native suit');
+  e.nes[0].fromJSON(JSON.parse(readFileSync(new URL('../dist/mario/start.json',import.meta.url))));e.forms.reset();assert.equal(e.forms.form.key,'mario-0','new game clears the form');
 });
 test('heart travel and recharge freeze on pause; scene changes and reset discard in-flight hearts',()=>{
   const {kids,e}=boot();kids.sendHeart('michelle');e.paused=true;const hearts=structuredClone(kids.hearts),cooldown=kids.heartCooldown;kids.step(500);assert.deepEqual(kids.hearts,hearts);assert.equal(kids.heartCooldown,cooldown);assert.equal(kids.sendHeart('michelle'),false);

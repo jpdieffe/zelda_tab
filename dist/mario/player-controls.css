@@ -46,3 +46,7 @@ body[data-jet=true][data-role=michelle] .actions{grid-column:2;grid-row:1}
   body[data-role=michelle] #michelle-card{grid-column:1;grid-row:3}
   body[data-role=michelle] .action{font-size:24px}
 }
+#form-help{position:relative;align-self:center;max-width:min(650px,95vw);font-size:12px;color:#dce9d9;text-align:center}
+#form-help summary{cursor:pointer;padding:4px 12px;color:var(--gold)}
+#form-help[open] p{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);width:min(620px,90vw);max-height:40vh;overflow:auto;margin:0;padding:14px;border:1px solid #668187;border-radius:12px;background:#1b3443;box-shadow:0 8px 25px #0008;line-height:1.6;z-index:5}
+body[data-role=dad] #fire{font-size:13px}

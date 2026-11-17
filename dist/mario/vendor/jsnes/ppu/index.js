@@ -143,6 +143,10 @@ class PPU {
     // Storage layout: 240 scanlines × up to 8 sprites × 4 bytes = flat arrays.
     this.scanlineSpriteCount = new Uint8Array(241); // +1 for buffer
     this.scanlineSecondaryOAM = new Uint8Array(241 * 32);
+    // Optional runtime-mod CHR selection, recorded per evaluated sprite.
+    // Zero means the normal mapper; other values encode a 1KB bank plus one.
+    this.scanlineSpriteChrBanks = new Uint16Array(241 * 8);
+    this.secondarySpriteChrBanks = new Uint16Array(8);
     this.scanlineSprite0 = new Uint8Array(241); // 1 if sprite 0 present
 
     // Palette data:
@@ -478,6 +482,7 @@ class PPU {
             this.scanlineSecondaryOAM[scanline0Base + i] = this.secondaryOAM[i];
           }
           this.scanlineSpriteCount[1] = this.spritesFound;
+          this.scanlineSpriteChrBanks.set(this.secondarySpriteChrBanks,8);
           this.scanlineSprite0[1] = this.sprite0InSecondary ? 1 : 0;
 
           // OAMADDR is reset to 0 during sprite tile loading (cycles 257-320).
@@ -1593,6 +1598,12 @@ class PPU {
       firstSprite = false;
 
       let yByte = this.spriteMem[(n * 4 + m) & 0xff];
+      // Hide only Mario's OAM entries when a custom costume replaces him.
+      // Sprite zero, enemies, terrain, and the HUD still use the NES renderer.
+      if (this.nes.hideMario) {
+        const marioRoot = this.nes.cpu.mem[0x58e] >> 2;
+        if (n !== 0 && n >= marioRoot && n < marioRoot + 6) yByte = 255;
+      }
 
       // Check if sprite is in range for the target buffer row.
       // On real hardware the comparison is NES_scanline >= Y && < Y + height.
@@ -1609,6 +1620,8 @@ class PPU {
             this.scanlineSecondaryOAM[oamBase + secondaryIndex + b] =
               this.spriteMem[(n * 4 + m + b) & 0xff];
           }
+          this.scanlineSpriteChrBanks[targetScanline*8+spritesFound] =
+            m===0 ? (this.nes.spriteChrBank?.(n,this.spriteMem[n*4+1])??-1)+1 : 0;
           // The first sprite in evaluation order (at OAMADDR/4) is the one
           // that triggers sprite 0 hit, regardless of its OAM index.
           // On real hardware, setting OAMADDR to a non-zero value causes
@@ -1653,6 +1666,7 @@ class PPU {
       this.secondaryOAM[i] = this.scanlineSecondaryOAM[oamBase + i];
     }
     this.spritesFound = spritesFound;
+    this.secondarySpriteChrBanks.set(this.scanlineSpriteChrBanks.subarray(targetScanline*8,targetScanline*8+8));
     this.sprite0InSecondary = this.scanlineSprite0[targetScanline] === 1;
 
     // OAMADDR is set to 0 during sprite tile loading (cycles 257-320).
@@ -1746,7 +1760,11 @@ class PPU {
             tileFineY = fineY - 8;
           }
 
-          ptTile[top + tileOffset].render(
+          const bank=this.scanlineSpriteChrBanks[scan*8+i]-1;
+          const spriteTile=bank>=0
+            ? this.nes.rom.vromTile[bank>>2][(bank&3)*64+(topTileNum&63)+tileOffset]
+            : ptTile[top+tileOffset];
+          spriteTile.render(
             buffer,
             0,
             tileFineY,
@@ -2135,6 +2153,7 @@ class PPU {
   toJSON() {
     let i;
     let state = toJSON(this);
+    state.secondarySpriteChrBanks=Array.from(this.secondarySpriteChrBanks);
 
     state.nameTable = [];
     for (i = 0; i < this.nameTable.length; i++) {
@@ -2157,6 +2176,9 @@ class PPU {
     this.ptTile = Array.from({ length: 512 }, () => new Tile());
 
     fromJSON(this, state);
+    this.scanlineSpriteChrBanks.fill(0);
+    this.secondarySpriteChrBanks.fill(0);
+    if(state.secondarySpriteChrBanks?.length===8)this.secondarySpriteChrBanks.set(state.secondarySpriteChrBanks);
 
     for (i = 0; i < this.nameTable.length; i++) {
       this.nameTable[i].fromJSON(state.nameTable[i]);

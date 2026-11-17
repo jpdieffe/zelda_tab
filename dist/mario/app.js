@@ -8,6 +8,7 @@ import {QuestionView,stopQuestionAudio} from './question-view.js';
 import {Joystick} from './joystick.js';
 import {KidLock} from './kid-lock.js';
 import * as storage from './storage.js';
+import {drawGame} from './copy-forms/art.js';
 
 const $=id=>document.getElementById(id);
 let role=null,engine=null,kids=null,connection=null,audio=null,media=null,wakeLock=null,busy=false,raf=0,last=0,accumulator=0,noticeTimer;
@@ -49,7 +50,8 @@ document.addEventListener('contextmenu',e=>{if(role)e.preventDefault();});
 async function requestWake(){if(role&&!document.hidden)try{wakeLock=await navigator.wakeLock?.request('screen');}catch{}}
 function draw(){
   if(!engine)return;for(let i=0;i<words.length;i++)words[i]=engine.frames[0][i]|0xff000000;
-  nativeCtx.putImageData(pixels,0,0);ctx.imageSmoothingEnabled=false;ctx.drawImage(native,0,0,768,720);
+  if(kids.jet.active)nativeCtx.putImageData(pixels,0,0);else drawGame(nativeCtx,engine.forms);
+  ctx.imageSmoothingEnabled=false;ctx.drawImage(native,0,0,768,720);
   ctx.save();ctx.scale(3,3);kids.draw(ctx);ctx.restore();
 }
 function tick(now){
@@ -58,7 +60,7 @@ function tick(now){
   try{while(accumulator>=1000/60&&frames<4){engine.step();kids.step(now);accumulator-=1000/60;frames++;}if(frames)draw();}
   catch(error){engine.paused=true;notice('Game paused: '+error.message);console.error(error);}
 }
-function state(){return {type:'state',jet:!!kids?.jet.active,quiz:learning.snapshot(),paused:engine?.paused,heart:{ready:!!kids?.heartReady(),seconds:Math.ceil((kids?.heartCooldown||0)/60)},powers:Object.values(kids?.kids||{}).filter(k=>k.power).map(k=>`${k.role==='jj'?'JJ':'Michelle'}: ${k.power.giant?'SUPER ':''}${({laser:'lasers',missiles:'homing missiles',dinosaur:'dinosaur',meteor:'meteor'})[k.power.type]} · ${Math.ceil(k.power.left/60)}s`).join('  ✦  ')};}
+function state(){return {type:'state',jet:!!kids?.jet.active,form:engine?{name:engine.forms.form.name,hint:engine.forms.hint}:null,quiz:learning.snapshot(),paused:engine?.paused,heart:{ready:!!kids?.heartReady(),seconds:Math.ceil((kids?.heartCooldown||0)/60)},powers:Object.values(kids?.kids||{}).filter(k=>k.power).map(k=>`${k.role==='jj'?'JJ':'Michelle'}: ${k.power.giant?'SUPER ':''}${({laser:'lasers',missiles:'homing missiles',dinosaur:'dinosaur',meteor:'meteor'})[k.power.type]} · ${Math.ceil(k.power.left/60)}s`).join('  ✦  ')};}
 function showState(data){
   if(jetMode!==!!data.jet){jetMode=!!data.jet;clearInput();updateControls();}
   if(role!=='dad'){const changed=!!remoteQuiz!==!!data.quiz;remoteQuiz=data.quiz;if(changed)clearInput();}
@@ -66,7 +68,11 @@ function showState(data){
   $('power-status').textContent=data.quiz?'Question time — game paused':data.paused?'Paused':data.jet?'INVINCIBLE JET · Dad flies · Aim lasers with joystick · Hold Missiles':data.powers||'No time limit';
   $('quiz-skip').hidden=role!=='dad';
   $('heart').disabled=role!=='michelle'||!data.heart?.ready||!!data.quiz;
-  $('heart-caption').textContent=data.heart?.seconds?`${data.heart.seconds}s recharge`:'Power-up for Dad';
+  $('heart-caption').textContent=data.heart?.seconds?`${data.heart.seconds}s recharge`:'Random form for Dad';
+  if(!data.quiz&&!data.paused&&!data.jet&&data.form)$('power-status').textContent=[data.form.name,data.powers].filter(Boolean).join(' · ');
+  $('form-help').hidden=role!=='dad'||!!data.jet;
+  $('form-name').textContent=data.form?`${data.form.name} controls`:'Form controls';
+  $('form-tip').textContent=data.form?.hint||'';
   if(role==='dad'){$('skip').hidden=!data.quiz;$('questions').disabled=!!data.quiz||!kids?.playable()||engine.paused;$('jet').disabled=$('questions').disabled||!!data.jet;$('regroup').disabled=!!data.jet;}
 }
 function broadcast(){if(!engine)return;const s=state();connection?.send(s);showState(s);}
@@ -112,7 +118,7 @@ function enter(nextRole){
 function updateControls(){
   document.body.dataset.jet=String(jetMode);
   $('jump').innerHTML=role==='michelle'?'FLY <small>TAP A</small>':'JUMP <small>A</small>';
-  $('fire').innerHTML=jetMode&&role!=='dad'?'MISSILES <small>HOLD B</small>':{dad:'RUN <small>HOLD B</small>',jj:'FIRE <small>HOLD B</small>',michelle:'MAGIC <small>HOLD B</small>'}[role];
+  $('fire').innerHTML=jetMode&&role!=='dad'?'MISSILES <small>HOLD B</small>':{dad:'RUN / POWER <small>HOLD B</small>',jj:'FIRE <small>HOLD B</small>',michelle:'MAGIC <small>HOLD B</small>'}[role];
   $('control-hint').textContent=jetMode?(role==='dad'?'Fly with the joystick. Use arrows at pipes and doors.':'Aim the laser with your joystick. Hold Missiles!'):{dad:'You lead. The magic crew follows.',jj:'Drag on the game to fly. Hold Fire!',michelle:'Every jump tap lifts you higher.'}[role];
   $('move-label').textContent=jetMode?(role==='dad'?'FLY':'AIM LASER'):role==='jj'?'FLY':'MOVE';
   $('joystick').setAttribute('aria-label',jetMode&&role!=='dad'?'Aim laser joystick':'Movement joystick');
@@ -151,7 +157,7 @@ for(const button of document.querySelectorAll('[data-role]'))button.onclick=()=>
 };
 $('join-form').onsubmit=join;$('questions').onclick=()=>startQuestions();$('jet').onclick=()=>startQuestions('jet');$('skip').onclick=skip;$('quiz-skip').onclick=skip;$('save').onclick=()=>save();$('load').onclick=load;$('leave').onclick=leave;
 $('regroup').onclick=()=>{if(kids){for(const k of Object.values(kids.kids)){kids.release(k.role);kids.regroup(k);}notice('The crew is back beside Mario.');}};
-$('new-game').onclick=async()=>{if(!engine||!confirm('Start again at World 1? Your next save will replace the current saved adventure.'))return;try{const response=await fetch('start.json');engine.nes[0].fromJSON(await response.json());engine.resetWorld();kids.reset();learning.skip();engine.paused=false;clearInput();broadcast();}catch{notice('Could not load the starting map.');}};
+$('new-game').onclick=async()=>{if(!engine||!confirm('Start again at World 1? Your next save will replace the current saved adventure.'))return;try{const response=await fetch('start.json');engine.nes[0].fromJSON(await response.json());engine.forms.reset();engine.resetWorld();kids.reset();learning.skip();engine.paused=false;clearInput();broadcast();}catch{notice('Could not load the starting map.');}};
 $('sound').onclick=()=>{localSound=!localSound;if(role==='dad'){audio?.resume();if(audio?.gain)audio.gain.gain.value=localSound?1:0;}else{$('remote-video').muted=!localSound;$('remote-video').play().catch(()=>{});}$('sound').textContent=localSound?'Sound off':'Sound on';};
 $('fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{notice('Use your browser’s full-screen option.');}};
 $('unlock-tablet').onclick=()=>{if(connection?.has('jj')){connection.send({type:'unlock-tablet'},'jj');notice('JJ’s tablet unlocked.');}else notice('Pair JJ’s tablet first.');};

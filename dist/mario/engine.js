@@ -1,5 +1,6 @@
 import { M, OBJECT_FIELDS } from './memory.js';
 import { WeaponSystem } from './weapons.js';
+import { FamilyForms } from './family-forms.js';
 
 const signed = n => n > 127 ? n - 256 : n;
 const TILE_START = 0x6000, TILE_END = 0x7950;
@@ -79,6 +80,7 @@ export class CoopEngine {
     this.entities=new Map(); this.slotKeys=[Array(8).fill(null),Array(8).fill(null)];
     this.serial=0; this.deaths=[0,0]; this.paused=false; this.transition=null; this.stats={bounces:0,bumps:0,tileEdits:0};
     this.weapons=new WeaponSystem(this);
+    this.forms=new FamilyForms(this);
   }
   input(p,mask) {
     // UI mask follows NES button order: A,B,Select,Start,Up,Down,Left,Right.
@@ -134,7 +136,11 @@ export class CoopEngine {
     this.frame++;
     if(!this.joined) {
       this.vehicle?.beforeFrame();this.applyInput(0);
-      try{this.nes[0].frame();}finally{this.vehicle?.afterFrame();}
+      const n=this.nes[0],hooks=n.copyHooks;
+      try{
+        if(this.vehicle?.active){n.copyHooks=null;n.hideMario=false;this.forms.clearEffects();this.forms.release();n.frame();}
+        else{this.forms.input(this.masks[0]);this.forms.step();}
+      }finally{n.copyHooks=hooks;this.vehicle?.afterFrame();}
       if(inLevel(this.nes[0])&&(!this.tiles||sceneKey(this.nes[0])!==this.key))this.resetWorld();
       this.weapons.step();return;
     }
@@ -295,11 +301,12 @@ export class CoopEngine {
     const previous=n.ppu.vramMem[n.ppu.vramMirrorTable[addr]];
     n.ppu.mirroredWrite(addr,(previous&~(3<<shift))|((value>>6)<<shift));
   }
-  snapshot() {return {version:1,rom:'smb3-us-rev1',state:this.nes[0].toJSON(),weapons:[...this.weapons.equipped],jet:this.vehicle?.snapshot()};}
+  snapshot() {return {version:1,rom:'smb3-us-rev1',state:this.nes[0].toJSON(),weapons:[...this.weapons.equipped],jet:this.vehicle?.snapshot(),form:this.forms.snapshot()};}
   restore(saved) {
     if(saved?.version!==1 || saved.rom!=='smb3-us-rev1')throw new Error('This save is for a different game version.');
     this.vehicle?.stop();
     this.nes[0].fromJSON(saved.state); this.input(0,0); this.paused=false;this.transition=null;
+    this.forms.reset(saved.form);
     this.weapons.clear();this.weapons.equip(0,saved.weapons?.[0]??0);
     this.weapons.equip(1,saved.weapons?.[1]??0);
     if(this.joined)this.join();
