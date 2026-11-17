@@ -8,9 +8,9 @@ function surface(sprite){
   const c=canvas.getContext('2d'),image=c.createImageData(sprite.width,sprite.height);
   new Uint32Array(image.data.buffer).set(sprite.pixels);c.putImageData(image,0,0);surfaces.set(sprite,canvas);return canvas;
 }
-export function drawSprite(ctx,sprite,x,y,scale=1,facing=sprite?.facing,phase=false){
+export function drawSprite(ctx,sprite,x,y,scale=1,facing=sprite?.facing,phase=false,opacity=1){
   if(!sprite)return;
-  ctx.save();ctx.imageSmoothingEnabled=false;ctx.globalAlpha=phase?.45:1;
+  ctx.save();ctx.imageSmoothingEnabled=false;ctx.globalAlpha=opacity*(phase?.45:1);
   ctx.translate(Math.round(x),Math.round(y));
   if(facing!==sprite.facing){ctx.translate(sprite.width*scale,0);ctx.scale(-1,1);}
   ctx.drawImage(surface(sprite),0,0,sprite.width*scale,sprite.height*scale);ctx.restore();
@@ -28,12 +28,15 @@ export function drawGame(ctx,game){
   if(!game.inLevel)return;
   const p=game.position;ctx.save();ctx.beginPath();ctx.rect(0,0,256,208);ctx.clip();ctx.translate(-p.cameraX,-p.cameraY);
   if(game.custom&&game.nes.hideMario){
-    const blink=game.m[0x552]&&game.frame%8<4;
-    if(!blink&&game.form.key==='enemy-59'){
+    // Keep the player visible in every streamed frame. Native flash immunity
+    // still expires normally; a steady tint replaces fully missing sprites.
+    const opacity=game.m[0x552]?.75:1;
+    if(game.form.key==='enemy-59'){
       const flame=game.sprites.fireSnake(game.frame,true,game.sprites.fireSnakePalette());
-      for(const t of [...game.snakeTail].reverse())drawSprite(ctx,flame,t.x-flame.width/2,t.y+flame.top,1,t.facing);
+      for(const t of [...game.snakeTail].reverse())drawSprite(ctx,flame,t.x-flame.width/2,t.y+flame.top,1,t.facing,false,opacity);
     }
-    if(!blink){const sprite=game.sprites.image(game.form,game.frame,game.spritePose);if(sprite)drawSprite(ctx,sprite,p.x+8-sprite.width/2,p.y+33-sprite.height,1,game.facing,game.phaseTime>0||(game.form.collapse&&game.form.enemyId!==0x3f&&(game.mask&32)));}
+    const sprite=game.sprites.image(game.form,game.frame,game.spritePose);
+    if(sprite)drawSprite(ctx,sprite,p.x+8-sprite.width/2,p.y+33-sprite.height,1,game.facing,game.phaseTime>0||(game.form.collapse&&game.form.enemyId!==0x3f&&(game.mask&32)),opacity);
   }
   if(game.spikeBall){const b=game.spikeBall,sprite=game.sprites.spikeBall(game.frame);drawSprite(ctx,sprite,b.x-sprite.width/2,b.y-sprite.height/2);}
   for(const s of game.shots){

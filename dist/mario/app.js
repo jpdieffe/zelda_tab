@@ -14,7 +14,7 @@ import {FORMS} from './copy-forms/forms.js';
 const $=id=>document.getElementById(id);
 $('forms-release').textContent=`${FORMS.length} transformations from Michelle`;
 let role=null,engine=null,kids=null,connection=null,audio=null,media=null,wakeLock=null,busy=false,raf=0,last=0,accumulator=0,noticeTimer;
-let selected='jj',target=null,remoteQuiz=null,localSound=false,jetMode=false,aimVector=null;
+let selected='jj',target=null,remoteQuiz=null,localSound=false,jetMode=false,aimVector=null,lastVideoFrame=0;
 const sources=new Map(),learning=new FamilyLearning(),canvas=$('game'),ctx=canvas.getContext('2d',{alpha:false});
 const native=document.createElement('canvas');native.width=256;native.height=240;
 const nativeCtx=native.getContext('2d',{alpha:false}),pixels=nativeCtx.createImageData(256,240),words=new Uint32Array(pixels.data.buffer);
@@ -55,6 +55,9 @@ function draw(){
   if(kids.jet.active)nativeCtx.putImageData(pixels,0,0);else drawGame(nativeCtx,engine.forms);
   ctx.imageSmoothingEnabled=false;ctx.drawImage(native,0,0,768,720);
   ctx.save();ctx.scale(3,3);kids.draw(ctx);ctx.restore();
+  // Submit only the completed composite, including an idle transformed Dad.
+  const now=performance.now(),track=media?.getVideoTracks()[0];
+  if(track?.requestFrame&&now-lastVideoFrame>=1000/30){track.requestFrame();lastVideoFrame=now;}
 }
 function tick(now){
   raf=requestAnimationFrame(tick);if(!engine||document.hidden){last=now;accumulator=0;return;}
@@ -139,7 +142,9 @@ async function host(){
     if(!saved){const response=await fetch('start.json');if(!response.ok)throw new Error('Could not load the starting map.');engine.nes[0].fromJSON(await response.json());}
     engine.weapons.equipped=[0,0];engine.resetWorld();engine.step();kids.step();draw();
     connection=makeConnection(roomCode());connection.start();
-    media=canvas.captureStream(30);audio.destination?.stream.getAudioTracks().forEach(track=>media.addTrack(track));connection.setStream(media);
+    media=canvas.captureStream(0);
+    if(!media.getVideoTracks()[0]?.requestFrame){media.getTracks().forEach(track=>track.stop());media=canvas.captureStream(30);}
+    lastVideoFrame=0;draw();audio.destination?.stream.getAudioTracks().forEach(track=>media.addTrack(track));connection.setStream(media);
     last=0;raf=requestAnimationFrame(tick);broadcast();notice(saved?'Saved adventure restored.':'Ready! Move right, then up to World 1–1 and press Jump.');
   }catch(error){leave();notice(error.message);}finally{busy=false;}
 }
