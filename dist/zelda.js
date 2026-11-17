@@ -2,6 +2,7 @@ import {POWERS} from './reward-types.js';
 import {BOSSES,ZERO_HEALTH_ENEMIES,enemyBody} from './enemies.js';
 import { wallAt } from './collision.js';
 import { readGuidance } from './guidance.js';
+import {DungeonGuide} from './dungeon-guide.js';
 import { beamEnd, touchesBeam } from './lasers.js';
 // USA ALttP 1.0 only. Addresses verified against snesrev/zelda3 variables.h
 // and Sprite_GiveDamage / Sprite_MiniMoldorm_Recoil in sprite.c.
@@ -52,7 +53,7 @@ export function findRamCandidates(heap, ram, excludeStart = -1, excludeSize = 0)
 }
 
 export class ZeldaBridge {
-  constructor(manager, rom) { this.manager = manager; this.rom = rom; this.pointer = null; }
+  constructor(manager, rom) { this.manager = manager; this.rom = rom; this.pointer = null; this.guide=new DungeonGuide(); }
   get ram() {
     if (this.pointer === null) return null;
     // Recreate the view after possible WebAssembly memory growth.
@@ -84,7 +85,7 @@ export class ZeldaBridge {
     const ram=this.ram;if(!ram)return null;
     const world=readWorld(ram);
     world.wallAt=(x,y)=>wallAt(ram,this.rom,x+world.cameraX,y+world.cameraY);
-    if(world.active)world.guidance=readGuidance(ram,this.rom);
+    if(world.active)world.guidance=readGuidance(ram,this.rom,this.guide);
     return world;
   }
   hit(target, fairy) { return this.ram ? applyHit(this.ram, target, fairy) : false; }

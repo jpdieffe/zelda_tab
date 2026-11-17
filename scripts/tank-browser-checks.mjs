@@ -54,7 +54,7 @@ export async function tankChecks({dad,jj,michelle,shot}){
  const pad=await dad.locator('#dpad').boundingBox(),x=pad.x+pad.width/2,y=pad.y+pad.height/2;
  await dad.mouse.move(x,y);await dad.mouse.down();await dad.mouse.move(x+55,y);await dad.waitForTimeout(1250);await dad.mouse.up();
  const moved=await dad.evaluate(()=>({x:testGame.tank.x-testGame.bridge.read().cameraX,health:testGame.bridge.ram[tankA.health],wall:testGame.bridge.ram[tankTile(128,144)],water:testGame.bridge.ram[tankTile(152,144)],door:testGame.bridge.ram[tankTile(208,144)],state:testGame.bridge.ram[0x5d],room:testGame.bridge.read().scene}));
- assert.ok(moved.x>165&&moved.x<190,JSON.stringify(moved));assert.equal(moved.health,health);assert.equal(moved.wall,0);assert.equal(moved.water,8);assert.equal(moved.door,0x90);assert.equal(moved.state,0);
+ assert.ok(moved.x<109,JSON.stringify(moved));assert.equal(moved.health,health);assert.equal(moved.wall,1);assert.equal(moved.water,8);assert.equal(moved.door,0x90);assert.equal(moved.state,0);
  await dad.locator('#pause').click();const held=await dad.evaluate(()=>testGame.tank.x);await dad.waitForTimeout(150);assert.equal(await dad.evaluate(()=>testGame.tank.x),held);await dad.locator('#pause').click();
  await dad.locator('#save').click();await dad.waitForFunction(()=>!testGame.saving);
  const saved=await dad.evaluate(async()=>{const storage=await import('/storage.js'),{snapshotRam}=await import('/zelda.js'),r=snapshotRam((await storage.get('save')).state);return [r[0x2e4],r[0x37b],r[0x4b]];});assert.deepEqual(saved,[0,0,0]);assert.equal(await dad.evaluate(()=>testGame.tank.active),true);
@@ -63,5 +63,5 @@ export async function tankChecks({dad,jj,michelle,shot}){
  await dad.locator('#release-tank').click();await dad.waitForFunction(()=>!testGame.tank.active&&testGame.bridge.ram[0x2e4]===0&&testGame.bridge.ram[0x37b]===0&&testGame.bridge.ram[0x4b]===0);
  await michelle.locator('#unicorn-fire').waitFor({state:'visible'});await jj.locator('#arrows').waitFor({state:'visible'});
  await dad.evaluate(()=>{for(const [a,v] of tankOriginalTiles)testGame.bridge.ram[a]=v;});
- console.log('Tank challenge retry reward, all three controls, native damage, invulnerability, wall/water crossing, door protection, safe saving and Dad release passed');
+ console.log('Tank challenge retry reward, all three controls, native damage, invulnerability, dungeon wall protection, safe terrain, safe saving and Dad release passed');
 }

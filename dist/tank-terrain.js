@@ -1,4 +1,5 @@
-import {tileAttribute,romOffset} from './collision.js';
+import {tileAttribute,romOffset,solidAttribute} from './collision.js';
+import {roomBounds,inLoadedRoom} from './dungeon-safety.js';
 const word=(r,a)=>r[a]|r[a+1]<<8;
 const put=(r,a,v)=>{r[a]=v&255;r[a+1]=v>>8;};
 const SAFE=new Set([0,5,6,7,0x14,0x15,0x16,0x17,0x21,0x23,0x24,0x25,0x3a,0x3b,0x3c,0x40,0x48]);
@@ -28,7 +29,7 @@ export class TankTerrain{
   }
  }
  loaded(x,y){
-  const r=this.ram,indoor=r[0x1b],left=indoor?word(r,0x22)&~511:word(r,0x70c)*8,top=indoor?word(r,0x20)&~511:word(r,0x708);
+  const r=this.ram,indoor=r[0x1b],bounds=indoor?roomBounds(r):null,left=indoor?bounds.left:word(r,0x70c)*8,top=indoor?bounds.top:word(r,0x708);
   return x>=left&&y>=top&&x<left+(indoor?512:word(r,0x70e)*8+16)&&y<top+(indoor?512:word(r,0x70a)+16);
  }
  door(x,y){
@@ -42,14 +43,20 @@ export class TankTerrain{
   return this.entrances.some(p=>Math.abs(p.x-x)<18&&Math.abs(p.y-y)<22);
  }
  blocked(x,y,world){
-  // The viewport moves with the tank. Only the outer world boundary is solid.
+  // Dungeon rooms must be entered by their native doors/stairs. Coordinate
+  // wrapping beyond a loaded room aliases unrelated collision tiles.
+  if(this.ram[0x1b]&&!inLoadedRoom(this.ram,x,y,26))return true;
   const limit=this.ram[0x1b]?65535:4095;if(x<8||y<8||x>limit||y>limit)return true;
-  for(let dy=-14;dy<=14;dy+=7)for(let dx=-20;dx<=20;dx+=5)if(this.door(x+dx,y+dy))return true;
+  for(let dy=-14;dy<=14;dy+=7)for(let dx=-20;dx<=20;dx+=5){
+   const xx=x+dx,yy=y+dy,a=this.attr(xx,yy);
+   if(this.door(xx,yy)||this.ram[0x1b]&&(solidAttribute(a,xx,yy)||[2,3,0x1c,0x1d,0x1e,0x1f,0x22,0x4b,0x67].includes(a)||a>=0x30&&a<=0x3f||a>=0x50&&a<=0x5f||a>=0x70&&a<=0x7f||a>=0xc0&&a<=0xcf))return true;
+  }
   return false;
  }
  remember(address,value){if(!this.changes.has(address))this.changes.set(address,this.ram[address]);this.ram[address]=value;}
  smash(x,y){
   const r=this.ram,indoor=Boolean(r[0x1b]),size=indoor?8:16;
+  if(indoor)return; // Preserve dungeon walls, puzzles, layer changes and doors.
   for(let yy=(y-10)&~(size-1);yy<=y+10;yy+=size)for(let xx=(x-16)&~(size-1);xx<=x+16;xx+=size){
    const key=xx+':'+yy;if(this.rubble.has(key)||!this.loaded(xx,yy))continue;
    let crush=false,protectedTile=false;
@@ -61,6 +68,7 @@ export class TankTerrain{
   }
  }
  safe(x,y){
+  if(!this.loaded(x,y)||!inLoadedRoom(this.ram,x,y,10))return false;
   for(const dx of [-7,0,7])for(const dy of [-5,3,10])if(!SAFE.has(this.attr(x+dx,y+dy))||this.door(x+dx,y+dy))return false;
   return true;
  }

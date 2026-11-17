@@ -77,3 +77,10 @@
 .tank-mode .fairy-weapons,.tank-mode #unicorn-fire,.tank-mode #unicorn-bomb,.tank-mode #unicorn-heal{display:none}.tank-mode #tank-hearts{background:#f0abd6;min-height:100px;width:150px;flex-direction:column}.tank-mode .fairy-hint{flex:3}.tank-mode .range-hint{display:none}
 #tank-hearts>span:after{display:none}
 @media(orientation:landscape) and (max-width:700px){#controller .controller-bottom{gap:2px}#controller .controller-bottom button{padding-left:7px;padding-right:7px}}
+#controller #unstuck{background:#edc6ad;color:#38291f;min-height:40px}
+#controller #route-guide{background:#f2df9b;color:#26362b;min-height:40px}
+.route-panel{width:min(620px,94vw);max-height:88dvh;overflow:auto;text-align:left}
+.route-panel p,.route-panel li{font-size:15px;line-height:1.55}
+.route-panel li{padding:5px 0}.route-panel ol{padding-left:28px}
+#route-tank-note{padding:10px;border:1px solid #e6bc79;border-radius:8px;color:#ffe3a4}
+.options{max-height:90dvh;overflow:auto}

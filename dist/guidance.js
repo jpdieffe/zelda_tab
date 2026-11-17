@@ -14,6 +14,7 @@ export function nextObjective(r) {
   if(!r[0xf355])return goal('boots','Show Sahasrahla the green pendant · get the boots',69);
   if(!(pendants&2)){
     if(!r[0xf34e])return goal('book','Library · dash into the shelf for the Book of Mudora',73);
+    if(r[0xf354])return goal('desert','Desert Palace · follow the west ledge north, lift the rocks with A, and enter the rear section',12,{palace:6});
     return goal('desert','Desert Palace · use the book at the entrance',9,{palace:6});
   }
   if(!(pendants&1)||!r[0xf357]){
@@ -56,7 +57,7 @@ export function entrancePoint(rom, id, hole=false) {
   return null;
 }
 
-export function readGuidance(r,rom) {
+export function readGuidance(r,rom,navigator) {
   const objective=nextObjective(r),room=word(r,0xa0),indoors=Boolean(r[0x1b]);
   const result={id:objective.id,label:objective.label,angle:null,arrived:false};
   const linkX=word(r,0x22)+8,linkY=word(r,0x20)+8;
@@ -66,6 +67,7 @@ export function readGuidance(r,rom) {
     result.angle=Math.atan2(y-linkY,x-linkX);return result;
   };
   if(indoors){
+    if(navigator&&r[0x40c]<=26)return navigator.read(r,rom,objective);
     // Point to relevant NPCs when they are actually present in this room.
     const npc=objective.id==='uncle'?0x73:objective.id==='rescue'&&r[0xf3cc]!==1?0x76:objective.id==='boots'?0x16:objective.id==='mountain'?0xad:null;
     if(npc!==null)for(let i=0;i<16;i++)if(r[0xdd0+i]===9&&r[0xe20+i]===npc)
@@ -99,6 +101,14 @@ export function readGuidance(r,rom) {
 
 export function drawGuidance(ctx,world) {
   const guide=world?.guidance;if(!world?.active||guide?.angle==null)return;
+  if(guide.path?.length){
+    ctx.save();ctx.beginPath();ctx.rect(0,32,256,192);ctx.clip();ctx.translate(-world.cameraX,-world.cameraY);
+    ctx.strokeStyle='#142e38';ctx.lineWidth=5;ctx.beginPath();guide.path.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();
+    ctx.strokeStyle='#ffe59b';ctx.lineWidth=2;ctx.stroke();
+    for(let i=3;i<guide.path.length;i+=4){const p=guide.path[i],before=guide.path[i-1];ctx.save();ctx.translate(p.x,p.y);ctx.rotate(Math.atan2(p.y-before.y,p.x-before.x));ctx.fillStyle='#ffe59b';ctx.beginPath();ctx.moveTo(5,0);ctx.lineTo(-3,-4);ctx.lineTo(-3,4);ctx.closePath();ctx.fill();ctx.restore();}
+    if(guide.target){ctx.strokeStyle='#fff6c6';ctx.lineWidth=2;ctx.beginPath();ctx.arc(guide.target.x,guide.target.y,9,0,Math.PI*2);ctx.stroke();}
+    ctx.restore();
+  }
   const a=guide.angle,x=Math.max(10,Math.min(246,world.link.x+Math.cos(a)*22)),y=Math.max(40,Math.min(214,world.link.y+Math.sin(a)*22));
   ctx.save();ctx.translate(x,y);ctx.fillStyle='#ffe59b';ctx.strokeStyle='#19322d';ctx.lineWidth=2;
   if(guide.arrived){ctx.beginPath();ctx.arc(0,0,4,0,Math.PI*2);ctx.stroke();ctx.fill();}

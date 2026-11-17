@@ -25,19 +25,19 @@ test('tank unlocks after all four questions, including retries on any or every q
   const reward=q.advance(q.token());assert.equal(reward.type,'tank');assert.equal(reward.giant,true);assert.deepEqual(reward.roles,['jj','michelle']);
  }
 });
-test('tank crosses and crushes walls, crosses water, but stops its entire body before doors',()=>{
+test('dungeon tank stops at walls and doors, crosses water only inside the loaded room',()=>{
  const {r,bridge,tank}=fixture();for(let y=48;y<208;y+=8){r[addr(112,y)]=1;r[addr(144,y)]=8;r[addr(184,y)]=0x90;}
  assert.equal(tank.start(bridge.read()),true);
  for(let i=0;i<50;i++)tank.update(.05,bridge.read(),{x:1,y:0});
- assert.ok(tank.x>150&&tank.x<164);assert.equal(r[addr(112,96)],0,'Wall collision becomes floor');assert.equal(r[addr(144,96)],8,'Water stays water');assert.equal(r[addr(184,96)],0x90,'Door collision remains intact');
+ assert.ok(tank.x<92);assert.equal(r[addr(112,96)],1,'Dungeon walls remain intact');for(let y=48;y<208;y+=8)r[addr(112,y)]=0;for(let i=0;i<50;i++)tank.update(.05,bridge.read(),{x:1,y:0});assert.ok(tank.x>150&&tank.x<164);assert.equal(r[addr(144,96)],8,'Water stays water');assert.equal(r[addr(184,96)],0x90,'Door collision remains intact');
  assert.equal(r[0x37b],1);assert.equal(r[0x2e4],1);assert.equal(r[0x4b],12);assert.equal(r[A.health],24);
  for(const a of [0x80,0x8e,0x90,0xa0,0xf0,0xff]){assert.equal(doorAttribute(a),true);assert.equal(crushAttribute(a),false);}
 });
 test('release and save restore Link safely from water without saving tank invulnerability or modified terrain',()=>{
- const {r,bridge,tank}=fixture();r[addr(112,96)]=1;for(let y=64;y<144;y+=8)for(let x=136;x<184;x+=8)r[addr(x,y)]=8;
+ const {r,bridge,tank}=fixture();r[addr(48,96)]=1;for(let y=64;y<144;y+=8)for(let x=136;x<184;x+=8)r[addr(x,y)]=8;
  tank.start(bridge.read());for(let i=0;i<16;i++)tank.update(.05,bridge.read(),{x:1,y:0});assert.ok(tank.x>150);
- const saved=tank.cleanState(()=>r.slice(),bridge.read());assert.equal(saved[0x2e4],0);assert.equal(saved[0x37b],0);assert.equal(saved[0x4b],0);assert.equal(saved[addr(112,96)],1);
- assert.equal(r[0x2e4],1,'Saving preserves the live tank');assert.equal(r[addr(112,96)],0);
+ const saved=tank.cleanState(()=>r.slice(),bridge.read());assert.equal(saved[0x2e4],0);assert.equal(saved[0x37b],0);assert.equal(saved[0x4b],0);assert.equal(saved[addr(48,96)],1);
+ assert.equal(r[0x2e4],1,'Saving preserves the live tank');assert.equal(r[addr(48,96)],1);
  tank.release(bridge.read());assert.equal(tank.active,false);assert.equal(r[0x37b],0);assert.equal(r[0x4b],0);assert.equal(tank.terrain.safe((r[A.linkX]|r[A.linkX+1]<<8)+8,(r[A.linkY]|r[A.linkY+1]<<8)+8),true);
 });
 test('tank missiles curve toward the tapped destination, hearts use a separate cooldown and all freeze while paused',()=>{

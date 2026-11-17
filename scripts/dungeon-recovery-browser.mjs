@@ -1,0 +1,42 @@
+import assert from 'node:assert/strict';
+import {readFile,writeFile} from 'node:fs/promises';
+import {chromium} from 'playwright';
+import {serve} from './serve.mjs';
+const server=serve(4185),browser=await chromium.launch({channel:'chrome',headless:true,args:['--autoplay-policy=no-user-gesture-required','--disable-background-timer-throttling']});
+const errors=[];
+try{
+  const page=await browser.newPage({viewport:{width:900,height:500}});
+  page.on('pageerror',error=>errors.push(error.message));await page.goto('http://localhost:4185');
+  await page.evaluate(async()=>{window.g=(await import('/app.js')).game;});
+  await page.locator('#choose-dad').click();await page.waitForFunction(()=>g.ready&&g.bridge?.ram,null,{timeout:90000});
+  const original=await readFile(new URL('../test-results/phone-original.state',import.meta.url));
+  await page.evaluate(bytes=>g.emulator.gameManager.loadState(new Uint8Array(bytes)),Array.from(original));
+  await page.waitForFunction(()=>g.bridge.ram[0xa0]===0xbb);
+  const before=await page.evaluate(()=>Array.from(g.bridge.ram.slice(0xf340,0xf380)));
+  await page.locator('#unstuck').click();
+  await page.waitForFunction(()=>!g.recovering&&g.bridge.read()?.active&&g.bridge.read().link.x>=0&&g.bridge.read().link.x<256,null,{timeout:15000});
+  const after=await page.evaluate(()=>Array.from(g.bridge.ram.slice(0xf340,0xf380)));
+  assert.deepEqual(after,before,'recovery preserves collected inventory, health, keys and story rewards');
+  await page.locator('#options').click();const download=page.waitForEvent('download');await page.locator('#export-recovery').click();
+  const backup=await download;assert.equal(backup.suggestedFilename(),'jj-fairy-link-before-recovery.state');
+  const exported=await readFile(await backup.path());
+  assert.equal(exported.length,original.length);await page.locator('#close-options').click();
+  const state=await page.evaluate(()=>Array.from(g.emulator.gameManager.getState()));
+  await writeFile(new URL('../test-results/phone-recovered.state',import.meta.url),Buffer.from(state));
+  console.log('RECOVERED',await page.evaluate(()=>{const r=g.bridge.ram,w=g.bridge.read();return {room:r[0xa0]|r[0xa1]<<8,link:w.link,position:[r[0x22]|r[0x23]<<8,r[0x20]|r[0x21]<<8],guide:w.guidance};}));
+  assert.equal(await page.evaluate(()=>g.bridge.read().guidance.target.label),'West passage');
+  await page.locator('#route-guide').click();await page.screenshot({path:new URL('../test-results/desert-guide.png',import.meta.url).pathname.replace(/^\/(\w:)/,'$1')});await page.locator('#close-route').click();
+  await page.screenshot({path:new URL('../test-results/desert-recovered.png',import.meta.url).pathname.replace(/^\/(\w:)/,'$1')});
+  for(const [width,height]of [[851,393],[390,844]]){await page.setViewportSize({width,height});for(const id of ['unstuck','route-guide']){const b=await page.locator('#'+id).boundingBox();assert.ok(b.x>=0&&b.y>=0&&b.x+b.width<=width&&b.y+b.height<=height,id+' fits on phone');}}
+  await page.setViewportSize({width:900,height:500});
+  await page.keyboard.down('ArrowUp');await page.waitForTimeout(400);await page.keyboard.up('ArrowUp');
+  assert.equal(await page.evaluate(()=>g.bridge.read().active),true);
+  const tank=await page.evaluate(()=>g.tank.start(g.bridge.read()));assert.equal(tank,true);
+  const room=await page.evaluate(()=>g.bridge.read().scene);
+  await page.keyboard.down('ArrowLeft');await page.waitForTimeout(3000);await page.keyboard.up('ArrowLeft');
+  assert.equal(await page.evaluate(()=>g.bridge.read().scene),room,'tank cannot cross dungeon wall into another room');
+  assert.equal(await page.evaluate(()=>!!g.tank.problem),false);
+  await page.locator('#release-tank').click();
+  assert.equal(await page.evaluate(()=>g.bridge.ram[0x4b]),0);assert.equal(await page.evaluate(()=>g.bridge.ram[0x2e4]),0);
+  assert.deepEqual(errors,[]);console.log('PASS real saved Desert Palace recovery, inventory preservation, guidance, tank wall guard and visible release');
+}finally{await browser.close();server.close();}

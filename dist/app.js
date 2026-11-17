@@ -1,4 +1,5 @@
 import {TeamTank} from './tank.js';
+import {canRecoverDungeon,recoverDungeon,inLoadedRoom} from './dungeon-safety.js';
 import { ROM_SHA256, ZeldaBridge, snapshotRam } from './zelda.js';
 import { Fairy, COOLDOWN } from './fairy.js';
 import { Unicorn } from './unicorn.js';
@@ -199,6 +200,7 @@ function frame(now){
     game.powers.update(elapsed,world,{jj:game.fairy,michelle:game.unicorn},(target,source,type,giant)=>game.bridge.powerHit(target,source,type,giant),game.paused,kind=>kind==='boom'?game.bridge.bombSound():game.bridge.fireSound());
     game.guidance=world?.guidance;
     $('dad-objective').textContent=game.guidanceEnabled?(game.guidance?.label||'Story compass · waiting for the adventure'):'Story compass off';
+    updateRouteGuide();
     ctx.save();ctx.scale(2,2);game.tank.terrain.draw(ctx,world);if(!game.tank.active){if(game.unicorn.enabled)game.unicorn.draw(ctx,now);game.fairy.draw(ctx,now);}if(game.guidanceEnabled)drawGuidance(ctx,world);game.lasers.draw(ctx,now);game.powers.draw(ctx,now);game.tank.draw(ctx,world,now);ctx.restore();
     if(!$('controller').hidden){const canvas=$('dad-canvas'),pc=canvas.getContext('2d',{alpha:false});pc.imageSmoothingEnabled=false;pc.drawImage($('broadcast'),0,0,canvas.width,canvas.height);}
     if(!$('peek-panel').hidden){const pc=$('peek-canvas').getContext('2d');pc.imageSmoothingEnabled=false;pc.drawImage($('broadcast'),0,0);}
@@ -219,6 +221,7 @@ function sendState(){
   $('start-questions').disabled=Boolean(learning)||!eligible.playing||!eligible.tablet;
   $('tank-questions').disabled=!eligible.playing||!eligible.tablet||!game.network?.has('michelle')||Boolean(learning)||Boolean(game.bridge?.ram?.[0x2e4])||Boolean(game.bridge?.ram?.[0x5d])||Boolean(game.bridge?.ram?.[0x4b]);
   $('tank-questions').hidden=Boolean(tank);$('start-questions').hidden=Boolean(tank);$('release-tank').hidden=!tank;
+  $('unstuck').disabled=!canRecoverDungeon(game.bridge?.ram)||!!game.recovering;
   document.querySelectorAll('#controller [data-key]').forEach(button=>button.disabled=Boolean(tank)&&!tankDialogueInput(button.dataset.key));
   const common={type:'state',ready:game.ready,paused:game.paused,active:game.fairy?.active||false,bridge:Boolean(game.bridge?.ram),objective:game.guidanceEnabled?game.guidance?.label||'':'',learning,lasers,powers,tank};
   game.network?.send({...common,target:Boolean(game.fairy?.target),cooldown:game.fairy?.cooldown||0,arrowCooldown:game.fairy?.arrowCooldown||0},'jj');
@@ -317,6 +320,40 @@ $('pause').onclick=()=>setPaused(!game.paused);
 $('start-questions').onclick=()=>{if(game.learning.start(questionEligibility()))setPaused(true);};
 $('tank-questions').onclick=()=>{if(!$('tank-questions').disabled&&game.learning.start({...questionEligibility(),tank:true}))setPaused(true);};
 $('release-tank').onclick=()=>{releaseButtons();game.tank.release(game.bridge.read());game.fairy.scene=null;game.unicorn.scene=null;game.unicorn.stop();sendState();};
+let routeText='';
+function updateRouteGuide(){
+  if($('route-panel').hidden)return;
+  const guide=game.guidance,key=JSON.stringify([guide?.room,guide?.mission,guide?.steps,guide?.puzzle,!!game.tank?.active]);
+  if(key===routeText)return;routeText=key;
+  $('route-title').textContent=guide?.room||'Story compass';
+  $('route-mission').textContent=guide?.mission||guide?.label||'Enter a dungeon for walking directions.';
+  $('route-puzzle').textContent=guide?.puzzle||'';
+  $('route-tank-note').hidden=!game.tank?.active;
+  $('route-next').disabled=!guide?.options?.length;
+  $('route-steps').replaceChildren(...(guide?.steps||[]).map(text=>{const li=document.createElement('li');li.textContent=text;return li;}));
+}
+$('route-guide').onclick=()=>{releaseButtons();$('route-panel').hidden=false;routeText='';updateRouteGuide();};
+$('close-route').onclick=()=>{$('route-panel').hidden=true;};
+$('route-next').onclick=()=>{game.bridge?.guide.next();};
+$('unstuck').onclick=async()=>{
+  if(!canRecoverDungeon(game.bridge?.ram)||game.recovering)return;
+  releaseButtons();game.recovering=true;
+  try{
+    // Keep a separate, byte-for-byte backup before repairing the live room.
+    const state=game.emulator.gameManager.getState();snapshotRam(state);
+    await storage.put('before-dungeon-recovery',{rom:ROM_SHA256,state,date:Date.now()});
+    game.learning.skip();game.tank.abandon();game.tank.problem=null;
+    recoverDungeon(game.bridge.ram);game.bridge.guide.reset();
+    game.fairy.scene=null;game.unicorn.scene=null;game.unicorn.stop();
+    game.powers.timers={};game.powers.missiles=[];game.powers.meteors=[];game.lasers.timers={};
+    $('phone-options').hidden=$('route-panel').hidden=true;setPaused(false);
+    toast('Returning to the entrance. Your collected items are kept.');
+    const until=performance.now()+10000;
+    while(performance.now()<until){await new Promise(resolve=>setTimeout(resolve,100));if(game.bridge.read()?.active&&inLoadedRoom(game.bridge.ram))break;}
+    if(!game.bridge.read()?.active||!inLoadedRoom(game.bridge.ram))throw Error('Recovery is still loading. Your original save backup is kept.');
+    game.recovering=false;await saveGame(false);toast('Back at the entrance. Your items and progress are kept.');
+  }catch(error){toast(error.message);}finally{game.recovering=false;sendState();}
+};
 $('skip-questions').onclick=()=>{game.learning.skip();if(document.hidden)wasHidden=true;else setPaused(false);sendState();};
 $('peek').onclick=()=>{$('peek-panel').hidden=false;};$('close-peek').onclick=()=>{$('peek-panel').hidden=true;};
 $('options').onclick=()=>{releaseButtons();$('phone-options').hidden=false;};$('close-options').onclick=()=>{$('phone-options').hidden=true;};
@@ -327,7 +364,8 @@ $('pair-info').onclick=async()=>{
   try{await navigator.clipboard.writeText(url.href);toast('Tablet link copied. Or enter the code on JJ’s tablet.');}catch{toast('On JJ’s tablet, open this page and enter '+game.network.code);}
 };
 async function saveGame(notify=true){
-  if(!game.ready||game.saving)return false;game.saving=true;
+  if(!game.ready||game.saving||game.recovering)return false;game.saving=true;
+  if(game.bridge?.ram?.[0x1b]&&game.bridge.read()?.active&&!inLoadedRoom(game.bridge.ram)){game.saving=false;if(notify)toast('This room is out of sync. Tap Unstuck before saving.');return false;}
   if(game.tank.active&&!game.bridge.read()?.active){game.saving=false;if(notify)toast('Finish crossing to the next screen before saving.');return false;}
   try{const state=game.tank.cleanState(()=>game.emulator.gameManager.getState(),game.bridge.read());snapshotRam(state);await storage.put('save',{rom:ROM_SHA256,state,date:Date.now()});if(notify)toast('Adventure saved on this phone.');return true;}
   catch{toast('Could not save in this browser. Use More → Download save backup.');return false;}
@@ -335,7 +373,7 @@ async function saveGame(notify=true){
 }
 $('save').onclick=()=>saveGame();
 $('resume-save').onclick=async()=>{
-  try{const saved=await storage.get('save');if(!saved)throw new Error('No saved adventure yet.');snapshotRam(saved.state);game.tank.reset(game.bridge.read());game.emulator.gameManager.loadState(saved.state);game.fairy.scene=null;game.unicorn.scene=null;$('phone-options').hidden=true;toast('Last save loaded.');}catch(e){toast(e.message);}
+  try{const saved=await storage.get('save');if(!saved)throw new Error('No saved adventure yet.');snapshotRam(saved.state);game.tank.reset(game.bridge.read());game.emulator.gameManager.loadState(saved.state);game.bridge.guide.reset();game.fairy.scene=null;game.unicorn.scene=null;$('phone-options').hidden=true;toast('Last save loaded.');}catch(e){toast(e.message);}
 };
 $('export-save').onclick=()=>{
   if(game.tank?.active&&!game.bridge.read()?.active){toast('Finish crossing to the next screen before saving.');return;}
@@ -344,7 +382,14 @@ $('export-save').onclick=()=>{
 };
 $('import-save').onchange=async e=>{
   const file=e.target.files[0];if(!file)return;
-  try{if(file.size>2*1024*1024)throw new Error('This is not a Fairy Link save backup.');const state=new Uint8Array(await file.arrayBuffer());snapshotRam(state);if(!new TextDecoder().decode(state.slice(0,7)).startsWith('RASTATE'))throw new Error('Unsupported save format.');game.tank.reset(game.bridge.read());game.emulator.gameManager.loadState(state);game.fairy.scene=null;game.unicorn.scene=null;await saveGame(false);toast('Backup restored.');$('phone-options').hidden=true;}catch(e){toast(e.message);}
+  try{if(file.size>2*1024*1024)throw new Error('This is not a Fairy Link save backup.');const state=new Uint8Array(await file.arrayBuffer());snapshotRam(state);if(!new TextDecoder().decode(state.slice(0,7)).startsWith('RASTATE'))throw new Error('Unsupported save format.');game.tank.reset(game.bridge.read());game.emulator.gameManager.loadState(state);game.bridge.guide.reset();game.fairy.scene=null;game.unicorn.scene=null;await saveGame(false);toast('Backup restored.');$('phone-options').hidden=true;}catch(e){toast(e.message);}
+};
+$('export-recovery').onclick=async()=>{
+  try{
+    const saved=await storage.get('before-dungeon-recovery');if(!saved)throw Error('No pre-recovery backup yet. Unstuck makes one automatically.');
+    snapshotRam(saved.state);const url=URL.createObjectURL(new Blob([saved.state])),a=document.createElement('a');
+    a.href=url;a.download='jj-fairy-link-before-recovery.state';a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
+  }catch(error){toast(error.message);}
 };
 $('exit-game').onclick=async()=>{if(await saveGame(false))location.href=location.pathname;};
 

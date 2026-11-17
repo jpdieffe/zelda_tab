@@ -33,19 +33,8 @@ try{
  await page.evaluate(()=>g.tank.reset(g.bridge.read()));
  await page.evaluate(bytes=>g.emulator.gameManager.loadState(new Uint8Array(bytes)),Array.from(await readFile('test-results/active-game.state')));await page.waitForTimeout(200);
  await page.evaluate(()=>{const r=g.bridge.ram,w=g.bridge.read(),x=w.cameraX+120,y=w.cameraY+136;r.fill(0,0xdd0,0xde0);r[0x2e4]=r[0x5d]=r[0x4b]=r[0x37b]=0;r[0x22]=x&255;r[0x23]=x>>8;r[0x20]=y&255;r[0x21]=y>>8;g.tank.start(g.bridge.read());});
- const inside=await info();await page.keyboard.down('ArrowRight');
- try{await page.waitForFunction(scene=>g.bridge.read().active&&g.bridge.read().scene!==scene,inside.scene,{timeout:10000});}catch(e){console.log('Indoor failure',await info());throw e;}finally{await page.keyboard.up('ArrowRight');}
- const next=await info();console.log('Indoor crossing',next);assert.equal(await page.evaluate(()=>g.tank.active),true);assert.ok(next.link.x>=0&&next.link.x<=256,'Tank stays onscreen after indoor crossing');
- // The destination has a doorway at the entry height; drive through the wall beside it.
- await page.keyboard.down('ArrowUp');await page.waitForTimeout(700);await page.keyboard.up('ArrowUp');
- await page.keyboard.down('ArrowLeft');
- for(let i=0;i<100;i++){
-  const w=await info();if(w.active&&w.scene===inside.scene)break;
-  if(w.module===14&&w.sub===2){await page.keyboard.up('ArrowLeft');await page.locator('[data-key="8"]').click({delay:100});}
-  await page.waitForTimeout(150);
- }
- await page.keyboard.up('ArrowLeft');
- const back=await info();console.log('Indoor return',back);assert.ok(back.link.x>=0&&back.link.x<=256);
- assert.equal(back.scene,inside.scene);assert.equal(back.active,true,'Dad can dismiss a room-entry dialogue while in the tank');
- console.log('Native tank camera scrolling and area crossings passed in all four directions, plus indoor round trip');
+ const inside=await info();await page.keyboard.down('ArrowRight');await page.waitForTimeout(3500);await page.keyboard.up('ArrowRight');
+ const stopped=await info();assert.equal(stopped.scene,inside.scene,'Dungeon walls do not transition to unrelated rooms');assert.equal(stopped.active,true);assert.ok(stopped.link.x>=0&&stopped.link.x<=256);
+ await page.evaluate(()=>g.tank.release(g.bridge.read()));assert.equal(await page.evaluate(()=>g.bridge.ram[0x4b]),0);
+ console.log('Native outdoor tank scrolling passes in all four directions; indoor tank stops at the loaded room walls and releases visibly');
 }finally{await browser.close();server.close();}
