@@ -9,8 +9,10 @@ import {Joystick} from './joystick.js';
 import {KidLock} from './kid-lock.js';
 import * as storage from './storage.js';
 import {drawGame} from './copy-forms/art.js';
+import {FORMS} from './copy-forms/forms.js';
 
 const $=id=>document.getElementById(id);
+$('forms-release').textContent=`${FORMS.length} transformations from Michelle`;
 let role=null,engine=null,kids=null,connection=null,audio=null,media=null,wakeLock=null,busy=false,raf=0,last=0,accumulator=0,noticeTimer;
 let selected='jj',target=null,remoteQuiz=null,localSound=false,jetMode=false,aimVector=null;
 const sources=new Map(),learning=new FamilyLearning(),canvas=$('game'),ctx=canvas.getContext('2d',{alpha:false});
@@ -70,6 +72,8 @@ function showState(data){
   $('heart').disabled=role!=='michelle'||!data.heart?.ready||!!data.quiz;
   $('heart-caption').textContent=data.heart?.seconds?`${data.heart.seconds}s recharge`:'Random form for Dad';
   if(!data.quiz&&!data.paused&&!data.jet&&data.form)$('power-status').textContent=[data.form.name,data.powers].filter(Boolean).join(' · ');
+  if(!data.quiz&&!data.paused&&!data.jet&&data.form)$('power-status').textContent+=` · ${FORMS.length} forms`;
+  if(role!=='dad'&&!data.form)$('power-status').textContent='Dad is running the old game. Reopen the updated Mario link on Dad’s phone, then join his new room.';
   $('form-help').hidden=role!=='dad'||!!data.jet;
   $('form-name').textContent=data.form?`${data.form.name} controls`:'Form controls';
   $('form-tip').textContent=data.form?.hint||'';
@@ -157,6 +161,10 @@ for(const button of document.querySelectorAll('[data-role]'))button.onclick=()=>
 };
 $('join-form').onsubmit=join;$('questions').onclick=()=>startQuestions();$('jet').onclick=()=>startQuestions('jet');$('skip').onclick=skip;$('quiz-skip').onclick=skip;$('save').onclick=()=>save();$('load').onclick=load;$('leave').onclick=leave;
 $('regroup').onclick=()=>{if(kids){for(const k of Object.values(kids.kids)){kids.release(k.role);kids.regroup(k);}notice('The crew is back beside Mario.');}};
+$('update-game').onclick=async()=>{
+  if(engine){engine.paused=true;clearInput();try{await storage.put('save',engine.snapshot());}catch{notice('Could not save. Update cancelled so your adventure stays open.');engine.paused=false;return;}}
+  const url=new URL(location.href);url.searchParams.set('update',Date.now());location.replace(url.href);
+};
 $('new-game').onclick=async()=>{if(!engine||!confirm('Start again at World 1? Your next save will replace the current saved adventure.'))return;try{const response=await fetch('start.json');engine.nes[0].fromJSON(await response.json());engine.forms.reset();engine.resetWorld();kids.reset();learning.skip();engine.paused=false;clearInput();broadcast();}catch{notice('Could not load the starting map.');}};
 $('sound').onclick=()=>{localSound=!localSound;if(role==='dad'){audio?.resume();if(audio?.gain)audio.gain.gain.value=localSound?1:0;}else{$('remote-video').muted=!localSound;$('remote-video').play().catch(()=>{});}$('sound').textContent=localSound?'Sound off':'Sound on';};
 $('fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{notice('Use your browser’s full-screen option.');}};
