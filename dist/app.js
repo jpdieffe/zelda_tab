@@ -1,16 +1,16 @@
 import {TeamTank} from './tank.js';
 import {canRecoverDungeon,recoverDungeon,inLoadedRoom} from './dungeon-safety.js';
-import { ROM_SHA256, ZeldaBridge, snapshotRam } from './zelda.js?guide=20261119-2';
+import { ROM_SHA256, ZeldaBridge, snapshotRam } from './zelda.js?guide=20261119-3';
 import { Fairy, COOLDOWN } from './fairy.js';
 import { Unicorn } from './unicorn.js';
-import { drawGuidance } from './guidance.js';
+import { drawGuidance } from './guidance.js?line=1';
 import { Joystick } from './joystick.js';
 import { KidLock } from './kid-lock.js';
-import { LearningRound } from './learning.js';
+import { LearningRound } from './learning.js?numbers=1';
 import { LaserReward } from './lasers.js';
 import { PowerRewards } from './powers.js';
 import { powerHint } from './reward-types.js';
-import { QuestionView, speakQuestion, stopQuestionAudio } from './question-view.js';
+import { QuestionView, speakQuestion, stopQuestionAudio } from './question-view.js?numbers=1';
 import { Connection, roomCode, normalizeCode, validCode } from './network.js';
 import * as storage from './storage.js';
 
@@ -21,6 +21,10 @@ const questionView=new QuestionView((token,index)=>game.network?.send({type:'qui
 const kidLock=new KidLock(locked=>game.network?.send({type:'kid-lock-state',locked}));
 let gameLoader,gameRom;
 game.guidanceEnabled=localStorage.getItem('guidance')!=='off';
+game.routeLineVisible=localStorage.getItem('route-line')!=='off';
+function updateRouteLineButton(){const button=$('toggle-route-line');button.textContent='Compass line: '+(game.routeLineVisible?'on':'off');button.setAttribute('aria-pressed',String(game.routeLineVisible));}
+updateRouteLineButton();
+$('toggle-route-line').onclick=()=>{game.routeLineVisible=!game.routeLineVisible;localStorage.setItem('route-line',game.routeLineVisible?'on':'off');updateRouteLineButton();};
 function updateGuideButton(){$('toggle-guidance').textContent='Story compass: '+(game.guidanceEnabled?'on':'off');}
 updateGuideButton();
 $('toggle-guidance').onclick=()=>{game.guidanceEnabled=!game.guidanceEnabled;localStorage.setItem('guidance',game.guidanceEnabled?'on':'off');updateGuideButton();sendState();};
@@ -201,7 +205,7 @@ function frame(now){
     game.guidance=world?.guidance;
     $('dad-objective').textContent=game.guidanceEnabled?(game.guidance?.label||'Story compass · waiting for the adventure'):'Story compass off';
     updateRouteGuide();
-    ctx.save();ctx.scale(2,2);game.tank.terrain.draw(ctx,world);if(!game.tank.active){if(game.unicorn.enabled)game.unicorn.draw(ctx,now);game.fairy.draw(ctx,now);}if(game.guidanceEnabled)drawGuidance(ctx,world);game.lasers.draw(ctx,now);game.powers.draw(ctx,now);game.tank.draw(ctx,world,now);ctx.restore();
+    ctx.save();ctx.scale(2,2);game.tank.terrain.draw(ctx,world);if(!game.tank.active){if(game.unicorn.enabled)game.unicorn.draw(ctx,now);game.fairy.draw(ctx,now);}if(game.guidanceEnabled)drawGuidance(ctx,world,{lineVisible:game.routeLineVisible});game.lasers.draw(ctx,now);game.powers.draw(ctx,now);game.tank.draw(ctx,world,now);ctx.restore();
     if(!$('controller').hidden){const canvas=$('dad-canvas'),pc=canvas.getContext('2d',{alpha:false});pc.imageSmoothingEnabled=false;pc.drawImage($('broadcast'),0,0,canvas.width,canvas.height);}
     if(!$('peek-panel').hidden){const pc=$('peek-canvas').getContext('2d');pc.imageSmoothingEnabled=false;pc.drawImage($('broadcast'),0,0);}
     if(now-lastState>100){sendState();lastState=now;}

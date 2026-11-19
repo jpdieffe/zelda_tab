@@ -25,7 +25,8 @@ export class LevelPowers {
       this.kids.meteors.push({x:clamp(target.x,p.cameraX+16,p.cameraX+240),y:clamp(target.y,p.cameraY+16,p.cameraY+190),left:45,giant:power.giant,role});
       power.cooldown=120;
     }else{
-      const aim=this.kids.aim(k);this.chomps.push({x:k.x,y:k.y,dx:aim.x,dy:aim.y,role,giant:power.giant,life:120,age:0,trail:[]});power.cooldown=45;
+      const aim=this.kids.aim(k);this.chomps=this.chomps.filter(s=>s.role!==role);
+      this.chomps.push({x:k.x+aim.x*40,y:k.y+aim.y*40,angle:Math.atan2(aim.y,aim.x),role,life:120,age:0});power.cooldown=120;
     }
     this.engine.weapons.sound(k.x,k.y,0x4f1,0x20);return true;
   }
@@ -37,10 +38,11 @@ export class LevelPowers {
     if(!this.kids.playable()||this.kids.jet.active){this.chomps=[];return;}
     for(const k of Object.values(this.kids.kids))if(k.power?.level&&k.power.cooldown>0)k.power.cooldown--;
     for(const s of this.chomps){
-      s.life--;s.age++;s.trail.unshift({x:s.x,y:s.y});s.trail.length=Math.min(14,s.trail.length);
+      s.life--;s.age++;const k=this.kids.kids[s.role];
       for(let i=0;i<3;i++){
-        s.x+=s.dx*1.8;s.y+=s.dy*1.8;
-        const radius=s.giant?22:15;
+        const angle=s.angle+(s.age+(i+1)/3)*.13;
+        s.x=k.x+Math.cos(angle)*40;s.y=k.y+Math.sin(angle)*40;
+        const radius=8;
         for(const t of this.engine.weapons.targets())if(Math.hypot(Math.max(t.left-s.x,0,s.x-t.right),Math.max(t.top-s.y,0,s.y-t.bottom))<radius)this.kids.hit(t);
       }
     }
@@ -49,9 +51,10 @@ export class LevelPowers {
   draw(ctx){
     for(const s of this.chomps){
       ctx.save();ctx.strokeStyle='#b9c8d9';ctx.lineWidth=2;
-      for(let i=2;i<s.trail.length;i+=3){const p=s.trail[i];ctx.beginPath();ctx.ellipse(p.x,p.y,3.5,2.5,0,0,Math.PI*2);ctx.stroke();}
-      const sprite=this.engine.forms.sprites.image(BY_KEY.get('enemy-89'),s.age,{walk:true}),scale=s.giant?2.3:1.7;
-      drawSprite(ctx,sprite,s.x-sprite.width*scale/2,s.y-sprite.height*scale/2,scale,s.dx<0?-1:1);ctx.restore();
+      const k=this.kids.kids[s.role];
+      for(let i=0;i<6;i++){const t=i/6;ctx.beginPath();ctx.ellipse(k.x+(s.x-k.x)*t,k.y+(s.y-k.y)*t,3,2,Math.atan2(s.y-k.y,s.x-k.x),0,Math.PI*2);ctx.stroke();}
+      const sprite=this.engine.forms.sprites.image(BY_KEY.get('enemy-89'),s.age,{walk:true}),scale=16/Math.max(sprite.width,sprite.height);
+      drawSprite(ctx,sprite,s.x-sprite.width*scale/2,s.y-sprite.height*scale/2,scale,s.x<k.x?-1:1);ctx.restore();
     }
   }
   snapshot(){return Object.fromEntries(Object.values(this.kids.kids).filter(k=>k.power?.level).map(k=>[k.role,{...k.power}]));}

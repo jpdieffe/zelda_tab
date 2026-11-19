@@ -8,10 +8,10 @@
   <title>JJ's Fairy Link</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?guide=20261119-2">
+  <link rel="stylesheet" href="./style.css?guide=20261119-3">
   <link rel="stylesheet" href="./game-switch.css">
   <script defer src="./vendor/peerjs.min.js"></script>
-  <script type="module" src="./app.js?guide=20261119-2"></script>
+  <script type="module" src="./app.js?guide=20261119-3"></script>
 </head>
 <body>
   <main id="home" class="view home">
@@ -68,7 +68,7 @@
     <div id="dad-objective" class="objective phone-objective" aria-label="Next story objective"></div>
     <div class="controller-body">
       <div class="dpad joystick" id="dpad" role="group" aria-label="Thumb joystick: touch anywhere and drag to move"><span class="joystick-ring"></span><span class="joystick-knob"></span><small>DRAG TO MOVE</small></div>
-      <div class="controller-middle"><div class="phone-game-screen"><canvas id="dad-canvas" width="512" height="384" role="img" aria-label="Live game with Link, JJ's fairy and Michelle's unicorn"></canvas></div><div class="menu-buttons"><button data-key="2">SELECT</button><button data-key="3">START</button></div></div>
+      <div class="controller-middle"><div class="phone-game-screen"><canvas id="dad-canvas" width="512" height="384" role="img" aria-label="Live game with Link, JJ's fairy and Michelle's unicorn"></canvas></div><div class="menu-buttons"><button data-key="2">SELECT</button><button data-key="3">START</button><button id="toggle-route-line" aria-pressed="true">Compass line: on</button></div></div>
       <div class="face-buttons"><button class="face x" data-key="9">X<small>MAP</small></button><button class="face y" data-key="1">Y<small>ITEM</small></button><button class="face a" data-key="8">A<small>ACTION</small></button><button class="face b" data-key="0">B<small>SWORD</small></button></div>
     </div>
     <footer class="controller-bottom"><button id="peek">Enlarge game</button><button id="pause">Pause</button><button id="start-questions" disabled aria-label="Start questions for JJ and Michelle">Questions</button><button id="tank-questions" disabled>Tank challenge</button><button id="release-tank" hidden>Release tank power</button><button id="save">Save & keep playing</button><button id="route-guide">Step-by-step guide</button><button id="unstuck" title="Reload the dungeon entrance while keeping collected items">Unstuck</button><button id="options">More ···</button></footer>

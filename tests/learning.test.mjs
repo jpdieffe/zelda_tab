@@ -11,9 +11,9 @@ test('curriculum has the 23 current agenda words and every math fact stays withi
 });
 test('letters and words have three choices; math shows the complete ordered 0–10 keypad',()=>{
   const deck=new QuestionDeck(),letters=new Set(),words=new Set();
-  for(let i=0;i<46;i++){
+  for(let i=0;i<52;i++){
     const jj=deck.next('jj'),m=deck.next('michelle');
-    if(i<26)letters.add(jj.answer);
+    if(jj.kind==='letter')letters.add(jj.answer);
     assert.equal(m.kind,i%2===0?'math':'word');if(m.kind==='word')words.add(m.answer);
     for(const q of [jj,m]){assert.equal(q.choices.length,q.kind==='math'?11:3);assert.equal(new Set(q.choices).size,q.choices.length);assert.ok(q.choices.includes(q.answer));assert.ok(q.speech.includes(q.role==='jj'?'JJ':'Michelle'));}
     if(m.kind==='math')assert.deepEqual(m.choices,Array.from({length:11},(_,n)=>String(n)));
@@ -21,6 +21,11 @@ test('letters and words have three choices; math shows the complete ordered 0–
   assert.equal(letters.size,26);assert.equal(words.size,23);
 });
 const eligible={playing:true,tablet:true};
+test('JJ gets spoken number recognition for every number from 0 through 10',()=>{
+  const deck=new QuestionDeck(),answers=[];
+  for(let i=0;i<22;i++){const q=deck.next('jj');assert.equal(q.kind,i%2?'number':'letter');if(q.kind==='number'){answers.push(Number(q.answer));assert.match(q.speech,/find the number/);assert.ok(q.choices.includes(q.answer));}}
+  assert.deepEqual(answers.sort((a,b)=>a-b),Array.from({length:11},(_,i)=>i));
+});
 test('Dad starts both questions on a ready screen only when play and the tablet are available',()=>{
   const quiz=new LearningRound();
   assert.equal(quiz.start({...eligible,playing:false}),false);

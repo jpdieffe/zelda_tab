@@ -1,4 +1,4 @@
-import {REWARD_TYPES,rewardAnnouncement} from './reward-types.js';
+import {randomReward,rewardAnnouncement} from './reward-types.js';
 // Current deck from edu_games/weekly_agendas/heart-words.js: words introduced
 // through October 26, 2026. Keep the curriculum here; no student data is sent.
 export const SIGHT_WORDS=Object.freeze(['a','by','I','as','is','he','be','here','she','the','what','and','love','my','pretty','says','little','new','come','make','baby','father','mother']);
@@ -16,11 +16,12 @@ export function mathFacts(){
   return facts;
 }
 export class QuestionDeck {
-  constructor(random=Math.random){this.random=random;this.bags={};this.michelleTurns=0;this.mathTurns=0;}
+  constructor(random=Math.random){this.random=random;this.bags={};this.jjTurns=0;this.michelleTurns=0;this.mathTurns=0;}
   take(kind,items){if(!this.bags[kind]?.length)this.bags[kind]=shuffled(items,this.random);return this.bags[kind].pop();}
   choices(answer,pool){return shuffled([answer,...shuffled(pool.filter(v=>v!==answer),this.random).slice(0,2)],this.random);}
   next(role){
     if(role==='jj'){
+      if(this.jjTurns++%2){const answer=this.take('numbers',NUMBERS);return {role,kind:'number',answer,choices:this.choices(answer,NUMBERS),prompt:'Listen, then tap the number.',speech:`JJ, find the number ${answer}.`};}
       const answer=this.take('letters',LETTERS);
       return {role,kind:'letter',answer,choices:this.choices(answer,LETTERS),prompt:'Listen, then tap the letter.',speech:`JJ, find the letter ${answer}.`};
     }
@@ -40,8 +41,7 @@ export class LearningRound {
   start({playing,tablet,tank=false}){
     if(this.round||!playing||!tablet)return false;
     const roles=tank?['jj','jj','michelle','michelle']:['jj','michelle'];
-    if(!this.rewardBag.length){this.rewardBag=shuffled(REWARD_TYPES,this.deck.random);if(this.rewardBag.at(-1)===this.lastReward)this.rewardBag.unshift(this.rewardBag.pop());}
-    const rewardType=tank?'tank':this.rewardBag.pop();if(!tank)this.lastReward=rewardType;
+    const rewardType=tank?'tank':this.rewardBag.pop()||randomReward(this.deck.random);if(!tank)this.lastReward=rewardType;
     this.round={id:++this.sequence,rewardType,index:0,revision:0,missed:false,questions:roles.map(role=>this.deck.next(role)),results:[],phase:'ready'};
     return true;
   }

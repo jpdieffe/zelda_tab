@@ -7,7 +7,27 @@ import {M} from './memory.js';
 export class FamilyForms extends Game {
   constructor(engine){
     super(engine.rom,{nes:engine.nes[0],pixels:engine.frames[0],onMessage:message=>engine.onEvent(message)});
+    this.engine=engine;
+    const original=this.nes.copyHooks[0xa478];
+    this.nes.copyHooks[0xa478]=cpu=>{
+      if(this.hurtReturn){const saved=this.hurtReturn;this.hurtReturn=null;cpu.REG_ACC=saved.a;cpu.REG_X=saved.x;cpu.REG_Y=saved.y;cpu.setStatus(saved.status);this.m.set(saved.temp,0);return;}
+      if(this.pendingHurt&&Array.from({length:6},(_,i)=>i).every(i=>cpu.loadFromCartridge(0xa478+i)===this.rom[16+8*8192+0x478+i])){
+        this.pendingHurt=false;
+        if(this.active&&Array.from({length:6},(_,i)=>i).every(i=>cpu.loadFromCartridge(0xd9d3+i)===this.rom[16+0x19d3+i])){
+          // Call the native hurt routine at the same safe frame boundary used
+          // by shell block hits. It owns suit loss, death and invulnerability.
+          this.hurtReturn={a:cpu.REG_ACC,x:cpu.REG_X,y:cpu.REG_Y,status:cpu.getStatus(),temp:this.m.slice(0,16)};
+          if(this.custom)this.lostForm=true;
+          cpu.push(0xa4);cpu.push(0x77);cpu.REG_PC=0xd9d2;return cpu.loadFromCartridge(0xd9d3);
+        }
+      }
+      return original(cpu);
+    };
   }
+  queueHurt(){if(this.active&&!this.engine.vehicle?.active&&!this.form.invulnerable&&!this.phaseTime&&!this.m[M.Player_FlashInv]&&!this.m[0x553]&&!this.m[M.Player_SuitLost]&&!this.m[M.Player_Grow])this.pendingHurt=true;}
+  actors(){return [...super.actors(),...(this.engine?.ambush?.targets()||[])];}
+  defeat(target){if(target.virtual)return this.engine.ambush.hit(target);if(target.id===0xaf&&!target.special)return this.engine.sun.hit(target);return super.defeat(target);}
+  capture(target){if(target.virtual){this.receive('enemy-6c');this.engine.ambush.hit(target);return;}super.capture(target);}
   get currentKey(){
     return !this.custom&&!this.form.shoe&&!this.form.star
       ? `mario-${Math.min(6,this.m[M.Player_Suit])}` : this.form.key;
@@ -25,6 +45,7 @@ export class FamilyForms extends Game {
     return true;
   }
   reset(saved){
+    this.pendingHurt=false;this.hurtReturn=null;
     this.form=BY_KEY.get(saved?.key)??FORMS[Math.min(6,this.m[M.Player_Suit])];
     this.clearEffects();this.release();this.lastScene=this.scene;this.nes.hideMario=false;
     this.frame=Number.isFinite(saved?.frame)?saved.frame:0;

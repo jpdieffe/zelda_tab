@@ -22,7 +22,21 @@ export class FamilyJet {
     for(const role of ['jj','michelle'])this.kids.release(role);
     this.kids.shots=[];this.kids.hearts=[];this.kids.meteors=[];return true;
   }
-  stop(){this.patch(false);this.active=false;this.flying=false;this.shots=[];this.beams=[];}
+  stop(){this.patch(false);this.active=false;this.flying=false;this.shots=[];this.beams=[];this.engine.nes[0].hideMario=false;}
+  exit(){
+    const n=this.engine.nes[0],m=n.cpu.mem,p=player(n);
+    if(!this.active||m[M.Player_InPipe]||m[M.Level_PipeMove]||m[M.Player_HaltGame]||m[M.Player_HaltTick])return false;
+    const clear=(x,y)=>[2,8,13].every(dx=>[32-p.height,24,31].every(dy=>{const t=tileAt(n,x+dx,y+dy);return t&&!t.solid;}));
+    const supported=(x,y)=>{for(let down=32;down<=80;down+=8)if(tileAt(n,x+8,y+down)?.solid)return true;return false;};
+    let best=null;
+    for(let y=Math.max(0,p.cameraY);y<=p.cameraY+176;y+=8)for(let x=p.cameraX+8;x<=p.cameraX+232;x+=8){
+      if(!clear(x,y)||!supported(x,y))continue;
+      const distance=Math.hypot(x-p.x,y-p.y);if(!best||distance<best.distance)best={x,y,distance};
+    }
+    if(!best)return false;
+    setPosition(n,best.x,best.y);m[M.Player_XVel]=m[M.Player_YVel]=0;m[M.Player_FlashInv]=90;
+    this.stop();for(const k of Object.values(this.kids.kids)){this.kids.release(k.role);this.kids.regroup(k);}return true;
+  }
   snapshot(){return this.active?{active:true,kind:this.kind,scene:sceneKey(this.engine.nes[0]),face:this.face}:null;}
   restore(saved){if(saved?.active===true&&saved.scene===sceneKey(this.engine.nes[0])&&this.start({kind:saved.kind}))this.face=saved.face===-1?-1:1;}
   syncPosition(){const p=player(this.engine.nes[0]);this.x=p.x+8;this.y=p.y+16;}

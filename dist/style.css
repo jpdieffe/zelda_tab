@@ -84,3 +84,4 @@
 .route-panel li{padding:5px 0}.route-panel ol{padding-left:28px}
 #route-tank-note{padding:10px;border:1px solid #e6bc79;border-radius:8px;color:#ffe3a4}
 .options{max-height:90dvh;overflow:auto}
+.menu-buttons{flex-wrap:wrap;justify-content:center;gap:6px}#toggle-route-line{color:var(--gold);border:1px solid var(--edge);min-height:35px}

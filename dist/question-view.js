@@ -48,7 +48,7 @@ export class QuestionView {
       this.pending=false;this.panel.dataset.player=question.role;this.panel.dataset.kind=question.kind;
       if(this.buttons.length!==question.choices.length)this.makeButtons(question.choices.length);
       document.getElementById('quiz-turn').textContent=question.phase==='ready'?'Learning magic · JJ and Michelle':`${question.name}’s turn · ${question.number} of ${question.total}`;
-      document.getElementById('quiz-title').textContent=question.phase==='ready'?'Get ready for questions':question.phase==='retry'?'Try again!':question.phase==='feedback'?(question.giant?'Team magic!':'You did it!'):question.kind==='math'?'A little number magic':question.kind==='word'?'Find the sight word':'Find the letter';
+      document.getElementById('quiz-title').textContent=question.phase==='ready'?'Get ready for questions':question.phase==='retry'?'Try again!':question.phase==='feedback'?(question.giant?'Team magic!':'You did it!'):question.kind==='math'?'A little number magic':question.kind==='word'?'Find the sight word':question.kind==='number'?'Find the number':'Find the letter';
       document.getElementById('quiz-prompt').textContent=question.prompt;
       document.getElementById('quiz-feedback').textContent=question.feedback;
       document.getElementById('quiz-parent-prompt').textContent=question.speech;

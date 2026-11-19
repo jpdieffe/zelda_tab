@@ -4,6 +4,7 @@ import {tileAt} from './weapons.js';
 import {FamilyJet} from './jet.js';
 import {FORMS} from './copy-forms/forms.js';
 import {LevelPowers} from './level-powers.js';
+import {KoopaAmbush} from './koopa-ambush.js';
 
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -17,6 +18,7 @@ export class Companions {
     this.stats={shots:0,hits:0,returns:0};
     this.jet=new FamilyJet(engine,this);
     this.levelPowers=new LevelPowers(this);engine.companions=this;
+    this.ambush=new KoopaAmbush(this);engine.ambush=this.ambush;
   }
   playable(){const n=this.engine.nes[0],m=n.cpu.mem;return inLevel(n)&&!m[M.Player_IsDying]&&!m[M.Player_InPipe]&&!m[M.Player_EndLevel]&&!m[M.Player_HaltGame]&&!m[M.Player_HaltTick];}
   input(role,data,now=performance.now()){
@@ -31,7 +33,7 @@ export class Companions {
     return true;
   }
   release(role){const k=this.kids[role];if(k){k.mask=0;k.until=0;k.target=null;k.aim=null;k.jetAim=null;k.flap=false;}}
-  reset({keepJet=false,keepPowers=false}={}){if(!keepJet)this.jet.stop();this.key=null;this.shots=[];this.particles=[];this.explosions=[];this.meteors=[];this.hearts=[];this.heartCooldown=0;this.heartFormBag=[];this.levelPowers.chomps=[];for(const k of Object.values(this.kids)){this.release(k.role);if(!keepPowers)k.power=null;}}
+  reset({keepJet=false,keepPowers=false}={}){if(!keepJet)this.jet.stop();if(!keepPowers)this.ambush?.clear();this.key=null;this.shots=[];this.particles=[];this.explosions=[];this.meteors=[];this.hearts=[];this.heartCooldown=0;this.heartFormBag=[];this.levelPowers.chomps=[];for(const k of Object.values(this.kids)){this.release(k.role);if(!keepPowers)k.power=null;}}
   snapshot(){return this.levelPowers.snapshot();}
   restore(saved){this.levelPowers.restore(saved);}
   heartReady(){return !this.jet.active&&!this.engine.paused&&this.playable()&&!this.heartCooldown;}
@@ -72,6 +74,7 @@ export class Companions {
     k.vx=k.vy=0;k.segments=Array.from({length:8},(_,i)=>({x:k.x-(i+1)*5,y:k.y}));k.hurt=45;
   }
   grant({roles,giant,type}){
+    if(type==='ambush'){if(roles.length)this.ambush.start();return;}
     if(type==='bullet'){if(roles.length)this.jet.start({kind:'bullet'});return;}
     if(type==='jet'){if(roles.includes('jj')&&roles.includes('michelle'))this.jet.start();return;}
     if(this.levelPowers.grant({roles,giant,type}))return;
@@ -82,6 +85,7 @@ export class Companions {
   }
   burst(x,y,color,count=12){for(let i=0;i<count;i++){const angle=i/count*Math.PI*2;this.particles.push({x,y,vx:Math.cos(angle)*(1+i%3),vy:Math.sin(angle)*(1+i%3),life:22,max:22,color,size:2});}}
   hit(target){
+    if(target.virtual)return this.ambush.hit(target);
     if(this.engine.entities.get(target.key)?.dead)return false;
     this.engine.weapons.hit(target);
     if(!this.engine.entities.get(target.key)?.dead)return false;
@@ -113,6 +117,7 @@ export class Companions {
   step(now=performance.now()){
     if(this.engine.paused)return;
     this.levelPowers.step();
+    this.ambush.step();
     const p=player(this.engine.nes[0]),key=sceneKey(this.engine.nes[0]);
     if(this.key!==key){this.key=key;this.shots=[];this.meteors=[];this.particles=[];this.explosions=[];this.hearts=[];for(const k of Object.values(this.kids)){this.regroup(k,p);this.release(k.role);}}
     if(!this.playable()){this.shots=[];this.meteors=[];this.hearts=[];this.explosions=[];for(const k of Object.values(this.kids))this.release(k.role);return;}
@@ -210,7 +215,7 @@ export class Companions {
       }
     }
     for(const m of this.meteors){ctx.strokeStyle='#ffda77';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(m.x,m.y,m.giant?24:16,0,Math.PI*2);ctx.stroke();line(ctx,m.x-10,m.y,m.x+10,m.y);line(ctx,m.x,m.y-10,m.x,m.y+10);const y=m.y-m.left*4;ctx.fillStyle='#ff9f32';triangle(ctx,m.x-10,y,m.x+10,y,m.x-16,y-45);circle(ctx,m.x,y,12);ctx.fillStyle='#fff1a5';circle(ctx,m.x+2,y+2,7);}
-    this.levelPowers.draw(ctx);this.jet.draw(ctx);
+    this.ambush.draw(ctx);this.levelPowers.draw(ctx);this.jet.draw(ctx);
     for(const blast of this.explosions){
       const progress=1-blast.life/blast.max,radius=7+progress*24;
       ctx.save();ctx.globalAlpha=Math.min(1,blast.life/12);

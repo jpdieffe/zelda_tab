@@ -25,14 +25,15 @@ try{
   await jj.waitForFunction(()=>document.querySelector('#remote-video').videoWidth>0);
   const screenshot=async(page,name)=>page.screenshot({path:new URL('../test-results/power-'+name+'.png',import.meta.url).pathname.replace(/^\/(\w:)/,'$1')});
   const layouts=async()=>{for(const page of [host,jj,michelle])assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth&&document.documentElement.scrollHeight<=innerHeight),'power controls fit screen');};
-  for(const type of ['meteor','chomp','bullet']){
+  for(const type of ['meteor','chomp','ambush','bullet']){
     await host.evaluate(type=>{window.__family.engine.paused=false;window.__family.learning.rewardBag=[type];window.__family.broadcast();},type);
     await host.locator('#questions').tap();await jj.locator('#quiz-next').waitFor({state:'visible'});await jj.locator('#quiz-next').tap();
     for(let i=0;i<2;i++){
       const answer=await host.evaluate(()=>{const r=window.__family.learning.round;return r.questions[r.index].answer;});
       await jj.locator('#quiz-choices button').filter({hasText:new RegExp('^'+answer+'$')}).tap();
       await jj.locator('#quiz-next').waitFor({state:'visible'});
-      if(i===1)assert.match(await jj.locator('#quiz-feedback').textContent(),type==='bullet'?/Bullet Bill/:type==='meteor'?/Meteor/:/Chain Chomp/);
+      if(i===0)assert.equal(await jj.locator('#quiz-title').textContent(),'You did it!');
+      if(i===1)assert.match(await jj.locator('#quiz-feedback').textContent(),type==='bullet'?/Bullet Bill/:type==='meteor'?/Meteor/:type==='ambush'?/Koopas/:/Chain Chomp/);
       await jj.locator('#quiz-next').tap();
     }
     await host.waitForFunction(()=>!window.__family.learning.round);
@@ -43,6 +44,10 @@ try{
       const before=await host.evaluate(()=>window.__family.kids.jet.x);await host.keyboard.down('ArrowRight');await host.waitForFunction(x=>window.__family.kids.jet.x>x+30,before);await host.keyboard.up('ArrowRight');
       await host.evaluate(()=>{window.__family.engine.paused=true;window.__family.draw();});
       await screenshot(host,'bullet-dad');await screenshot(jj,'bullet-tablet');
+    }else if(type==='ambush'){
+      await host.waitForFunction(()=>window.__family.kids.ambush.koopas.length===20);
+      await host.evaluate(()=>{const {engine:e,kids}=window.__family;e.paused=false;for(let i=0;i<170;i++)kids.ambush.step();e.paused=true;window.__family.draw();});
+      await screenshot(host,'ambush-dad');await screenshot(jj,'ambush-tablet');
     }else{
       for(const page of [jj,michelle]){await page.locator('#super-power').waitFor({state:'visible'});assert.match(await page.locator('#super-power').textContent(),type==='meteor'?/METEOR/:/CHAIN CHOMP/);}
       for(const page of [jj,michelle])await page.locator('#super-power').tap();
@@ -60,8 +65,14 @@ try{
     await layouts();
     await host.locator('#save').tap();await host.waitForFunction(()=>document.querySelector('#status').textContent.includes('saved'));
     await host.locator('#load').tap();await host.waitForFunction(()=>document.querySelector('#status').textContent.includes('loaded'));
-    assert.equal(await host.evaluate(type=>type==='bullet'?window.__family.kids.jet.kind==='bullet'&&window.__family.kids.jet.active:Object.values(window.__family.kids.kids).every(k=>k.power?.type===type),type),true);
+    assert.equal(await host.evaluate(type=>type==='bullet'?window.__family.kids.jet.kind==='bullet'&&window.__family.kids.jet.active:type==='ambush'?window.__family.kids.ambush.koopas.length===20:Object.values(window.__family.kids.kids).every(k=>k.power?.type===type),type),true);
+    if(type==='bullet'){
+      await host.locator('#exit-bullet').waitFor({state:'visible'});await host.locator('#exit-bullet').tap();await host.waitForFunction(()=>!window.__family.kids.jet.active);
+      await host.locator('#exit-bullet').waitFor({state:'hidden'});await jj.waitForFunction(()=>!document.body.dataset.jet||document.body.dataset.jet==='false');
+    }
     console.log('PASS earned '+type+' through actual questions, touch activation, three-player display, layouts and save/load');
   }
+  await host.evaluate(()=>{const {engine:e}=window.__family;e.paused=true;const m=e.nes[0].cpu.mem;m[0x671]=0xaf;m[0x661]=2;m[0x91]=180;m[0x76]=m[0x12];m[0xa3]=32;m[0x88]=0;e.sun.prepare();e.sun.record(0).hp=35;window.__family.draw();});
+  await screenshot(host,'sun-health');
   assert.deepEqual(errors,[]);console.log('PASS no uncaught browser errors');
 }finally{await browser.close();if(server)await new Promise(resolve=>server.close(resolve));}

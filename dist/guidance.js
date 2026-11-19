@@ -99,9 +99,9 @@ export function readGuidance(r,rom,navigator) {
   return point(target.x,target.y);
 }
 
-export function drawGuidance(ctx,world) {
+export function drawGuidance(ctx,world,{lineVisible=true}={}) {
   const guide=world?.guidance;if(!world?.active||guide?.angle==null)return;
-  if(guide.path?.length){
+  if(lineVisible&&guide.path?.length){
     ctx.save();ctx.beginPath();ctx.rect(0,32,256,192);ctx.clip();ctx.translate(-world.cameraX,-world.cameraY);
     ctx.strokeStyle='#142e38';ctx.lineWidth=5;ctx.beginPath();guide.path.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();
     ctx.strokeStyle='#ffe59b';ctx.lineWidth=2;ctx.stroke();

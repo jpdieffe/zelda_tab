@@ -15,7 +15,7 @@ function fixture(){
 test('tank unlocks after all four questions, including retries on any or every question',()=>{
  for(const mistake of [-2,-1,0,1,2,3]){
   const q=new LearningRound();q.start({playing:true,tablet:true,tank:true});assert.equal(q.snapshot().total,4);q.advance(q.token());
-  assert.deepEqual(q.round.questions.map(q=>q.role),['jj','jj','michelle','michelle']);assert.deepEqual(q.round.questions.map(q=>q.kind),['letter','letter','math','word']);
+  assert.deepEqual(q.round.questions.map(q=>q.role),['jj','jj','michelle','michelle']);assert.deepEqual(q.round.questions.map(q=>q.kind),['letter','number','math','word']);
   for(let n=0;n<4;n++){
    const item=q.round.questions[n];if(n===mistake||mistake===-2){
     for(let retry=0;retry<2;retry++){q.answer(q.token(),item.choices.findIndex(a=>a!==item.answer));assert.equal(q.reward().giant,false);assert.match(q.snapshot().feedback,/still earn the tank/);q.advance(q.token());}

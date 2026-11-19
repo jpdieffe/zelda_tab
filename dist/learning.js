@@ -16,11 +16,12 @@ export function mathFacts(){
   return facts;
 }
 export class QuestionDeck {
-  constructor(random=Math.random){this.random=random;this.bags={};this.michelleTurns=0;this.mathTurns=0;}
+  constructor(random=Math.random){this.random=random;this.bags={};this.jjTurns=0;this.michelleTurns=0;this.mathTurns=0;}
   take(kind,items){if(!this.bags[kind]?.length)this.bags[kind]=shuffled(items,this.random);return this.bags[kind].pop();}
   choices(answer,pool){return shuffled([answer,...shuffled(pool.filter(v=>v!==answer),this.random).slice(0,2)],this.random);}
   next(role){
     if(role==='jj'){
+      if(this.jjTurns++%2){const answer=this.take('numbers',NUMBERS);return {role,kind:'number',answer,choices:this.choices(answer,NUMBERS),prompt:'Listen, then tap the number.',speech:`JJ, find the number ${answer}.`};}
       const answer=this.take('letters',LETTERS);
       return {role,kind:'letter',answer,choices:this.choices(answer,LETTERS),prompt:'Listen, then tap the letter.',speech:`JJ, find the letter ${answer}.`};
     }

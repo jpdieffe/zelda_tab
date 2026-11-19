@@ -14,7 +14,11 @@ try{
     document.getElementById('home').hidden=true;document.getElementById('controller').hidden=false;
   },guide);
   for(const [width,height]of [[900,500],[851,393],[390,844]]){
-    await page.setViewportSize({width,height});await page.locator('#route-guide').click();
+    await page.setViewportSize({width,height});
+    const line=await page.locator('#toggle-route-line').boundingBox();assert.ok(line.x>=0&&line.y>=0&&line.x+line.width<=width&&line.y+line.height<=height);
+    await page.locator('#toggle-route-line').click();assert.equal(await page.locator('#toggle-route-line').getAttribute('aria-pressed'),'false');assert.equal(await page.evaluate(()=>localStorage.getItem('route-line')),'off');
+    await page.locator('#toggle-route-line').click();assert.equal(await page.locator('#toggle-route-line').getAttribute('aria-pressed'),'true');
+    await page.locator('#route-guide').click();
     await page.locator('#route-panel').evaluate(e=>e.scrollTop=0);
     assert.match(await page.locator('#route-panel').textContent(),/Desert guide v2/);
     assert.equal(await page.locator('#route-next').isVisible(),false);

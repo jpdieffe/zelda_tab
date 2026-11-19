@@ -76,15 +76,17 @@ export class WeaponSystem {
       // Preserve power-ups, moving platforms, level controllers and bosses.
       // Their special hit handlers must be left to the original game.
       const flags=e.rom[16+0x2f4+id];
-      if(state<2||state>5||state===4||(flags&0xa0)||[0x0e,0x18,0x4b,0x4c].includes(id)||seen.has(actor.key)||e.entities.get(actor.key)?.dead)continue;
+      if(state<2||state>5||state===4||id!==0xaf&&(flags&0xa0)||[0x0e,0x18,0x4b,0x4c].includes(id)||seen.has(actor.key)||e.entities.get(actor.key)?.dead)continue;
       seen.add(actor.key);
       const bound=16+0x2b4+(flags&15)*4;
       const left=actor.x+signed(e.rom[bound]),top=actor.y+signed(e.rom[bound+2]);
-      targets.push({...actor,left,top,right:left+Math.max(10,e.rom[bound+1]),bottom:top+Math.max(12,e.rom[bound+3])});
+      targets.push({...actor,id,left,top,right:left+Math.max(10,e.rom[bound+1]),bottom:top+Math.max(12,e.rom[bound+3])});
     }
-    return targets;
+    return targets.concat(e.ambush?.targets()||[]);
   }
   hit(target){
+    if(target.virtual)return this.engine.ambush.hit(target);
+    if(target.id===0xaf)return this.engine.sun.hit(target);
     const e=this.engine;if(e.entities.get(target.key)?.dead)return;
     e.entities.set(target.key,{...target,data:[...target.data],dead:true});
     for(let p=0;p<(e.joined?2:1);p++){

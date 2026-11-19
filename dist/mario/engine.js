@@ -1,6 +1,7 @@
 import { M, OBJECT_FIELDS } from './memory.js';
 import { WeaponSystem } from './weapons.js';
 import { FamilyForms } from './family-forms.js';
+import {SunBoss} from './sun-boss.js';
 
 const signed = n => n > 127 ? n - 256 : n;
 const TILE_START = 0x6000, TILE_END = 0x7950;
@@ -81,6 +82,7 @@ export class CoopEngine {
     this.serial=0; this.deaths=[0,0]; this.paused=false; this.transition=null; this.stats={bounces:0,bumps:0,tileEdits:0};
     this.weapons=new WeaponSystem(this);
     this.forms=new FamilyForms(this);
+    this.sun=new SunBoss(this);
   }
   input(p,mask) {
     // UI mask follows NES button order: A,B,Select,Start,Up,Down,Left,Right.
@@ -135,12 +137,13 @@ export class CoopEngine {
     for(const nes of this.nes)if(inLevel(nes))nes.cpu.mem[M.Level_TimerEn]|=1;
     this.frame++;
     if(!this.joined) {
+      this.sun.prepare();
       this.vehicle?.beforeFrame();this.applyInput(0);
       const n=this.nes[0],hooks=n.copyHooks;
       try{
         if(this.vehicle?.active){n.copyHooks=null;n.hideMario=this.vehicle.kind==='bullet'&&this.vehicle.flying;this.forms.clearEffects();this.forms.release();n.frame();}
         else{this.forms.input(this.masks[0]);this.forms.step();}
-      }finally{n.copyHooks=hooks;this.vehicle?.afterFrame();}
+      }finally{n.copyHooks=hooks;this.vehicle?.afterFrame();this.sun.reconcile();}
       // Track the overworld too: a death followed by retrying the same level
       // must discard its previous kill records before those enemies respawn.
       if(!this.tiles||sceneKey(n)!==this.key)this.resetWorld();
@@ -303,7 +306,7 @@ export class CoopEngine {
     const previous=n.ppu.vramMem[n.ppu.vramMirrorTable[addr]];
     n.ppu.mirroredWrite(addr,(previous&~(3<<shift))|((value>>6)<<shift));
   }
-  snapshot() {return {version:1,rom:'smb3-us-rev1',state:this.nes[0].toJSON(),weapons:[...this.weapons.equipped],jet:this.vehicle?.snapshot(),form:this.forms.snapshot(),powers:this.companions?.snapshot()};}
+  snapshot() {return {version:1,rom:'smb3-us-rev1',state:this.nes[0].toJSON(),weapons:[...this.weapons.equipped],jet:this.vehicle?.snapshot(),form:this.forms.snapshot(),powers:this.companions?.snapshot(),ambush:this.ambush?.snapshot(),sun:this.sun.snapshot()};}
   restore(saved) {
     if(saved?.version!==1 || saved.rom!=='smb3-us-rev1')throw new Error('This save is for a different game version.');
     this.vehicle?.stop();
@@ -314,6 +317,7 @@ export class CoopEngine {
     if(this.joined)this.join();
     this.vehicle?.restore(saved.jet);
     this.companions?.restore(saved.powers);
+    this.ambush?.restore(saved.ambush);this.sun.restore(saved.sun);
   }
 }
 

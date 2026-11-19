@@ -10,6 +10,8 @@ import {tileAt} from '../dist/mario/weapons.js';
 import {LearningRound,QuestionDeck,mathFacts} from '../dist/mario/learning.js';
 import {FORMS} from '../dist/mario/copy-forms/forms.js';
 import {FamilyLearning} from '../dist/mario/jet-learning.js';
+import {randomReward} from '../dist/mario/reward-types.js';
+import {SUN_HEALTH} from '../dist/mario/sun-boss.js';
 const rom=readFileSync(new URL('../dist/mario/roms/mario3.nes',import.meta.url));
 let level;
 function boot(){const e=new CoopEngine(rom,{NES});if(level)e.nes[0].fromJSON(structuredClone(level));else{
@@ -18,6 +20,54 @@ function boot(){const e=new CoopEngine(rom,{NES});if(level)e.nes[0].fromJSON(str
   press(128,20);press(16,20);press(1,2);run(180);level=structuredClone(e.nes[0].toJSON());
 }e.resetWorld();const kids=new Companions(e);kids.step(0);return {e,kids};}
 test('bundled original ROM hash matches the supplied Mario 3 revision',()=>{assert.equal(createHash('sha256').update(rom).digest('hex'),'4377a7f5e6eb50bdd2ac6f249bf1a7085500aca8eb41f38545c3a2731c51a579');});
+
+test('normal reward probabilities are 50% ambush, 20% meteor, 20% chomp and 10% bullet',()=>{
+  const counts={ambush:0,meteor:0,chomp:0,bullet:0};for(let i=0;i<1000;i++)counts[randomReward(()=>(i+.5)/1000)]++;
+  assert.deepEqual(counts,{ambush:500,meteor:200,chomp:200,bullet:100});
+  for(const [roll,type]of [[.1,'ambush'],[.6,'meteor'],[.8,'chomp'],[.95,'bullet']]){const q=new FamilyLearning(()=>roll);q.start({playing:true,tablet:true});assert.equal(q.round.rewardType,type);}
+});
+test('JJ alternates letters and identifying every number from zero through ten without repeats',()=>{
+  const deck=new QuestionDeck(),numbers=[];
+  for(let i=0;i<22;i++){const q=deck.next('jj');assert.equal(q.kind,i%2?'number':'letter');if(q.kind==='number'){numbers.push(q.answer);assert.match(q.speech,/find the number/);assert.equal(q.choices.length,3);assert.ok(q.choices.includes(q.answer));}}
+  assert.deepEqual(numbers.map(Number).sort((a,b)=>a-b),Array.from({length:11},(_,i)=>i));
+});
+test('a Chain Chomp stays tethered to its owner and repeated activation replaces the swing',()=>{
+  const {e,kids}=boot();kids.grant({roles:['jj'],type:'chomp',giant:true});const powers=kids.levelPowers,k=kids.kids.jj;
+  powers.launch('jj');for(let i=0;i<60;i++){k.x+=2;powers.step();assert.ok(Math.abs(Math.hypot(powers.chomps[0].x-k.x,powers.chomps[0].y-k.y)-40)<.01);}
+  const shot=powers.chomps[0];e.paused=true;powers.step();assert.equal(shot.age,60);e.paused=false;
+  k.power.cooldown=0;powers.launch('jj');assert.equal(powers.chomps.length,1);assert.equal(powers.chomps[0].role,'jj');
+});
+test('Exit bullet restores controls and normal form on open floor even when the bullet is inside a wall',()=>{
+  const {e,kids}=boot(),n=e.nes[0],m=n.cpu.mem;kids.grant({roles:['jj'],type:'bullet'});
+  const p=player(n);m[0x6000+tileAt(n,p.x+8,p.y+16).index]=255;
+  assert.equal(kids.jet.exit(),true);assert.equal(kids.jet.active,false);assert.equal(n.hideMario,false);assert.equal(m[M.Player_FlashInv],90);
+  const safe=player(n);for(const dx of [2,8,13])for(const dy of [32-safe.height,24,31])assert.equal(tileAt(n,safe.x+dx,safe.y+dy).solid,false);
+  assert.equal(e.snapshot().jet,null);e.input(0,128);for(let i=0;i<20;i++)e.step();assert.equal(m[M.Player_IsDying],0);
+});
+test('Koopa ambush spawns twenty extra targetable actors from the right without taking native boss slots',()=>{
+  const {e,kids}=boot();let m=e.nes[0].cpu.mem;const before=Array.from(m.slice(0x661,0x679));
+  kids.grant({roles:['jj'],type:'ambush'});assert.equal(kids.ambush.koopas.length,20);
+  kids.ambush.step();assert.ok(kids.ambush.targets()[0].x>player(e.nes[0]).cameraX+256);assert.deepEqual(Array.from(m.slice(0x661,0x679)),before);
+  const target=e.weapons.targets().find(t=>t.virtual);assert.ok(target);assert.equal(kids.nearestEnemy({x:target.x,y:target.y})!==null,true);
+  assert.equal(kids.hit(target),true);assert.ok(!kids.ambush.targets().some(t=>t.key===target.key));
+  const saved=structuredClone(e.snapshot());kids.ambush.clear();e.restore(saved);m=e.nes[0].cpu.mem;assert.equal(kids.ambush.koopas.length,20);assert.equal(kids.ambush.koopas[0].dead,true);
+  e.paused=true;const age=kids.ambush.age;kids.step();assert.equal(kids.ambush.age,age);e.paused=false;
+  m[M.Level_LayPtrOrig_AddrL]^=1;kids.step();assert.equal(kids.ambush.koopas.length,0);
+});
+test('an ambush collision uses native damage and respects Mario invulnerability',()=>{
+  const {e,kids}=boot(),m=e.nes[0].cpu.mem;m[M.Player_Suit]=1;m[M.Player_FlashInv]=0;
+  e.forms.queueHurt();e.step();assert.ok(m[M.Player_SuitLost]||m[M.Player_FlashInv]||m[M.Player_Suit]===0,'native hurt routine ran');assert.equal(m[M.Player_IsDying],0);
+  m[M.Player_FlashInv]=90;e.forms.pendingHurt=false;e.forms.queueHurt();assert.equal(e.forms.pendingHurt,false);
+});
+test('Angry Sun takes sixty separated hits, survives native instant kills, and saves its health',()=>{
+  const {e,kids}=boot(),slot=0;let m=e.nes[0].cpu.mem;m[0x91]=180;m[0x76]=0;m[0xa3]=32;m[0x88]=0;m[0x671+slot]=0xaf;m[0x661+slot]=2;e.sun.prepare();
+  const target=e.weapons.targets().find(t=>t.id===0xaf);assert.ok(target,'Sun is targetable regardless of native immunity flags');
+  kids.hit(target);assert.equal(e.sun.record(slot).hp,SUN_HEALTH-1);kids.hit(target);assert.equal(e.sun.record(slot).hp,SUN_HEALTH-1,'contact cannot erase a whole health bar in one frame');
+  const save=structuredClone(e.snapshot());e.sun.reset();e.restore(save);m=e.nes[0].cpu.mem;assert.equal(e.sun.record(slot).hp,SUN_HEALTH-1);
+  for(let i=0;i<8;i++)e.sun.prepare();m[0x661+slot]=4;e.sun.reconcile();assert.equal(m[0x661+slot],2);assert.equal(e.sun.record(slot).hp,SUN_HEALTH-2);
+  for(let i=2;i<SUN_HEALTH;i++){for(let f=0;f<8;f++)e.sun.prepare();kids.hit(target);}
+  assert.equal(e.sun.record(slot).hp,0);assert.equal(m[0x661+slot],0);
+});
 test('Mario enters the real first level; companions never create a second playable Mario',()=>{const {e,kids}=boot();assert.equal(e.nes[0].cpu.mem[M.Level_Tileset],1);assert.equal(kids.playable(),true);assert.equal(e.joined,false);assert.equal(kids.kids.jj.segments.length,8);});
 
 test('companion aiming and kills recover after death and re-entering the same level',()=>{
@@ -199,7 +249,7 @@ test('giant Bullet Bill can finish a real level through its original goal card',
 });
 
 test('save/load restores original Mario progress and companion effects reset separately',()=>{const {e,kids}=boot();const saved=structuredClone(e.snapshot()),p=player(e.nes[0]);e.nes[0].cpu.mem[M.Player_X]+=30;e.restore(saved);e.resetWorld();kids.reset();assert.deepEqual(player(e.nes[0]),p);assert.equal(e.joined,false);assert.equal(kids.shots.length,0);});
-test('curriculum has nonrepeating letters, alternating math/words, ordered 0–10 math answers',()=>{const deck=new QuestionDeck(),letters=new Set();for(let i=0;i<26;i++){letters.add(deck.next('jj').answer);const q=deck.next('michelle');assert.equal(q.kind,i%2?'word':'math');assert.equal(q.choices.length,i%2?3:11);}assert.equal(letters.size,26);assert.equal(mathFacts().length,132);assert.ok(mathFacts().every(f=>Number(f.answer)>=0&&Number(f.answer)<=10));});
+test('curriculum has nonrepeating letters, alternating math/words, ordered 0–10 math answers',()=>{const deck=new QuestionDeck(),letters=new Set();for(let i=0;i<52;i++){const jj=deck.next('jj');if(jj.kind==='letter')letters.add(jj.answer);const q=deck.next('michelle');assert.equal(q.kind,i%2?'word':'math');assert.equal(q.choices.length,i%2?3:11);}assert.equal(letters.size,26);assert.equal(mathFacts().length,132);assert.ok(mathFacts().every(f=>Number(f.answer)>=0&&Number(f.answer)<=10));});
 test('both children aim across the whole screen, ignoring closer enemies outside every edge and the HUD',()=>{
   const {kids,e}=boot(),p=player(e.nes[0]);
   const target=(x,y)=>({left:p.cameraX+x-5,right:p.cameraX+x+5,top:p.cameraY+y-5,bottom:p.cameraY+y+5});

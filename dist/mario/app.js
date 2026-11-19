@@ -58,7 +58,7 @@ function draw(){
   // Compose the whole frame on a CPU-backed surface before presenting it.
   // Reused enemy sprite canvases must not depend on Android GPU texture caching.
   composedCtx.imageSmoothingEnabled=false;composedCtx.drawImage(native,0,0,768,720);
-  composedCtx.save();composedCtx.scale(3,3);kids.draw(composedCtx);composedCtx.restore();
+  composedCtx.save();composedCtx.scale(3,3);kids.draw(composedCtx);engine.sun.draw(composedCtx);composedCtx.restore();
   ctx.drawImage(composed,0,0);
   // Submit only the completed composite, including an idle transformed Dad.
   const now=performance.now(),track=media?.getVideoTracks()[0];
@@ -73,7 +73,7 @@ function tick(now){
 function state(){return {type:'state',jet:!!kids?.jet.active,vehicle:kids?.jet.kind,form:engine?{name:engine.forms.form.name,hint:engine.forms.hint}:null,quiz:learning.snapshot(),paused:engine?.paused,
   abilities:{jj:kids?.levelPowers.state('jj'),michelle:kids?.levelPowers.state('michelle')},
   heart:{ready:!!kids?.heartReady(),seconds:Math.ceil((kids?.heartCooldown||0)/60)},
-  powers:Object.values(kids?.kids||{}).filter(k=>k.power).map(k=>`${k.role==='jj'?'JJ':'Michelle'}: ${k.power.giant?'SUPER ':''}${({laser:'lasers',missiles:'homing missiles',dinosaur:'dinosaur',meteor:'Meteor button',chomp:'Chain Chomp launcher'})[k.power.type]} - ${k.power.level?'rest of level':Math.ceil(k.power.left/60)+'s'}`).join(' | ')};}
+  powers:Object.values(kids?.kids||{}).filter(k=>k.power).map(k=>`${k.role==='jj'?'JJ':'Michelle'}: ${k.power.giant?'SUPER ':''}${({laser:'lasers',missiles:'homing missiles',dinosaur:'dinosaur',meteor:'Meteor button',chomp:'Swinging Chain Chomp'})[k.power.type]} - ${k.power.level?'rest of level':Math.ceil(k.power.left/60)+'s'}`).join(' | ')};}
 function showState(data){
   if(jetMode!==!!data.jet||vehicleKind!==data.vehicle){jetMode=!!data.jet;vehicleKind=data.vehicle;clearInput();updateControls();}
   if(role!=='dad'){const changed=!!remoteQuiz!==!!data.quiz;remoteQuiz=data.quiz;if(changed)clearInput();}
@@ -93,6 +93,7 @@ function showState(data){
   $('form-name').textContent=data.form?`${data.form.name} controls`:'Form controls';
   $('form-tip').textContent=data.form?.hint||'';
   $('random-form').disabled=role!=='dad'||!!data.quiz||!kids?.canTransform();
+  $('exit-bullet').hidden=role!=='dad'||!data.jet||data.vehicle!=='bullet';$('exit-bullet').disabled=!!data.quiz;
   if(role==='dad'){$('skip').hidden=!data.quiz;$('questions').disabled=!!data.quiz||!kids?.playable()||engine.paused;$('jet').disabled=$('questions').disabled||!!data.jet;$('regroup').disabled=!!data.jet;}
 }
 function broadcast(){if(!engine)return;const s=state();connection?.send(s);showState(s);}
@@ -185,6 +186,7 @@ $('random-form').onclick=()=>{
   if(role!=='dad'||blocked()||!kids?.deliverHeartPower())return;
   draw();broadcast();notice(`You became ${engine.forms.form.name}! Open Form controls for its abilities.`);
 };
+$('exit-bullet').onclick=()=>{if(role!=='dad'||blocked())return;clearInput();if(kids?.jet.exit()){draw();broadcast();notice('Back to your normal form.');}else notice('Move the bullet closer to open floor, then tap Exit bullet again.');};
 $('update-game').onclick=async()=>{
   if(engine){engine.paused=true;clearInput();try{await storage.put('save',engine.snapshot());}catch{notice('Could not save. Update cancelled so your adventure stays open.');engine.paused=false;return;}}
   const url=new URL(location.href);url.searchParams.set('update',Date.now());location.replace(url.href);
