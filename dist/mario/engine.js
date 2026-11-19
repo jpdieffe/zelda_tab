@@ -141,7 +141,9 @@ export class CoopEngine {
         if(this.vehicle?.active){n.copyHooks=null;n.hideMario=false;this.forms.clearEffects();this.forms.release();n.frame();}
         else{this.forms.input(this.masks[0]);this.forms.step();}
       }finally{n.copyHooks=hooks;this.vehicle?.afterFrame();}
-      if(inLevel(this.nes[0])&&(!this.tiles||sceneKey(this.nes[0])!==this.key))this.resetWorld();
+      // Track the overworld too: a death followed by retrying the same level
+      // must discard its previous kill records before those enemies respawn.
+      if(!this.tiles||sceneKey(n)!==this.key)this.resetWorld();
       this.weapons.step();return;
     }
     if(this.transition){this.advanceTransition();return;}

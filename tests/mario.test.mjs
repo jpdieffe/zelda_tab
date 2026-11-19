@@ -20,6 +20,29 @@ function boot(){const e=new CoopEngine(rom,{NES});if(level)e.nes[0].fromJSON(str
 test('bundled original ROM hash matches the supplied Mario 3 revision',()=>{assert.equal(createHash('sha256').update(rom).digest('hex'),'4377a7f5e6eb50bdd2ac6f249bf1a7085500aca8eb41f38545c3a2731c51a579');});
 test('Mario enters the real first level; companions never create a second playable Mario',()=>{const {e,kids}=boot();assert.equal(e.nes[0].cpu.mem[M.Level_Tileset],1);assert.equal(kids.playable(),true);assert.equal(e.joined,false);assert.equal(kids.kids.jj.segments.length,8);});
 
+test('companion aiming and kills recover after death and re-entering the same level',()=>{
+  const {e,kids}=boot(),m=e.nes[0].cpu.mem,originalScene=e.key;
+  const run=n=>{for(let i=0;i<n;i++){e.step();kids.step(i);}};
+  const press=(mask,n=2)=>{e.input(0,mask);run(n);e.input(0,0);run(20);};
+  for(const role of ['jj','michelle']){
+    const target=e.weapons.targets().find(t=>t.key==='level:0');
+    assert.ok(target,'respawned enemy is targetable at the start of each attempt');
+    const k=kids.kids[role];k.x=target.left-40;k.y=(target.top+target.bottom)/2-20;k.active=true;k.hurt=60;
+    kids.attack(k);assert.ok(kids.shots.at(-1).dy>0,'shot aims toward the enemy instead of flying straight');
+    for(let i=0;i<30&&!e.entities.get(target.key)?.dead;i++)kids.step(i);
+    assert.equal(m[0x661+target.slot],0,'companion projectile kills the original ROM enemy');
+    assert.equal(e.entities.get(target.key)?.dead,true);
+    // Enter the original pit-death dispatcher and let the ROM return to its map.
+    m[M.Player_IsDying]=2;
+    for(let i=0;i<600&&m[M.Level_Tileset];i++)run(1);
+    assert.equal(m[M.Level_Tileset],0,'native death returns Mario to the overworld');
+    run(150);press(128,20);press(16,20);press(1);run(200);
+    assert.equal(e.key,originalScene,'retry loads the exact same level');
+    assert.ok(e.readActors(0).some(a=>a.key===target.key),'ROM respawned the previously defeated enemy');
+    assert.ok(e.weapons.targets().some(a=>a.key===target.key),'old kill records must not hide the respawned enemy');
+  }
+});
+
 test('jet challenge requires three answers each, allows retries, and cannot be earned by skipping',()=>{
   const q=new FamilyLearning();assert.equal(q.start({jet:true,playing:true,tablet:true}),true);
   assert.deepEqual(q.round.questions.map(x=>x.role),['jj','jj','jj','michelle','michelle','michelle']);assert.equal(q.snapshot().total,6);
