@@ -44,11 +44,14 @@ export class Companions {
     const index=this.heartFormBag.findLastIndex(key=>key!==current);
     return this.heartFormBag.splice(index,1)[0];
   }
-  deliverHeartPower(){
+  canTransform(){
     if(this.jet.active||this.engine.paused||!this.playable())return false;
     const m=this.engine.nes[0].cpu.mem;
     // Never overwrite an ongoing pickup, damage transformation, or death action.
-    if(m[M.Player_QueueSuit]||m[M.Player_Grow]||m[M.Player_SuitLost]||m[M.Player_StarOff])return false;
+    return !(m[M.Player_QueueSuit]||m[M.Player_Grow]||m[M.Player_SuitLost]||m[M.Player_StarOff]);
+  }
+  deliverHeartPower(){
+    if(!this.canTransform())return false;
     return this.engine.forms.receive(this.nextHeartForm(this.engine.forms.currentKey));
   }
   nearestEnemy(origin){

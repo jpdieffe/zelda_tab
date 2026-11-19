@@ -85,6 +85,7 @@ function showState(data){
   $('form-help').hidden=role!=='dad'||!!data.jet;
   $('form-name').textContent=data.form?`${data.form.name} controls`:'Form controls';
   $('form-tip').textContent=data.form?.hint||'';
+  $('random-form').disabled=role!=='dad'||!!data.quiz||!kids?.canTransform();
   if(role==='dad'){$('skip').hidden=!data.quiz;$('questions').disabled=!!data.quiz||!kids?.playable()||engine.paused;$('jet').disabled=$('questions').disabled||!!data.jet;$('regroup').disabled=!!data.jet;}
 }
 function broadcast(){if(!engine)return;const s=state();connection?.send(s);showState(s);}
@@ -171,6 +172,10 @@ for(const button of document.querySelectorAll('[data-role]'))button.onclick=()=>
 };
 $('join-form').onsubmit=join;$('questions').onclick=()=>startQuestions();$('jet').onclick=()=>startQuestions('jet');$('skip').onclick=skip;$('quiz-skip').onclick=skip;$('save').onclick=()=>save();$('load').onclick=load;$('leave').onclick=leave;
 $('regroup').onclick=()=>{if(kids){for(const k of Object.values(kids.kids)){kids.release(k.role);kids.regroup(k);}notice('The crew is back beside Mario.');}};
+$('random-form').onclick=()=>{
+  if(role!=='dad'||blocked()||!kids?.deliverHeartPower())return;
+  draw();broadcast();notice(`You became ${engine.forms.form.name}! Open Form controls for its abilities.`);
+};
 $('update-game').onclick=async()=>{
   if(engine){engine.paused=true;clearInput();try{await storage.put('save',engine.snapshot());}catch{notice('Could not save. Update cancelled so your adventure stays open.');engine.paused=false;return;}}
   const url=new URL(location.href);url.searchParams.set('update',Date.now());location.replace(url.href);
