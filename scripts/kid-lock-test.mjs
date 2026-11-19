@@ -15,7 +15,7 @@ try{
   const parsed=await cdp.send('Page.getAppManifest');assert.deepEqual(parsed.errors,[],'Browser parses app manifest');
   // Exercise actual app UI without starting the emulator or signalling server.
   await page.evaluate(async base=>{
-    window.testGame=(await import(new URL('app.js',base).href)).game;
+    window.testGame=(await import(document.querySelector('script[type="module"]').src)).game;
     window.sent=[];testGame.network={send:m=>sent.push(m),close:()=>{},connection:{open:true}};
     document.querySelectorAll('.view').forEach(v=>v.hidden=v.id!=='tablet');
     document.getElementById('screen-message').hidden=true;document.getElementById('fire').disabled=false;

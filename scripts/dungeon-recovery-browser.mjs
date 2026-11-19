@@ -7,7 +7,7 @@ const errors=[];
 try{
   const page=await browser.newPage({viewport:{width:900,height:500}});
   page.on('pageerror',error=>errors.push(error.message));await page.goto('http://localhost:4185');
-  await page.evaluate(async()=>{window.g=(await import('/app.js')).game;});
+  await page.evaluate(async()=>{window.g=(await import(document.querySelector('script[type="module"]').src)).game;});
   await page.locator('#choose-dad').click();await page.waitForFunction(()=>g.ready&&g.bridge?.ram,null,{timeout:90000});
   const original=await readFile(new URL('../test-results/phone-original.state',import.meta.url));
   await page.evaluate(bytes=>g.emulator.gameManager.loadState(new Uint8Array(bytes)),Array.from(original));

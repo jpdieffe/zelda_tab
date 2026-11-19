@@ -66,7 +66,7 @@ export async function learningChecks({dad,jj,michelle,shot}){
   assert.match(await jj.locator('#quiz-turn').textContent(),/JJ/);assert.equal(await jj.locator('.quiz-choice').count(),3);
   assert.ok(await jj.evaluate(()=>questionSpeech.at(-1).startsWith('JJ, find the letter')),'Letter prompt is spoken');
   await shot(jj,'quiz-jj-letter.png');
-  await michelle.evaluate(async token=>{const {game}=await import('/app.js');game.network.send({type:'quiz-answer',token,index:0});},token);
+  await michelle.evaluate(async token=>{const {game}=await import(document.querySelector('script[type="module"]').src);game.network.send({type:'quiz-answer',token,index:0});},token);
   await dad.waitForTimeout(100);assert.equal(await dad.evaluate(()=>testGame.learning.round.results.length),0,'Phone cannot answer on behalf of tablet');
   await answer(true);await jj.locator('#quiz-next').click();
   await jj.waitForFunction(()=>document.getElementById('quiz-turn').textContent.startsWith('Michelle'));
@@ -86,7 +86,7 @@ export async function learningChecks({dad,jj,michelle,shot}){
   await dad.waitForTimeout(250);assert.equal(await dad.evaluate(()=>testGame.lasers.remaining),remaining,'Manual pause preserves laser time');
   await dad.locator('#pause').click();await expire();
   await begin();
-  await jj.evaluate(async()=>{const {game}=await import('/app.js');game.network.connection.close();});
+  await jj.evaluate(async()=>{const {game}=await import(document.querySelector('script[type="module"]').src);game.network.connection.close();});
   await dad.waitForFunction(()=>!testGame.network.has('jj'));
   const savedToken=await dad.evaluate(()=>testGame.learning.token());
   await dad.waitForFunction(()=>testGame.network.has('jj'),{},{timeout:15000});

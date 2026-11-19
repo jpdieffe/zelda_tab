@@ -2,7 +2,7 @@ import {POWERS} from './reward-types.js';
 import {BOSSES,ZERO_HEALTH_ENEMIES,enemyBody} from './enemies.js';
 import { wallAt } from './collision.js';
 import { readGuidance } from './guidance.js';
-import {DungeonGuide} from './dungeon-guide.js';
+import {DungeonGuide} from './dungeon-guide.js?guide=20261119-2';
 import { beamEnd, touchesBeam } from './lasers.js';
 // USA ALttP 1.0 only. Addresses verified against snesrev/zelda3 variables.h
 // and Sprite_GiveDamage / Sprite_MiniMoldorm_Recoil in sprite.c.

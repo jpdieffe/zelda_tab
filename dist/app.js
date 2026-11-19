@@ -1,6 +1,6 @@
 import {TeamTank} from './tank.js';
 import {canRecoverDungeon,recoverDungeon,inLoadedRoom} from './dungeon-safety.js';
-import { ROM_SHA256, ZeldaBridge, snapshotRam } from './zelda.js';
+import { ROM_SHA256, ZeldaBridge, snapshotRam } from './zelda.js?guide=20261119-2';
 import { Fairy, COOLDOWN } from './fairy.js';
 import { Unicorn } from './unicorn.js';
 import { drawGuidance } from './guidance.js';
@@ -327,9 +327,11 @@ function updateRouteGuide(){
   if(key===routeText)return;routeText=key;
   $('route-title').textContent=guide?.room||'Story compass';
   $('route-mission').textContent=guide?.mission||guide?.label||'Enter a dungeon for walking directions.';
+  $('route-destination').textContent=guide?.destination?`Next destination: ${guide.destination}`:'';
   $('route-puzzle').textContent=guide?.puzzle||'';
   $('route-tank-note').hidden=!game.tank?.active;
   $('route-next').disabled=!guide?.options?.length;
+  $('route-next').hidden=!!guide?.destination;
   $('route-steps').replaceChildren(...(guide?.steps||[]).map(text=>{const li=document.createElement('li');li.textContent=text;return li;}));
 }
 $('route-guide').onclick=()=>{releaseButtons();$('route-panel').hidden=false;routeText='';updateRouteGuide();};

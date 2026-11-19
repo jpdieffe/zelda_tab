@@ -6,7 +6,7 @@ const server=serve(4184),browser=await chromium.launch({executablePath:process.e
 try{
  const page=await browser.newPage({viewport:{width:900,height:430}});
  page.on('pageerror',e=>{throw e;});await page.goto('http://localhost:4184');
- await page.evaluate(async()=>{window.g=(await import('/app.js')).game;});
+ await page.evaluate(async()=>{window.g=(await import(document.querySelector('script[type="module"]').src)).game;});
  await page.locator('#choose-dad').click();await page.waitForFunction(()=>g.ready&&g.bridge?.ram,{},{timeout:90000});
  await page.evaluate(bytes=>g.emulator.gameManager.loadState(new Uint8Array(bytes)),Array.from(await readFile('test-results/active-game.state')));
  await page.waitForTimeout(200);

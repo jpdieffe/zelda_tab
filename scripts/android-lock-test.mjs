@@ -83,12 +83,12 @@ try{
   await js(`document.getElementById('tablet-leave').click();document.getElementById('join-code').value=${JSON.stringify(code)};document.getElementById('join-form').requestSubmit()`);
   try{await until(()=>js(`document.getElementById('video').readyState>=2`),'Android did not receive WebRTC video');}
   catch(e){
-    console.log('Android diagnostics',await js(`import('./app.js').then(({game})=>({status:document.getElementById('join-status').textContent,peer:game.network?.peer?.open,data:game.network?.connection?.open,ice:game.network?.connection?.peerConnection?.iceConnectionState,media:game.network?.call?.peerConnection?.iceConnectionState,video:document.getElementById('video').readyState}))`));
+    console.log('Android diagnostics',await js(`import(document.querySelector('script[type="module"]').src).then(({game})=>({status:document.getElementById('join-status').textContent,peer:game.network?.peer?.open,data:game.network?.connection?.open,ice:game.network?.connection?.peerConnection?.iceConnectionState,media:game.network?.call?.peerConnection?.iceConnectionState,video:document.getElementById('video').readyState}))`));
     console.log('Phone diagnostics',await phone.evaluate(()=>({status:hostStatus,peer:host.peer?.open,data:host.connection?.open,ice:host.connection?.peerConnection?.iceConnectionState,media:host.call?.peerConnection?.iceConnectionState})));
     throw e;
   }
   assert.deepEqual(await js(`(()=>{const v=document.getElementById('video'),c=document.createElement('canvas');c.width=1;c.height=1;const ctx=c.getContext('2d');ctx.drawImage(v,0,0,1,1);return {width:v.videoWidth,audio:v.srcObject.getAudioTracks().length};})()`),{width:512,audio:1});
-  await js(`import('./app.js').then(({game})=>game.network.send({type:'fire'}))`);
+  await js(`import(document.querySelector('script[type="module"]').src).then(({game})=>game.network.send({type:'fire'}))`);
   await phone.waitForFunction(()=>received.some(m=>m.type==='fire'));
   console.log('Android WebView received live WebRTC video/audio and returned fairy input to the phone.');
 }finally{await browser?.close();server?.close();ws.close();adb('forward','--remove','tcp:9223');}

@@ -6,7 +6,7 @@ try{
   const page=await browser.newPage({viewport:{width:900,height:430},hasTouch:true});const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://localhost:4177/zelda_tab/');
   await page.evaluate(async()=>{
-    window.testGame=(await import('./app.js')).game;window.inputs=[];
+    window.testGame=(await import(document.querySelector('script[type="module"]').src)).game;window.inputs=[];
     testGame.role='dad';testGame.ready=true;testGame.emulator={gameManager:{simulateInput:(_,key,value)=>inputs.push({key,value})}};
     document.querySelectorAll('.view').forEach(v=>v.hidden=v.id!=='controller');
   });

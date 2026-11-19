@@ -19,7 +19,7 @@ try{
   const dad=await dadContext.newPage();
   dad.on('pageerror',e=>{errors.push(e.message);console.log('DAD ERROR',e.message);});
   await dad.goto('http://localhost:4173');
-  await dad.evaluate(async()=>{window.testGame=(await import('/app.js')).game;});
+  await dad.evaluate(async()=>{window.testGame=(await import(document.querySelector('script[type="module"]').src)).game;});
   await shot(dad,'home.png');
   await dad.locator('#choose-dad').click();
   assert.equal(await dad.locator('#rom').count(),0,'No game file picker is needed');
@@ -56,22 +56,22 @@ try{
   // Input on the custom controller, then release; title advances to file select.
   await dad.locator('[data-key="3"]').click({delay:150});await dad.waitForTimeout(900);
   await dad.locator('#peek').click();await shot(dad,'game-file-select.png');await dad.locator('#close-peek').click();
-  console.log('GAME',await dad.evaluate(async()=>{const {game}=await import('/app.js');return {module:game.bridge.ram[0x10],sub:game.bridge.ram[0x11]};}));
+  console.log('GAME',await dad.evaluate(async()=>{const {game}=await import(document.querySelector('script[type="module"]').src);return {module:game.bridge.ram[0x10],sub:game.bridge.ram[0x11]};}));
   await dad.locator('#save').click();
   await dad.waitForTimeout(300);
   assert.ok(await dad.evaluate(async()=>Boolean(await (await import('/storage.js')).get('save'))));
-  const before=await dad.evaluate(async()=>{const {game}=await import('/app.js');return game.bridge.ram[0x1a];});
+  const before=await dad.evaluate(async()=>{const {game}=await import(document.querySelector('script[type="module"]').src);return game.bridge.ram[0x1a];});
   await dad.locator('#pause').click();await dad.waitForTimeout(100);
-  const paused1=await dad.evaluate(async()=>{const {game}=await import('/app.js');return game.bridge.ram[0x1a];});
+  const paused1=await dad.evaluate(async()=>{const {game}=await import(document.querySelector('script[type="module"]').src);return game.bridge.ram[0x1a];});
   await dad.waitForTimeout(150);
-  const paused2=await dad.evaluate(async()=>{const {game}=await import('/app.js');return game.bridge.ram[0x1a];});
+  const paused2=await dad.evaluate(async()=>{const {game}=await import(document.querySelector('script[type="module"]').src);return game.bridge.ram[0x1a];});
   assert.equal(paused1,paused2);console.log('Save and pause verified');
   await dad.locator('#pause').click();
   // Drive a new game through its menu using the actual emulator inputs.
-  async function tap(key,ms=100){await dad.evaluate(async({key,ms})=>{const {game}=await import('/app.js');game.emulator.gameManager.simulateInput(0,key,1);await new Promise(r=>setTimeout(r,ms));game.emulator.gameManager.simulateInput(0,key,0);},{key,ms});await dad.waitForTimeout(250);}
+  async function tap(key,ms=100){await dad.evaluate(async({key,ms})=>{const {game}=await import(document.querySelector('script[type="module"]').src);game.emulator.gameManager.simulateInput(0,key,1);await new Promise(r=>setTimeout(r,ms));game.emulator.gameManager.simulateInput(0,key,0);},{key,ms});await dad.waitForTimeout(250);}
   await tap(3);await dad.waitForTimeout(500);await shot(jj,'name-entry.png');
   await tap(0);await tap(3);await dad.waitForTimeout(600);await tap(3);await dad.waitForTimeout(1600);
-  console.log('After menus',await dad.evaluate(async()=>{const {game}=await import('/app.js');return {module:game.bridge.ram[0x10],sub:game.bridge.ram[0x11],world:game.bridge.read()};}));
+  console.log('After menus',await dad.evaluate(async()=>{const {game}=await import(document.querySelector('script[type="module"]').src);return {module:game.bridge.ram[0x10],sub:game.bridge.ram[0x11],world:game.bridge.read()};}));
   await shot(jj,'game-start.png');
   await tap(3);await dad.waitForTimeout(1500);await shot(jj,'name-entry-final.png');
   console.log('Menu state',await dad.evaluate(()=>({module:testGame.bridge.ram[0x10],sub:testGame.bridge.ram[0x11]})));

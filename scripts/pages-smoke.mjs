@@ -13,7 +13,7 @@ try {
   const response = await page.goto(url);
   assert.equal(response.status(), 200);
   assert.equal(await page.locator('#rom').count(), 0);
-  await page.evaluate(async base => { window.testGame = (await import(new URL('app.js',base).href)).game; }, url);
+  await page.evaluate(async base => { window.testGame = (await import(document.querySelector('script[type="module"]').src)).game; }, url);
   await page.locator('#choose-dad').click();
   await page.waitForFunction(() => window.testGame.ready, {}, { timeout: 90000 });
   assert.equal(await page.locator('#controller').isVisible(), true);

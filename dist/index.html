@@ -8,10 +8,10 @@
   <title>JJ's Fairy Link</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./style.css?guide=20261119-2">
   <link rel="stylesheet" href="./game-switch.css">
   <script defer src="./vendor/peerjs.min.js"></script>
-  <script type="module" src="./app.js"></script>
+  <script type="module" src="./app.js?guide=20261119-2"></script>
 </head>
 <body>
   <main id="home" class="view home">
@@ -73,7 +73,7 @@
     </div>
     <footer class="controller-bottom"><button id="peek">Enlarge game</button><button id="pause">Pause</button><button id="start-questions" disabled aria-label="Start questions for JJ and Michelle">Questions</button><button id="tank-questions" disabled>Tank challenge</button><button id="release-tank" hidden>Release tank power</button><button id="save">Save & keep playing</button><button id="route-guide">Step-by-step guide</button><button id="unstuck" title="Reload the dungeon entrance while keeping collected items">Unstuck</button><button id="options">More ···</button></footer>
     <aside id="phone-options" class="options" hidden><h2>Your adventure</h2><button id="toggle-guidance">Story compass: on</button><button id="resume-save">Load last save</button><button id="export-save">Download save backup</button><button id="export-recovery">Download pre-recovery backup</button><label class="button-label">Restore backup<input id="import-save" type="file" accept=".state"></label><button id="unlock-tablet">Unlock JJ's tablet</button><button id="new-pair">Reconnect tablet</button><button id="exit-game">Save & leave</button><button id="close-options" class="primary">Back to game</button></aside>
-    <aside id="route-panel" class="options route-panel" hidden><h2 id="route-title">Dungeon guide</h2><p id="route-mission"></p><p id="route-tank-note" hidden>Release tank power before following the walking route. Dungeon walls, doors and stairs stop the tank.</p><ol id="route-steps"></ol><p id="route-puzzle"></p><button id="route-next">Guide to another nearby target</button><button id="close-route" class="primary">Back to game</button></aside>
+    <aside id="route-panel" class="options route-panel" hidden><h2 id="route-title">Dungeon guide</h2><small>Desert guide v2</small><p id="route-mission"></p><p id="route-destination"></p><p id="route-tank-note" hidden>Release tank power before following the walking route. Dungeon walls, doors and stairs stop the tank.</p><ol id="route-steps"></ol><p id="route-puzzle"></p><button id="route-next">Guide to another nearby target</button><button id="close-route" class="primary">Back to game</button></aside>
     <div id="peek-panel" class="peek-panel" hidden><canvas id="peek-canvas" width="512" height="448"></canvas><button id="close-peek">Close preview</button></div>
   </main>
 
