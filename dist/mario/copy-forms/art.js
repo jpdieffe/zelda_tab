@@ -5,7 +5,7 @@ export function setSpriteLibrary(value){library=value;}
 function surface(sprite){
   if(surfaces.has(sprite))return surfaces.get(sprite);
   const canvas=document.createElement('canvas');canvas.width=sprite.width;canvas.height=sprite.height;
-  const c=canvas.getContext('2d'),image=c.createImageData(sprite.width,sprite.height);
+  const c=canvas.getContext('2d',{willReadFrequently:true}),image=c.createImageData(sprite.width,sprite.height);
   new Uint32Array(image.data.buffer).set(sprite.pixels);c.putImageData(image,0,0);surfaces.set(sprite,canvas);return canvas;
 }
 export function drawSprite(ctx,sprite,x,y,scale=1,facing=sprite?.facing,phase=false,opacity=1){

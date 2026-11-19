@@ -15,9 +15,11 @@ const $=id=>document.getElementById(id);
 $('forms-release').textContent=`${FORMS.length} transformations from Michelle`;
 let role=null,engine=null,kids=null,connection=null,audio=null,media=null,wakeLock=null,busy=false,raf=0,last=0,accumulator=0,noticeTimer;
 let selected='jj',target=null,remoteQuiz=null,localSound=false,jetMode=false,aimVector=null,lastVideoFrame=0;
-const sources=new Map(),learning=new FamilyLearning(),canvas=$('game'),ctx=canvas.getContext('2d',{alpha:false});
+const sources=new Map(),learning=new FamilyLearning(),canvas=$('game'),ctx=canvas.getContext('2d',{alpha:false,willReadFrequently:true});
 const native=document.createElement('canvas');native.width=256;native.height=240;
-const nativeCtx=native.getContext('2d',{alpha:false}),pixels=nativeCtx.createImageData(256,240),words=new Uint32Array(pixels.data.buffer);
+const nativeCtx=native.getContext('2d',{alpha:false,willReadFrequently:true}),pixels=nativeCtx.createImageData(256,240),words=new Uint32Array(pixels.data.buffer);
+const composed=document.createElement('canvas');composed.width=canvas.width;composed.height=canvas.height;
+const composedCtx=composed.getContext('2d',{alpha:false,willReadFrequently:true});
 new ResizeObserver(()=>{const area=$('screen-wrap');const width=Math.min(area.clientWidth,area.clientHeight*256/240);for(const surface of [canvas,$('remote-video')]){surface.style.width=width+'px';surface.style.height=width*240/256+'px';}}).observe($('screen-wrap'));
 const quiz=new QuestionView((token,index)=>questionAction({type:'answer',token,index}),token=>questionAction({type:'next',token}));
 const kidLock=new KidLock(locked=>connection?.send({type:'kid-lock-state',locked}));
@@ -53,8 +55,11 @@ async function requestWake(){if(role&&!document.hidden)try{wakeLock=await naviga
 function draw(){
   if(!engine)return;for(let i=0;i<words.length;i++)words[i]=engine.frames[0][i]|0xff000000;
   if(kids.jet.active)nativeCtx.putImageData(pixels,0,0);else drawGame(nativeCtx,engine.forms);
-  ctx.imageSmoothingEnabled=false;ctx.drawImage(native,0,0,768,720);
-  ctx.save();ctx.scale(3,3);kids.draw(ctx);ctx.restore();
+  // Compose the whole frame on a CPU-backed surface before presenting it.
+  // Reused enemy sprite canvases must not depend on Android GPU texture caching.
+  composedCtx.imageSmoothingEnabled=false;composedCtx.drawImage(native,0,0,768,720);
+  composedCtx.save();composedCtx.scale(3,3);kids.draw(composedCtx);composedCtx.restore();
+  ctx.drawImage(composed,0,0);
   // Submit only the completed composite, including an idle transformed Dad.
   const now=performance.now(),track=media?.getVideoTracks()[0];
   if(track?.requestFrame&&now-lastVideoFrame>=1000/30){track.requestFrame();lastVideoFrame=now;}
