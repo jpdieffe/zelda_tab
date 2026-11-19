@@ -3,6 +3,7 @@ import {M} from './memory.js';
 import {tileAt} from './weapons.js';
 import {FamilyJet} from './jet.js';
 import {FORMS} from './copy-forms/forms.js';
+import {LevelPowers} from './level-powers.js';
 
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -15,6 +16,7 @@ export class Companions {
     this.kids=Object.fromEntries(['jj','michelle'].map(role=>[role,{role,x:0,y:0,vx:0,vy:0,face:1,mask:0,until:0,target:null,flap:false,segments:[],cooldown:0,hurt:0,power:null,active:false}]));
     this.stats={shots:0,hits:0,returns:0};
     this.jet=new FamilyJet(engine,this);
+    this.levelPowers=new LevelPowers(this);engine.companions=this;
   }
   playable(){const n=this.engine.nes[0],m=n.cpu.mem;return inLevel(n)&&!m[M.Player_IsDying]&&!m[M.Player_InPipe]&&!m[M.Player_EndLevel]&&!m[M.Player_HaltGame]&&!m[M.Player_HaltTick];}
   input(role,data,now=performance.now()){
@@ -29,7 +31,9 @@ export class Companions {
     return true;
   }
   release(role){const k=this.kids[role];if(k){k.mask=0;k.until=0;k.target=null;k.aim=null;k.jetAim=null;k.flap=false;}}
-  reset({keepJet=false}={}){if(!keepJet)this.jet.stop();this.key=null;this.shots=[];this.particles=[];this.explosions=[];this.meteors=[];this.hearts=[];this.heartCooldown=0;this.heartFormBag=[];for(const k of Object.values(this.kids)){this.release(k.role);k.power=null;}}
+  reset({keepJet=false,keepPowers=false}={}){if(!keepJet)this.jet.stop();this.key=null;this.shots=[];this.particles=[];this.explosions=[];this.meteors=[];this.hearts=[];this.heartCooldown=0;this.heartFormBag=[];this.levelPowers.chomps=[];for(const k of Object.values(this.kids)){this.release(k.role);if(!keepPowers)k.power=null;}}
+  snapshot(){return this.levelPowers.snapshot();}
+  restore(saved){this.levelPowers.restore(saved);}
   heartReady(){return !this.jet.active&&!this.engine.paused&&this.playable()&&!this.heartCooldown;}
   sendHeart(role){
     if(role!=='michelle'||!this.heartReady())return false;
@@ -68,7 +72,9 @@ export class Companions {
     k.vx=k.vy=0;k.segments=Array.from({length:8},(_,i)=>({x:k.x-(i+1)*5,y:k.y}));k.hurt=45;
   }
   grant({roles,giant,type}){
+    if(type==='bullet'){if(roles.length)this.jet.start({kind:'bullet'});return;}
     if(type==='jet'){if(roles.includes('jj')&&roles.includes('michelle'))this.jet.start();return;}
+    if(this.levelPowers.grant({roles,giant,type}))return;
     for(const role of roles){const k=this.kids[role];if(!k)continue;
       k.power={type,giant,left:type==='missiles'?300:type==='meteor'?120:1200};
       if(type==='meteor')this.meteors.push({x:k.x,y:k.y,left:65,giant,role});
@@ -106,6 +112,7 @@ export class Companions {
   }
   step(now=performance.now()){
     if(this.engine.paused)return;
+    this.levelPowers.step();
     const p=player(this.engine.nes[0]),key=sceneKey(this.engine.nes[0]);
     if(this.key!==key){this.key=key;this.shots=[];this.meteors=[];this.particles=[];this.explosions=[];this.hearts=[];for(const k of Object.values(this.kids)){this.regroup(k,p);this.release(k.role);}}
     if(!this.playable()){this.shots=[];this.meteors=[];this.hearts=[];this.explosions=[];for(const k of Object.values(this.kids))this.release(k.role);return;}
@@ -129,7 +136,7 @@ export class Companions {
     for(const k of Object.values(this.kids)){
       if(now>k.until){k.mask=0;k.target=null;k.flap=false;}
       if(k.cooldown>0)k.cooldown--;if(k.hurt>0)k.hurt--;
-      if(k.power&&--k.power.left<=0){if(k.power.type==='dinosaur'&&k.role==='michelle')this.regroup(k,p);k.power=null;}
+      if(k.power&&!k.power.level&&--k.power.left<=0){if(k.power.type==='dinosaur'&&k.role==='michelle')this.regroup(k,p);k.power=null;}
       const dx=(k.mask&128?1:0)-(k.mask&64?1:0),dy=(k.mask&32?1:0)-(k.mask&16?1:0);
       if(dx)k.face=dx;
       if(k.role==='jj'){
@@ -203,7 +210,7 @@ export class Companions {
       }
     }
     for(const m of this.meteors){ctx.strokeStyle='#ffda77';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(m.x,m.y,m.giant?24:16,0,Math.PI*2);ctx.stroke();line(ctx,m.x-10,m.y,m.x+10,m.y);line(ctx,m.x,m.y-10,m.x,m.y+10);const y=m.y-m.left*4;ctx.fillStyle='#ff9f32';triangle(ctx,m.x-10,y,m.x+10,y,m.x-16,y-45);circle(ctx,m.x,y,12);ctx.fillStyle='#fff1a5';circle(ctx,m.x+2,y+2,7);}
-    this.jet.draw(ctx);
+    this.levelPowers.draw(ctx);this.jet.draw(ctx);
     for(const blast of this.explosions){
       const progress=1-blast.life/blast.max,radius=7+progress*24;
       ctx.save();ctx.globalAlpha=Math.min(1,blast.life/12);

@@ -13,7 +13,7 @@ try{
   const url=new URL(base);url.searchParams.set('test','1');
   await host.goto(url.href);await host.locator('[data-role=dad]').click();
   await host.waitForFunction(()=>window.__family?.engine&&window.__family?.connection);
-  assert.equal(await host.locator('#game-version').textContent(),'Nov 19 - Squid v3');
+  assert.equal(await host.locator('#game-version').textContent(),'Nov 19 - Powers v1');
   assert.equal(await host.evaluate(()=>document.querySelector('#game').getContext('2d').getContextAttributes().willReadFrequently),true);
   await host.evaluate(form=>{
     const {engine:e,kids}=window.__family;

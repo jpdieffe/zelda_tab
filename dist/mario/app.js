@@ -14,7 +14,7 @@ import {FORMS} from './copy-forms/forms.js';
 const $=id=>document.getElementById(id);
 $('forms-release').textContent=`${FORMS.length} transformations from Michelle`;
 let role=null,engine=null,kids=null,connection=null,audio=null,media=null,wakeLock=null,busy=false,raf=0,last=0,accumulator=0,noticeTimer;
-let selected='jj',target=null,remoteQuiz=null,localSound=false,jetMode=false,aimVector=null,lastVideoFrame=0;
+let selected='jj',target=null,remoteQuiz=null,localSound=false,jetMode=false,vehicleKind=null,aimVector=null,lastVideoFrame=0;
 const sources=new Map(),learning=new FamilyLearning(),canvas=$('game'),ctx=canvas.getContext('2d',{alpha:false,willReadFrequently:true});
 const native=document.createElement('canvas');native.width=256;native.height=240;
 const nativeCtx=native.getContext('2d',{alpha:false,willReadFrequently:true}),pixels=nativeCtx.createImageData(256,240),words=new Uint32Array(pixels.data.buffer);
@@ -70,12 +70,19 @@ function tick(now){
   try{while(accumulator>=1000/60&&frames<4){engine.step();kids.step(now);accumulator-=1000/60;frames++;}if(frames)draw();}
   catch(error){engine.paused=true;notice('Game paused: '+error.message);console.error(error);}
 }
-function state(){return {type:'state',jet:!!kids?.jet.active,form:engine?{name:engine.forms.form.name,hint:engine.forms.hint}:null,quiz:learning.snapshot(),paused:engine?.paused,heart:{ready:!!kids?.heartReady(),seconds:Math.ceil((kids?.heartCooldown||0)/60)},powers:Object.values(kids?.kids||{}).filter(k=>k.power).map(k=>`${k.role==='jj'?'JJ':'Michelle'}: ${k.power.giant?'SUPER ':''}${({laser:'lasers',missiles:'homing missiles',dinosaur:'dinosaur',meteor:'meteor'})[k.power.type]} · ${Math.ceil(k.power.left/60)}s`).join('  ✦  ')};}
+function state(){return {type:'state',jet:!!kids?.jet.active,vehicle:kids?.jet.kind,form:engine?{name:engine.forms.form.name,hint:engine.forms.hint}:null,quiz:learning.snapshot(),paused:engine?.paused,
+  abilities:{jj:kids?.levelPowers.state('jj'),michelle:kids?.levelPowers.state('michelle')},
+  heart:{ready:!!kids?.heartReady(),seconds:Math.ceil((kids?.heartCooldown||0)/60)},
+  powers:Object.values(kids?.kids||{}).filter(k=>k.power).map(k=>`${k.role==='jj'?'JJ':'Michelle'}: ${k.power.giant?'SUPER ':''}${({laser:'lasers',missiles:'homing missiles',dinosaur:'dinosaur',meteor:'Meteor button',chomp:'Chain Chomp launcher'})[k.power.type]} - ${k.power.level?'rest of level':Math.ceil(k.power.left/60)+'s'}`).join(' | ')};}
 function showState(data){
-  if(jetMode!==!!data.jet){jetMode=!!data.jet;clearInput();updateControls();}
+  if(jetMode!==!!data.jet||vehicleKind!==data.vehicle){jetMode=!!data.jet;vehicleKind=data.vehicle;clearInput();updateControls();}
   if(role!=='dad'){const changed=!!remoteQuiz!==!!data.quiz;remoteQuiz=data.quiz;if(changed)clearInput();}
   if(role==='jj'||role==='dad'&&!connection?.has('jj'))quiz.render(data.quiz);else quiz.render(null);
   $('power-status').textContent=data.quiz?'Question time — game paused':data.paused?'Paused':data.jet?'INVINCIBLE JET · Dad flies · Aim lasers with joystick · Hold Missiles':data.powers||'No time limit';
+  if(data.jet&&data.vehicle==='bullet'&&!data.quiz&&!data.paused)$('power-status').textContent='GIANT BULLET BILL - Dad steers through walls and enemies - rest of level';
+  const ability=data.abilities?.[role],hasAbility=role!=='dad'&&!!ability&&!data.jet;
+  document.body.dataset.super=String(hasAbility);$('super-power').hidden=!hasAbility;$('super-power').disabled=!ability?.ready||!!data.quiz;
+  $('super-power').textContent=ability?`${ability.type==='meteor'?'METEOR':'CHAIN CHOMP'}${ability.seconds?' - '+ability.seconds+'s':''}`:'SUPER POWER';
   $('quiz-skip').hidden=role!=='dad';
   $('heart').disabled=role!=='michelle'||!data.heart?.ready||!!data.quiz;
   $('heart-caption').textContent=data.heart?.seconds?`${data.heart.seconds}s recharge`:'Random form for Dad';
@@ -114,6 +121,7 @@ function makeConnection(code){
     onData:(data,from)=>{
       if(role==='dad'){
         if(data.type==='heart'&&from==='michelle'){if(!learning.round)kids.sendHeart(from);broadcast();}
+        else if(data.type==='super-power'&&!learning.round){kids.levelPowers.launch(from);broadcast();}
         else if(data.type==='input'&&!learning.round)kids.input(from,data);
         else if(data.type==='answer'||data.type==='next')questionAction(data,from);
       }else if(data.type==='unlock-tablet'&&role==='jj')kidLock.unlock();
@@ -132,10 +140,11 @@ function updateControls(){
   document.body.dataset.jet=String(jetMode);
   $('jump').innerHTML=role==='michelle'?'FLY <small>TAP A</small>':'JUMP <small>A</small>';
   $('fire').innerHTML=jetMode&&role!=='dad'?'MISSILES <small>HOLD B</small>':{dad:'RUN / POWER <small>HOLD B</small>',jj:'FIRE <small>HOLD B</small>',michelle:'MAGIC <small>HOLD B</small>'}[role];
-  $('control-hint').textContent=jetMode?(role==='dad'?'Fly with the joystick. Use arrows at pipes and doors.':'Aim the laser with your joystick. Hold Missiles!'):{dad:'You lead. The magic crew follows.',jj:'Drag on the game to fly. Hold Fire!',michelle:'Every jump tap lifts you higher.'}[role];
+  $('control-hint').textContent=jetMode?(role==='dad'?(vehicleKind==='bullet'?'Steer the giant bullet through walls! Use arrows at pipes and doors.':'Fly with the joystick. Use arrows at pipes and doors.'):'Aim the laser with your joystick. Hold Missiles!'):{dad:'You lead. The magic crew follows.',jj:'Drag on the game to fly. Hold Fire!',michelle:'Every jump tap lifts you higher.'}[role];
   $('move-label').textContent=jetMode?(role==='dad'?'FLY':'AIM LASER'):role==='jj'?'FLY':'MOVE';
   $('joystick').setAttribute('aria-label',jetMode&&role!=='dad'?'Aim laser joystick':'Movement joystick');
 }
+$('super-power').onclick=()=>{if(role==='dad'||blocked()||$('super-power').disabled)return;connection?.send({type:'super-power'});$('super-power').disabled=true;};
 async function host(){
   if(busy||role)return;busy=true;
   try{
@@ -159,7 +168,7 @@ async function join(event){
   try{enter(selected);$('room-code').textContent=code;connection=makeConnection(code);connection.start();}catch(error){leave();notice(error.message);}
 }
 async function save(announce=true){if(!engine)return;try{await storage.put('save',engine.snapshot());if(announce)notice('Adventure saved on Dad’s device.');}catch{notice('Save failed. Browser storage may be full or unavailable.');}}
-async function load(){if(!engine)return;try{const saved=await storage.get('save');if(!saved){notice('No saved adventure on this device yet.');return;}engine.restore(saved);engine.weapons.equipped=[0,0];engine.resetWorld();learning.skip();kids.reset({keepJet:true});clearInput();broadcast();notice('Saved adventure loaded.');}catch(error){notice('Could not load save: '+error.message);}}
+async function load(){if(!engine)return;try{const saved=await storage.get('save');if(!saved){notice('No saved adventure on this device yet.');return;}engine.restore(saved);engine.weapons.equipped=[0,0];engine.resetWorld();learning.skip();kids.reset({keepJet:true,keepPowers:true});clearInput();broadcast();notice('Saved adventure loaded.');}catch(error){notice('Could not load save: '+error.message);}}
 function leave(){
   kidLock.unlock();
   if(engine)save(false);clearInput();cancelAnimationFrame(raf);connection?.close();media?.getTracks().forEach(t=>t.stop());audio?.close();wakeLock?.release().catch(()=>{});stopQuestionAudio();quiz.render(null);quiz.setConnected(true);

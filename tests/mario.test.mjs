@@ -152,7 +152,52 @@ test('defeat explosion produces native audio samples and clears on room changes 
   const target=e.weapons.targets()[0];if(target)kids.hit(target);kids.reset();assert.equal(kids.explosions.length,0);
 });
 test('scene transitions clear shots and regroup both children',()=>{const {kids,e}=boot();kids.attack(kids.kids.jj);assert.equal(kids.shots.length,1);e.nes[0].cpu.mem[M.Level_LayPtrOrig_AddrL]^=1;kids.step(0);assert.equal(kids.shots.length,0);assert.equal(kids.kids.jj.mask,0);assert.ok(Math.abs(kids.kids.jj.x-player(e.nes[0]).x)<50);});
-test('all four learning rewards apply and expire on simulation time',()=>{const {kids}=boot();for(const type of ['laser','missiles','dinosaur','meteor']){kids.grant({roles:['jj','michelle'],type,giant:true});assert.equal(kids.kids.jj.power.type,type);assert.equal(kids.kids.michelle.power.giant,true);kids.kids.jj.power.left=1;kids.step(0);assert.equal(kids.kids.jj.power,null);}});
+test('legacy timed rewards still expire on simulation time',()=>{const {kids}=boot();for(const type of ['laser','missiles','dinosaur']){kids.grant({roles:['jj','michelle'],type,giant:true});assert.equal(kids.kids.jj.power.type,type);assert.equal(kids.kids.michelle.power.giant,true);kids.kids.jj.power.left=1;kids.step(0);assert.equal(kids.kids.jj.power,null);}});
+test('level powers launch repeated meteors and chomps, pause, survive saves and pipes, and end on death',()=>{
+  for(const type of ['meteor','chomp']){
+    const {e,kids}=boot(),m=e.nes[0].cpu.mem,power=kids.levelPowers,target=e.weapons.targets()[0];
+    kids.grant({roles:['jj','michelle'],type,giant:true});
+    assert.equal(kids.meteors.length,0,'earning a meteor gives a button, not an automatic strike');
+    assert.equal(power.launch('dad'),false);
+    const k=kids.kids.jj;k.x=target.left-45;k.y=(target.top+target.bottom)/2;k.active=true;k.hurt=255;
+    const wall=tileAt(e.nes[0],target.left-20,k.y);m[0x6000+wall.index]=0x67;
+    assert.equal(power.launch('jj'),true);assert.equal(power.launch('jj'),false,'cooldown prevents duplicate taps');
+    e.paused=true;const cooldown=k.power.cooldown;for(let i=0;i<120;i++)kids.step(i);assert.equal(k.power.cooldown,cooldown);assert.equal(power.launch('michelle'),false);e.paused=false;
+    for(let i=0;i<130;i++)kids.step(i);
+    assert.equal(m[0x661+target.slot],0,'power defeats the enemy across the wall');
+    assert.equal(k.power.type,type);assert.equal(power.launch('jj'),true,'power can launch again');
+    for(let i=0;i<1300;i++)kids.step(i);assert.equal(k.power.type,type,'power lasts beyond old timed rewards');
+    m[M.Player_InPipe]=1;kids.step(0);assert.equal(power.launch('jj'),false);m[M.Player_InPipe]=0;
+    m[M.Level_LayPtrOrig_AddrL]^=1;kids.step(0);assert.equal(k.power.type,type,'new room in the same level keeps the power');
+    const saved=structuredClone(e.snapshot());kids.reset();e.restore(saved);assert.equal(k.power.type,type);assert.equal(kids.kids.michelle.power.type,type);
+    e.nes[0].cpu.mem[M.Player_IsDying]=2;kids.step(0);assert.equal(k.power,null);assert.equal(power.chomps.length,0);assert.equal(kids.meteors.length,0);
+  }
+});
+
+test('giant family Bullet Bill crosses solid walls, crushes enemies and bricks, and restores from a save',()=>{
+  const {e,kids}=boot(),m=e.nes[0].cpu.mem,original=structuredClone(e.nes[0].rom.rom);
+  kids.grant({roles:['jj','michelle'],type:'bullet',giant:true});assert.equal(kids.jet.kind,'bullet');assert.equal(kids.jet.active,true);
+  const start=player(e.nes[0]),wall=tileAt(e.nes[0],start.x+45,start.y+16);m[0x6000+wall.index]=255;
+  const brick=tileAt(e.nes[0],start.x+24,start.y+16);m[0x6000+brick.index]=0x67;
+  const target=e.weapons.targets()[0];
+  e.input(0,128);for(let i=0;i<22;i++){e.step();kids.step(i);}
+  assert.ok(player(e.nes[0]).x>wall.x+16,'bullet passes completely through solid terrain');assert.equal(m[0x6000+brick.index],0x80,'bullet blasts bricks');
+  assert.equal(m[M.Player_IsDying],0);assert.deepEqual(e.nes[0].rom.rom,original,'temporary protection leaves ROM clean');
+  if(target)assert.equal(m[0x661+target.slot],0,'body contact defeats a real enemy');
+  const save=structuredClone(e.snapshot());kids.jet.stop();e.restore(save);assert.equal(kids.jet.active,true);assert.equal(kids.jet.kind,'bullet');
+  e.nes[0].cpu.mem[M.EndCard_Flag]=1;e.step();assert.equal(kids.jet.active,false,'goal ends giant bullet');
+});
+
+test('giant Bullet Bill can finish a real level through its original goal card',()=>{
+  const {e,kids}=boot(),m=e.nes[0].cpu.mem;kids.grant({roles:['jj'],type:'bullet',giant:false});let sawCard=false;
+  for(let i=0;i<1800&&kids.jet.active;i++){
+    const p=player(e.nes[0]),card=e.readActors(0).find(a=>m[0x671+a.slot]===0x41);let dx=1,dy=p.y>p.cameraY+25?-1:0;
+    if(card){sawCard=true;dx=Math.sign(card.x-p.x);dy=Math.sign(card.y-18-p.y);}
+    e.input(0,(dx>0?128:dx<0?64:0)|(dy>0?32:dy<0?16:0));e.step();kids.step(i);
+  }
+  assert.equal(sawCard,true);assert.equal(kids.jet.active,false);assert.equal(m[M.Player_IsDying],0);
+});
+
 test('save/load restores original Mario progress and companion effects reset separately',()=>{const {e,kids}=boot();const saved=structuredClone(e.snapshot()),p=player(e.nes[0]);e.nes[0].cpu.mem[M.Player_X]+=30;e.restore(saved);e.resetWorld();kids.reset();assert.deepEqual(player(e.nes[0]),p);assert.equal(e.joined,false);assert.equal(kids.shots.length,0);});
 test('curriculum has nonrepeating letters, alternating math/words, ordered 0–10 math answers',()=>{const deck=new QuestionDeck(),letters=new Set();for(let i=0;i<26;i++){letters.add(deck.next('jj').answer);const q=deck.next('michelle');assert.equal(q.kind,i%2?'word':'math');assert.equal(q.choices.length,i%2?3:11);}assert.equal(letters.size,26);assert.equal(mathFacts().length,132);assert.ok(mathFacts().every(f=>Number(f.answer)>=0&&Number(f.answer)<=10));});
 test('both children aim across the whole screen, ignoring closer enemies outside every edge and the HUD',()=>{

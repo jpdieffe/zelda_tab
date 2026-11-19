@@ -138,7 +138,7 @@ export class CoopEngine {
       this.vehicle?.beforeFrame();this.applyInput(0);
       const n=this.nes[0],hooks=n.copyHooks;
       try{
-        if(this.vehicle?.active){n.copyHooks=null;n.hideMario=false;this.forms.clearEffects();this.forms.release();n.frame();}
+        if(this.vehicle?.active){n.copyHooks=null;n.hideMario=this.vehicle.kind==='bullet'&&this.vehicle.flying;this.forms.clearEffects();this.forms.release();n.frame();}
         else{this.forms.input(this.masks[0]);this.forms.step();}
       }finally{n.copyHooks=hooks;this.vehicle?.afterFrame();}
       // Track the overworld too: a death followed by retrying the same level
@@ -303,7 +303,7 @@ export class CoopEngine {
     const previous=n.ppu.vramMem[n.ppu.vramMirrorTable[addr]];
     n.ppu.mirroredWrite(addr,(previous&~(3<<shift))|((value>>6)<<shift));
   }
-  snapshot() {return {version:1,rom:'smb3-us-rev1',state:this.nes[0].toJSON(),weapons:[...this.weapons.equipped],jet:this.vehicle?.snapshot(),form:this.forms.snapshot()};}
+  snapshot() {return {version:1,rom:'smb3-us-rev1',state:this.nes[0].toJSON(),weapons:[...this.weapons.equipped],jet:this.vehicle?.snapshot(),form:this.forms.snapshot(),powers:this.companions?.snapshot()};}
   restore(saved) {
     if(saved?.version!==1 || saved.rom!=='smb3-us-rev1')throw new Error('This save is for a different game version.');
     this.vehicle?.stop();
@@ -313,6 +313,7 @@ export class CoopEngine {
     this.weapons.equip(1,saved.weapons?.[1]??0);
     if(this.joined)this.join();
     this.vehicle?.restore(saved.jet);
+    this.companions?.restore(saved.powers);
   }
 }
 

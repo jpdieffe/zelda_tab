@@ -1,5 +1,6 @@
 import {M} from './memory.js';
 import {player,setPosition,inLevel,sceneKey} from './engine.js';
+import {tileAt} from './weapons.js';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const JET_COLORS={jj:'#59baff',michelle:'#ff86d4'};
@@ -13,17 +14,17 @@ const PATCHES=[
 ];
 export class FamilyJet {
   constructor(engine,kids){this.engine=engine;this.kids=kids;engine.vehicle=this;this.active=false;this.shots=[];this.beams=[];this.cooldowns={jj:0,michelle:0};this.face=1;this.time=0;this.patched=false;}
-  start(){
+  start({kind='jet'}={}){
     const n=this.engine.nes[0],m=n.cpu.mem;
     if(this.active||this.finished()||m[M.Player_IsDying])return false;
     for(const p of PATCHES){const bank=n.rom.rom[p.bank>>1],offset=(p.bank%2)*8192+(p.address&8191);if(!p.bytes.every((b,i)=>bank[offset+i]===b))throw new Error('Jet ROM verification failed.');}
-    this.active=true;this.key=sceneKey(n);this.shots=[];this.beams=[];this.cooldowns={jj:0,michelle:0};this.face=1;this.syncPosition();
+    this.kind=kind==='bullet'?'bullet':'jet';this.active=true;this.key=sceneKey(n);this.shots=[];this.beams=[];this.cooldowns={jj:0,michelle:0};this.face=1;this.syncPosition();
     for(const role of ['jj','michelle'])this.kids.release(role);
     this.kids.shots=[];this.kids.hearts=[];this.kids.meteors=[];return true;
   }
   stop(){this.patch(false);this.active=false;this.flying=false;this.shots=[];this.beams=[];}
-  snapshot(){return this.active?{active:true,scene:sceneKey(this.engine.nes[0]),face:this.face}:null;}
-  restore(saved){if(saved?.active===true&&saved.scene===sceneKey(this.engine.nes[0])&&this.start())this.face=saved.face===-1?-1:1;}
+  snapshot(){return this.active?{active:true,kind:this.kind,scene:sceneKey(this.engine.nes[0]),face:this.face}:null;}
+  restore(saved){if(saved?.active===true&&saved.scene===sceneKey(this.engine.nes[0])&&this.start({kind:saved.kind}))this.face=saved.face===-1?-1:1;}
   syncPosition(){const p=player(this.engine.nes[0]);this.x=p.x+8;this.y=p.y+16;}
   finished(){const n=this.engine.nes[0],m=n.cpu.mem;return !inLevel(n)||!!(m[M.Player_EndLevel]||m[M.EndCard_Flag]||m[M.Level_ExitToMap])||m[M.Level_GetWandState]>=3;}
   patch(enable){
@@ -45,8 +46,9 @@ export class FamilyJet {
     if(m[M.Player_InPipe]||m[M.Level_PipeMove]||m[M.Player_HaltGame]||m[M.Player_HaltTick])return;
     this.flying=true;const p=player(n),mask=this.engine.masks[0];
     let dx=(mask&128?1:0)-(mask&64?1:0),dy=(mask&32?1:0)-(mask&16?1:0);
-    const length=Math.hypot(dx,dy)||1;dx=dx/length*2.8;dy=dy/length*2.8;if(dx)this.face=Math.sign(dx);
+    const length=Math.hypot(dx,dy)||1,speed=this.kind==='bullet'?5:2.8;dx=dx/length*speed;dy=dy/length*speed;if(dx)this.face=Math.sign(dx);
     setPosition(n,clamp(p.x+dx,p.cameraX+38,p.cameraX+208),clamp(p.y+dy,Math.max(0,p.cameraY+12),p.cameraY+160));
+    this.destination=player(n);
     m[M.Player_XVel]=0;m[M.Player_YVel]=0;
     // Keep the native previous-frame pit check above its fatal row.
     m[M.Player_SpriteY]=clamp(player(n).y-p.cameraY,4,170);
@@ -58,6 +60,7 @@ export class FamilyJet {
     if(this.flying)this.engine.nes[0].cpu.mem[M.Player_FlashInv]=Math.max(0,this.flash-1);
     if(!this.active)return;
     if(this.finished()){this.stop();return;}
+    if(this.kind==='bullet'&&this.flying&&!this.engine.nes[0].cpu.mem[M.Player_InPipe]&&!this.engine.nes[0].cpu.mem[M.Level_PipeMove])setPosition(this.engine.nes[0],this.destination.x,this.destination.y);
     this.syncPosition();
   }
   turret(role){return {x:this.x+this.face*12,y:this.y+(role==='jj'?-9:9)};}
@@ -65,6 +68,7 @@ export class FamilyJet {
     if(!this.active||this.engine.paused)return;
     this.time++;this.beams=[];
     if(!this.flying){this.shots=[];return;}
+    if(this.kind==='bullet')this.blastContact();
     for(const role of ['jj','michelle']){
       const k=this.kids.kids[role];if(now>k.until){k.mask=0;k.aim=null;}
       if(this.cooldowns[role]>0)this.cooldowns[role]--;
@@ -94,10 +98,31 @@ export class FamilyJet {
     }
     this.shots=this.shots.filter(s=>s.life>0).slice(-48);
   }
+  blastContact(){
+    const radius=31,e=this.engine;
+    for(const t of e.weapons.targets())if(Math.hypot(Math.max(t.left-this.x,0,this.x-t.right),Math.max(t.top-this.y,0,this.y-t.bottom))<=radius)this.kids.hit(t);
+    for(const t of e.forms.actors())if(Math.hypot(Math.max(t.left-this.x,0,this.x-t.right),Math.max(t.top-this.y,0,this.y-t.bottom))<=radius){
+      const hit=t.boss?e.forms.defeatBoss(t):e.forms.defeat(t);if(hit)this.kids.burst(t.x,t.y,'#ffda75');
+    }
+    for(let y=Math.floor((this.y-radius)/16)*16;y<this.y+radius;y+=16)for(let x=Math.floor((this.x-radius)/16)*16;x<this.x+radius;x+=16){const tile=tileAt(e.nes[0],x,y);if(tile?.brick){e.weapons.breakBrick(tile);this.kids.burst(x+8,y+8,'#f3bc72',6);e.weapons.sound(x,y,0x4f3,1);}}
+  }
   draw(ctx){
     if(!this.active||!this.flying)return;
     for(const beam of this.beams){ctx.strokeStyle=JET_COLORS[beam.role];ctx.lineWidth=7;ctx.globalAlpha=.55;stroke(ctx,beam.x,beam.y,beam.x+beam.dx*350,beam.y+beam.dy*350);ctx.globalAlpha=1;ctx.lineWidth=2;ctx.strokeStyle='#fff';stroke(ctx,beam.x,beam.y,beam.x+beam.dx*350,beam.y+beam.dy*350);}
     for(const shot of this.shots){ctx.fillStyle=JET_COLORS[shot.role];for(let i=shot.trail.length-1;i>=0;i--){ctx.globalAlpha=(1-i/17)*.7;dot(ctx,shot.trail[i].x,shot.trail[i].y,3-i*.12);}ctx.globalAlpha=1;ctx.save();ctx.translate(shot.x,shot.y);ctx.rotate(Math.atan2(shot.dy,shot.dx));ctx.fillRect(-6,-3,11,6);ctx.fillStyle='#fff';dot(ctx,5,0,3);ctx.restore();}
+    if(this.kind==='bullet'){
+      ctx.save();ctx.translate(this.x,this.y);ctx.scale(this.face,1);
+      ctx.fillStyle='#ffb347';poly(ctx,[[-31,-17],[-57-Math.sin(this.time)*6,0],[-31,17]]);
+      ctx.fillStyle='#fff0a5';poly(ctx,[[-31,-8],[-46,0],[-31,8]]);
+      ctx.fillStyle='#171e2a';ctx.strokeStyle='#8194a8';ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(-31,-25);ctx.lineTo(2,-25);ctx.bezierCurveTo(43,-25,43,25,2,25);ctx.lineTo(-31,25);ctx.closePath();ctx.fill();ctx.stroke();
+      ctx.fillStyle='#455569';ctx.fillRect(-31,-25,8,50);ctx.fillStyle='#94a6b8';ctx.fillRect(-29,-21,2,42);
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.ellipse(16,-11,11,8,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#151d29';dot(ctx,22,-10,4);
+      ctx.strokeStyle='#151d29';ctx.lineWidth=4;stroke(ctx,5,-20,28,-14);
+      ctx.fillStyle='#fff';ctx.strokeStyle='#788595';ctx.lineWidth=1.5;ctx.beginPath();ctx.ellipse(10,13,12,9,-.2,0,Math.PI*2);ctx.fill();ctx.stroke();
+      for(const x of [5,10,15])stroke(ctx,x,8,x,15);
+      for(const [color,offset]of [['#ffb975',-14],[JET_COLORS.jj,-7],[JET_COLORS.michelle,0]]){ctx.fillStyle=color;dot(ctx,offset,-18,2.5);}ctx.restore();return;
+    }
     ctx.save();ctx.translate(this.x,this.y);ctx.scale(this.face,1);
     ctx.fillStyle='#ffc75e';poly(ctx,[[-28,-8],[-44-Math.sin(this.time*.8)*5,0],[-28,8]]);
     ctx.fillStyle='#e8f5ff';ctx.strokeStyle='#283c5e';ctx.lineWidth=1.5;
