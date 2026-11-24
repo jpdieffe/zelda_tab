@@ -1,13 +1,13 @@
-import {POWERS,powerHint} from './reward-types.js';
+import {POWERS,powerHint} from './reward-types.js?v=20261124-1';
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const enabled=(role,c)=>c?.active&&(role!=='michelle'||c.enabled);
 export class PowerRewards{
-  constructor(lasers){this.lasers=lasers;this.timers={};this.missiles=[];this.meteors=[];this.bursts=[];this.scene=null;}
+  constructor(lasers){this.lasers=lasers;this.timers={};this.missiles=[];this.meteors=[];this.bursts=[];this.effects=[];this.scene=null;}
   start(result){
     if(!POWERS[result.type]||!result.roles.length)return;
     for(const role of result.roles){
       delete this.timers[role];delete this.lasers.timers[role];delete this.lasers.aim[role];
-      this.missiles=this.missiles.filter(p=>p.role!==role);this.meteors=this.meteors.filter(p=>p.role!==role);
+      this.effects=this.effects.filter(p=>p.role!==role);this.missiles=this.missiles.filter(p=>p.role!==role);this.meteors=this.meteors.filter(p=>p.role!==role);
       if(result.type!=='laser')this.timers[role]={type:result.type,remaining:POWERS[result.type].seconds,giant:result.giant,cooldown:0,launched:false};
     }
     if(result.type==='laser')this.lasers.start(result);
@@ -29,21 +29,33 @@ export class PowerRewards{
   label(){return Object.entries(this.snapshot()||{}).map(([role,t])=>`${role==='jj'?'JJ':'Michelle'}: ${powerHint(t,role)}`).join(' | ');}
   update(dt,world,characters,hit,paused=false,sound=()=>{}){
     if(paused)return;
-    if(!world?.active){this.missiles=[];this.meteors=[];this.bursts=[];for(const t of Object.values(this.timers))if(t.type==='meteor'&&t.launched)t.remaining=0;return;}
+    if(!world?.active){this.missiles=[];this.meteors=[];this.bursts=[];this.effects=[];for(const t of Object.values(this.timers))if(t.type==='meteor'&&t.launched)t.remaining=0;return;}
     if(this.scene!==world.scene){
-      this.missiles=[];this.meteors=[];this.bursts=[];
+      this.missiles=[];this.meteors=[];this.bursts=[];this.effects=[];
       for(const t of Object.values(this.timers))if(t.type==='meteor'&&t.launched)t.remaining=0;
     }else{
       const dx=((world.cameraX-this.cameraX+32768)&65535)-32768,dy=((world.cameraY-this.cameraY+32768)&65535)-32768;
-      for(const p of [...this.missiles,...this.meteors,...this.bursts]){p.x-=dx;p.y-=dy;}
+      for(const p of [...this.missiles,...this.meteors,...this.bursts,...this.effects]){p.x-=dx;p.y-=dy;}
     }
     this.scene=world.scene;this.cameraX=world.cameraX;this.cameraY=world.cameraY;
     for(const b of this.bursts)b.life-=dt;this.bursts=this.bursts.filter(b=>b.life>0);
+    for(const effect of this.effects)effect.life-=dt;this.effects=this.effects.filter(p=>p.life>0&&enabled(p.role,characters[p.role])&&this.timers[p.role]?.remaining>0);
     const area=(p,type,giant)=>{const spec=POWERS[type],radius=giant?spec.teamRadius:spec.radius;for(const enemy of world.enemies)if(enemy.vulnerable&&distance(enemy,p)<=radius+(enemy.radius??7))hit(enemy,p,type,giant);};
     for(const [role,t] of Object.entries(this.timers)){
       if(t.remaining<=0)continue;
       const c=characters[role];t.cooldown-=dt;
       if(enabled(role,c)){
+        if(t.type==='lightning'&&t.cooldown<=0){
+          const targets=world.enemies.filter(e=>e.vulnerable&&distance(e,c)<160).sort((a,b)=>distance(a,c)-distance(b,c)).slice(0,t.giant?4:2);
+          for(const target of targets){area(target,'lightning',t.giant);this.effects.push({role,type:'lightning',x:target.x,y:target.y,life:.3});}
+          if(targets.length)sound('fire');t.cooldown=.65;
+        }
+        if(t.type==='fireballs'){
+          this.effects=this.effects.filter(p=>p.role!==role||p.type!=='fireballs');t.angle=(t.angle||0)+dt*3;
+          for(let i=0,n=t.giant?5:3;i<n;i++){const a=t.angle+i*Math.PI*2/n,p={role,type:'fireballs',x:c.x+Math.cos(a)*32,y:c.y+Math.sin(a)*32,life:.15};this.effects.push(p);if(t.cooldown<=0)area(p,'fireballs',t.giant);}
+          if(t.cooldown<=0)t.cooldown=.12;
+        }
+        if(t.type==='shockwave'&&t.cooldown<=0){area(c,'shockwave',t.giant);this.effects.push({role,type:'shockwave',x:c.x,y:c.y,radius:t.giant?96:64,life:.55});sound('boom');t.cooldown=.9;}
         if(t.type==='dinosaur'&&t.cooldown<=0){area(c,'dinosaur',t.giant);t.cooldown=.12;}
         if(t.type==='missiles'&&t.cooldown<=0){
           const targets=world.enemies.filter(e=>e.vulnerable).sort((a,b)=>distance(a,c)-distance(b,c));
@@ -75,6 +87,13 @@ export class PowerRewards{
   }
   draw(ctx,time){
     ctx.save();
+    for(const p of this.effects){
+      ctx.save();
+      if(p.type==='lightning'){ctx.globalAlpha=Math.min(1,p.life*6);ctx.strokeStyle='#fffba9';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(p.x-10,32);ctx.lineTo(p.x+7,p.y-25);ctx.lineTo(p.x-5,p.y-18);ctx.lineTo(p.x,p.y);ctx.stroke();ctx.fillStyle='#b8dfff';ctx.beginPath();ctx.arc(p.x,p.y,9,0,Math.PI*2);ctx.fill();}
+      if(p.type==='fireballs'){ctx.fillStyle='#ff773c';ctx.beginPath();ctx.arc(p.x,p.y,7,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff4a5';ctx.beginPath();ctx.arc(p.x-1,p.y-1,4,0,Math.PI*2);ctx.fill();}
+      if(p.type==='shockwave'){const progress=1-p.life/.55;ctx.globalAlpha=1-progress;ctx.lineWidth=4;for(let i=0;i<3;i++){ctx.strokeStyle=['#ffc5ef','#a5e8ff','#fff4aa'][i];ctx.beginPath();ctx.arc(p.x,p.y,Math.max(1,p.radius*progress-i*5),0,Math.PI*2);ctx.stroke();}}
+      ctx.restore();
+    }
     for(const p of this.missiles){
       ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);ctx.fillStyle='#ffae56';ctx.beginPath();ctx.moveTo(-6,-3);ctx.lineTo(-15-Math.sin(time/30)*3,0);ctx.lineTo(-6,3);ctx.fill();
       ctx.fillStyle=p.role==='jj'?'#a4ffd3':'#ebbcff';ctx.fillRect(-7,-3,10,6);ctx.beginPath();ctx.moveTo(3,-4);ctx.lineTo(9,0);ctx.lineTo(3,4);ctx.fill();ctx.restore();

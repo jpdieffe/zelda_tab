@@ -46,17 +46,15 @@ export async function learningChecks({dad,jj,michelle,shot}){
       assert.ok(Math.hypot(first.x-second.x,first.y-second.y)>5,'JJ touch drag visibly turns the beam');
       await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await cdp.detach();
     }else{
-      const pad=await michelle.locator('#unicorn-pad').boundingBox(),x=pad.x+pad.width/2,y=pad.y+pad.height/2;
-      await michelle.mouse.move(x,y);await michelle.mouse.down();await michelle.mouse.move(x+50,y-5);
-      await dad.waitForFunction(()=>testGame.lasers.aim.michelle?.x>.9&&testGame.lasers.aim.michelle?.y<0);
-      await rendered();
-      const first=await dad.evaluate(()=>({...testGame.lasers.beams.find(b=>b.role==='michelle').end}));
-      await michelle.mouse.move(x+50,y-18);
-      await dad.waitForFunction(()=>testGame.lasers.aim.michelle?.y<-.3);
-      await rendered();
-      const second=await dad.evaluate(()=>({...testGame.lasers.beams.find(b=>b.role==='michelle').end}));
-      assert.ok(Math.hypot(first.x-second.x,first.y-second.y)>1,'Small joystick turns visibly change the beam within one octant');
-      await michelle.mouse.up();assert.equal(await dad.evaluate(()=>testGame.unicorn.inputY),0,'Joystick aims instead of walking');
+      const right=await michelle.locator('#unicorn-pad [data-direction=right]').boundingBox();
+      await michelle.mouse.move(right.x+right.width/2,right.y+right.height/2);await michelle.mouse.down();
+      await dad.waitForFunction(()=>testGame.lasers.aim.michelle?.x===1);
+      await rendered();const first=await dad.evaluate(()=>({...testGame.lasers.beams.find(b=>b.role==='michelle').end}));await michelle.mouse.up();
+      const up=await michelle.locator('#unicorn-pad [data-direction=up]').boundingBox();
+      await michelle.mouse.move(up.x+up.width/2,up.y+up.height/2);await michelle.mouse.down();await dad.waitForFunction(()=>testGame.lasers.aim.michelle?.y===-1);
+      await rendered();const second=await dad.evaluate(()=>({...testGame.lasers.beams.find(b=>b.role==='michelle').end}));
+      assert.ok(Math.hypot(first.x-second.x,first.y-second.y)>5,'Arrow presses change the beam direction');
+      await michelle.mouse.up();assert.equal(await dad.evaluate(()=>testGame.unicorn.inputY),0,'Arrows aim instead of walking');
     }
   };
   await begin();

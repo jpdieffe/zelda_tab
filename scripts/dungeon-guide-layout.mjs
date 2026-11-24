@@ -20,7 +20,7 @@ try{
     await page.locator('#toggle-route-line').click();assert.equal(await page.locator('#toggle-route-line').getAttribute('aria-pressed'),'true');
     await page.locator('#route-guide').click();
     await page.locator('#route-panel').evaluate(e=>e.scrollTop=0);
-    assert.match(await page.locator('#route-panel').textContent(),/Desert guide v2/);
+    assert.match(await page.locator('#route-panel').textContent(),/Dungeon guide v3/);
     assert.equal(await page.locator('#route-next').isVisible(),false);
     const title=await page.locator('#route-title').boundingBox();assert.ok(title.y>=0&&title.y+title.height<height);
     assert.match(await page.locator('#route-destination').textContent(),/central hall/);

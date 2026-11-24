@@ -1,9 +1,9 @@
-import {POWERS} from './reward-types.js';
-import {BOSSES,ZERO_HEALTH_ENEMIES,enemyBody} from './enemies.js';
-import { wallAt } from './collision.js';
-import { readGuidance } from './guidance.js';
-import {DungeonGuide} from './dungeon-guide.js?guide=20261119-3';
-import { beamEnd, touchesBeam } from './lasers.js';
+import {POWERS} from './reward-types.js?v=20261124-1';
+import {BOSSES,ZERO_HEALTH_ENEMIES,enemyBody} from './enemies.js?v=20261124-1';
+import { wallAt } from './collision.js?v=20261124-1';
+import { readGuidance } from './guidance.js?v=20261124-1';
+import {DungeonGuide} from './dungeon-guide.js?v=20261124-1';
+import { beamEnd, touchesBeam } from './lasers.js?v=20261124-1';
 // USA ALttP 1.0 only. Addresses verified against snesrev/zelda3 variables.h
 // and Sprite_GiveDamage / Sprite_MiniMoldorm_Recoil in sprite.c.
 export const ROM_SHA256 = '66871d66be19ad2c34c927d6b14cd8eb6fc3181965b6e517cb361f7316009cfb';
@@ -18,7 +18,7 @@ export const ADDR = Object.freeze({
   health: 0xf36d, capacity: 0xf36c, heartFill: 0xf372,
   ai:0xd80,a:0xd90,c:0xdb0,e:0xe90,anim:0xec0,aux1:0xe00,aux4:0xf10,sword:0xf359,sound:0x12f,trinexxFinal:0xb10,
 });
-export {ENEMIES} from './enemies.js';
+export {ENEMIES} from './enemies.js?v=20261124-1';
 export const word = (ram, offset) => ram[offset] | (ram[offset + 1] << 8);
 const signedDifference = (a, b) => ((a - b + 0x8000) & 0xffff) - 0x8000;
 

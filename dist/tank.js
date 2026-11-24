@@ -1,6 +1,6 @@
-import {TankTerrain,TankLink} from './tank-terrain.js';
-import {beamEnd,touchesBeam} from './lasers.js';
-import {inLoadedRoom} from './dungeon-safety.js';
+import {TankTerrain,TankLink} from './tank-terrain.js?v=20261124-1';
+import {beamEnd,touchesBeam} from './lasers.js?v=20261124-1';
+import {inLoadedRoom} from './dungeon-safety.js?v=20261124-1';
 export class TeamTank{
  constructor(bridge){this.bridge=bridge;this.terrain=new TankTerrain(bridge);this.link=new TankLink(bridge,this.terrain);this.active=false;this.missiles=[];this.blasts=[];this.aim={x:1,y:0};this.aimAge=1;this.firing=false;this.rocketCooldown=0;this.heartCooldown=0;this.hitCooldown=0;this.sequence=0;}
  start(world){

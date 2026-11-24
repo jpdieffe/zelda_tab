@@ -1,4 +1,4 @@
-import { romOffset } from './collision.js';
+import { romOffset } from './collision.js?v=20261124-1';
 const word = (b, i) => b[i] | b[i + 1] << 8;
 const goal = (id, label, entrance, extra = {}) => ({id, label, entrance, ...extra});
 

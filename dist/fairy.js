@@ -1,4 +1,4 @@
-import {drawDinosaur} from './dinosaur.js';
+import {drawDinosaur} from './dinosaur.js?v=20261124-1';
 export const RANGE = 54;
 export const COOLDOWN = 650;
 export const ARROW_COOLDOWN=1200;

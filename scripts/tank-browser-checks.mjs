@@ -35,8 +35,8 @@ export async function tankChecks({dad,jj,michelle,shot}){
   r[A.xLo+k]=x&255;r[A.xHi+k]=x>>8;r[A.yLo+k]=y&255;r[A.yHi+k]=y>>8;r[A.z+k]=r[A.hit+k]=r[A.damage+k]=r[A.recoil+k]=r[A.pause+k]=0;r[A.hp+k]=128;r[0xdf0+k]=180;r[0xd40+k]=r[0xd50+k]=0;
  });
  await prepare();
- const mp=await michelle.locator('#unicorn-pad').boundingBox(),mx=mp.x+mp.width/2,my=mp.y+mp.height/2;
- await michelle.mouse.move(mx,my);await michelle.mouse.down();await michelle.mouse.move(mx+50,my);
+ const mp=await michelle.locator('#unicorn-pad [data-direction=right]').boundingBox(),mx=mp.x+mp.width/2,my=mp.y+mp.height/2;
+ await michelle.mouse.move(mx,my);await michelle.mouse.down();
  await dad.waitForFunction(()=>testGame.tank.beam&&testGame.bridge.ram[tankA.hp+14]<128);
  await writeFile(new URL('../test-results/team-tank-rainbow.png',import.meta.url),Buffer.from(await dad.evaluate(()=>document.getElementById('broadcast').toDataURL().split(',')[1]),'base64'));
  await michelle.mouse.up();await dad.waitForFunction(()=>!testGame.tank.beam);

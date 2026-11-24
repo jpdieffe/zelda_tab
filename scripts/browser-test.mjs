@@ -59,7 +59,7 @@ try{
   console.log('GAME',await dad.evaluate(async()=>{const {game}=await import(document.querySelector('script[type="module"]').src);return {module:game.bridge.ram[0x10],sub:game.bridge.ram[0x11]};}));
   await dad.locator('#save').click();
   await dad.waitForTimeout(300);
-  assert.ok(await dad.evaluate(async()=>Boolean(await (await import('/storage.js')).get('save'))));
+  assert.equal(await dad.evaluate(async()=>Boolean(await (await import('/storage.js')).get('save'))),false,'Title and file-select screens cannot overwrite a saved adventure');
   const before=await dad.evaluate(async()=>{const {game}=await import(document.querySelector('script[type="module"]').src);return game.bridge.ram[0x1a];});
   await dad.locator('#pause').click();await dad.waitForTimeout(100);
   const paused1=await dad.evaluate(async()=>{const {game}=await import(document.querySelector('script[type="module"]').src);return game.bridge.ram[0x1a];});
@@ -118,18 +118,18 @@ try{
   await dad.waitForFunction(()=>testGame.network.has('jj')&&testGame.network.has('michelle')&&testGame.unicorn.active);
   await michelle.waitForFunction(()=>!document.getElementById('unicorn-fire').disabled);
   await shot(michelle,'michelle-controller.png');
-  const pad=await michelle.locator('#unicorn-pad').boundingBox(),px=pad.x+pad.width/2,py=pad.y+pad.height/2;
+  const pad=await michelle.locator('#unicorn-pad [data-direction=right]').boundingBox(),px=pad.x+pad.width/2,py=pad.y+pad.height/2;
   const ux=await dad.evaluate(()=>testGame.unicorn.x);
-  await michelle.mouse.move(px,py);await michelle.mouse.down();await michelle.mouse.move(px+45,py);await dad.waitForTimeout(300);await michelle.mouse.up();
+  await michelle.mouse.move(px,py);await michelle.mouse.down();await dad.waitForTimeout(300);await michelle.mouse.up();
   await dad.waitForFunction(()=>testGame.unicorn.inputX===0);
-  assert.ok(await dad.evaluate(x=>testGame.unicorn.x>x+10,ux),'Michelle joystick moves the unicorn');
+  assert.ok(await dad.evaluate(x=>testGame.unicorn.x>x+10,ux),'Michelle arrows moves the unicorn');
   const stopped=await dad.evaluate(()=>testGame.unicorn.x);await dad.waitForTimeout(450);
   assert.ok(Math.abs(await dad.evaluate(()=>testGame.unicorn.x)-stopped)<1,'Release stops unicorn');
   await dad.evaluate(()=>{testGame.bridge.ram[0xf36d]=testGame.bridge.ram[0xf36c]-8;});
   await michelle.locator('#unicorn-heal').click();
   await dad.waitForFunction(()=>testGame.bridge.ram[0xf36d]===testGame.bridge.ram[0xf36c],{},{timeout:5000});
   assert.equal(await michelle.locator('#unicorn-heal').isDisabled(),true);
-  console.log('Three players paired; Michelle joystick and native Link healing verified');
+  console.log('Three players paired; Michelle arrows and native Link healing verified');
   await dad.evaluate(async()=>{
     const {ADDR:A}=await import('/zelda.js');const ram=testGame.bridge.ram,k=14;
     const x=(ram[A.linkX]|ram[A.linkX+1]<<8)+30,y=(ram[A.linkY]|ram[A.linkY+1]<<8)+30;

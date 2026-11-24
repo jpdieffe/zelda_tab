@@ -1,10 +1,12 @@
-import {tileAttribute,solidAttribute} from './collision.js';
-import {roomBounds,inLoadedRoom} from './dungeon-safety.js';
-import {desertObjective,desertKeyPot} from './desert-route.js';
+import {tileAttribute,solidAttribute} from './collision.js?v=20261124-1';
+import {roomBounds,inLoadedRoom} from './dungeon-safety.js?v=20261124-1';
+import {desertObjective,desertKeyPot} from './desert-route.js?v=20261124-1';
+import {easternObjective,EASTERN_ROOMS} from './eastern-route.js?v=20261124-1';
 const word=(r,a)=>r[a]|r[a+1]<<8;
 const NAMES=['Castle / Sewers','Hyrule Castle','Eastern Palace','Desert Palace','Castle Tower','Swamp Palace','Palace of Darkness','Misery Mire','Skull Woods','Ice Palace','Tower of Hera',"Thieves' Town",'Turtle Rock',"Ganon's Tower"];
-const STAIRS=new Set([0x1c,0x1d,0x1e,0x1f,0x22,0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37,0x3d,0x3e,0x3f]);
-const FLOOR=new Set([0,5,6,7,0x14,0x15,0x16,0x17,0x21,0x23,0x24,0x25,0x38,0x39,0x3a,0x3b,0x3c,0x40,0x48,0x4a,0x5e,0x5f,0x60,0x61,0x62,0x64,0x65,0x66,0xa6,0xa7]);
+const STAIRS=new Set([0x1d,0x1e,0x1f,0x22,0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37,0x3d,0x3e,0x3f]);
+// 0x1c is the native overlay mask, not a staircase or a solid wall.
+const FLOOR=new Set([0,5,6,7,0x1c,0x14,0x15,0x16,0x17,0x21,0x23,0x24,0x25,0x38,0x39,0x3a,0x3b,0x3c,0x40,0x48,0x4a,0x5e,0x5f,0x60,0x61,0x62,0x64,0x65,0x66,0xa6,0xa7]);
 const DIRS=[[0,-1,'up','↑'],[0,1,'down','↓'],[-1,0,'left','←'],[1,0,'right','→']];
 const smallKeyDoor=t=>t===0x1c||t>=0x20&&t<=0x26;
 export const dungeonName=r=>NAMES[r[0x40c]>>1]||'Inside';
@@ -95,6 +97,7 @@ function approach(map,route,f){
     const p=map.point(i),dx=Math.max(f.minX-p.x,0,p.x-f.maxX),dy=Math.max(f.minY-p.y,0,p.y-f.maxY);
     if(f.type==='door'&&f.direction>=2&&Math.abs(p.y-(f.y-8))>1)continue;
     if(f.type==='door'&&f.direction<2&&Math.abs(p.x-f.x)>4)continue;
+    if(f.type==='stairs'&&Math.abs(p.x-f.x)>4)continue;
     if(f.type==='chest'&&(p.y<f.maxY+6||p.y>f.maxY+22||p.x<f.minX-4||p.x>f.maxX+4))continue;
     if(Math.hypot(dx,dy)>21)continue;
     const score=route.dist[i]+Math.hypot(p.x-f.x,p.y-f.y)/8;
@@ -126,7 +129,7 @@ function action(r,f){
 }
 function pointFeature(map,g){
   const x=map.bounds.left+g.x,y=map.bounds.top+g.y;
-  const f={...g,type:g.chest?'chest':'waypoint',x,y,minX:x,maxX:x,minY:y,maxY:y};
+  const f={...g,type:g.feature||(g.chest?'chest':'waypoint'),x,y,minX:x,maxX:x,minY:y,maxY:y};
   if(g.x<=8||g.x>=504){f.minY=map.bounds.top;f.maxY=map.bounds.bottom-1;}
   if(g.y<=8){f.minX=map.bounds.left;f.maxX=map.bounds.right-1;}
   return f;
@@ -136,6 +139,7 @@ function routeToObjective(r,map,route,x,y,goal){
   if(goal.stationary)return {stationary:true,instruction:goal.instruction};
   const destination=pointFeature(map,goal);
   if(goal.chest){const chest=map.features.find(f=>f.type==='chest'&&Math.hypot(f.x-destination.x,f.y-destination.y)<48);if(chest)Object.assign(destination,chest,{label:goal.label,instruction:goal.instruction});}
+  if(goal.feature){const feature=map.features.filter(f=>f.type===goal.feature).sort((a,b)=>Math.hypot(a.x-destination.x,a.y-destination.y)-Math.hypot(b.x-destination.x,b.y-destination.y))[0];if(feature&&Math.hypot(feature.x-destination.x,feature.y-destination.y)<40)Object.assign(destination,feature,{label:goal.label,instruction:goal.instruction});}
   // Doors and stairs connect regions only in this planning graph. The displayed
   // walking path always stops at the first gate, using the real collision map.
   const plan=(closed)=>{
@@ -176,7 +180,8 @@ function routeToObjective(r,map,route,x,y,goal){
       const horizontal=gate.direction===undefined?gate.maxX-gate.minX>gate.maxY-gate.minY:gate.direction>=2;
       const direction=horizontal?(after.x>=before.x?3:2):(after.y>=before.y?1:0);
       const target={...gate,direction,path:approach(map,route,gate)};
-      if(gate.attr<0xf0&&featureDistance(gate,{x,y})<=12){
+      if(gate.type==='stairs')target.instruction=goal.feature==='stairs'?goal.instruction:`As Link, keep walking ${after.y>=before.y?'down':'up'} along these stairs until the floor finishes changing.`;
+      if(gate.attr<0xf0&&featureDistance(gate,{x,y})<=12&&(horizontal?Math.abs(y-(gate.y-8))<=2:Math.abs(x-gate.x)<=2)){
         target.path=[{x,y}];
         target.x=horizontal?(direction===2?gate.minX-16:gate.maxX+16):x;
         target.y=horizontal?y:direction===0?gate.minY-16:gate.maxY+16;
@@ -229,7 +234,7 @@ export class DungeonGuide{
     if(this.lastAt&&now-this.lastAt<180)return this.last;
     this.lastAt=now;
     const floor=r[0xa4]>127?`B${256-r[0xa4]}`:`${r[0xa4]+1}F`,name=dungeonName(r);
-    const roomName=r[0x40c]===6?({0x85:'East wing',0x84:'Central hall',0x83:'West wing',0x75:'Big Key room',0x74:'North hall',0x73:'Northwest wing',0x63:'Rear entrance',0x53:'Rear section',0x43:'Torch room',0x33:'Lanmolas'})[room]:null;
+    const roomName=r[0x40c]===6?({0x85:'East wing',0x84:'Central hall',0x83:'West wing',0x75:'Big Key room',0x74:'North hall',0x73:'Northwest wing',0x63:'Rear entrance',0x53:'Rear section',0x43:'Torch room',0x33:'Lanmolas'})[room]:r[0x40c]===4?EASTERN_ROOMS[room]:null;
     const base={id:objective.id,dungeon:true,label:`${name} · ${floor}`,angle:null,arrived:false,path:[],room:[name,floor,roomName].filter(Boolean).join(' · '),mission:mission(r)||objective.label,puzzle:roomPuzzle(r),options:[],steps:[]};
     if(!inLoadedRoom(r)){base.label='Room out of sync — tap Unstuck to return to the entrance.';base.steps=[base.label];return this.last=base;}
     const map=roomMap(r,rom),route=routes(map,x,y),choices=map.features.map(f=>({...f,path:approach(map,route,f)})).filter(f=>f.path);
@@ -249,7 +254,7 @@ export class DungeonGuide{
       return score(a)-score(b);
     });
     base.options=choices.map(f=>({id:f.id,label:f.label}));
-    const goal=desertObjective(r);
+    const goal=desertObjective(r)||easternObjective(r);
     if(goal){base.mission=goal.mission;base.destination=goal.label;base.options=[];}
     const target=goal?routeToObjective(r,map,route,x,y,goal):choices.find(f=>f.id===this.selected)||choices[this.choice%Math.max(1,choices.length)];
     if(target?.stationary){base.label=`${name}: ${target.instruction}`;base.steps=[target.instruction];return this.last=base;}
@@ -257,7 +262,7 @@ export class DungeonGuide{
     if(!target){base.label=`${name}: no clear walking route here. ${base.puzzle}`;base.steps=['Release the tank before navigating this room.',base.puzzle,'Use X for the dungeon map. If the room is invisible or out of sync, tap Unstuck.'];return this.last=base;}
     this.selected=target.id;base.target={x:target.x,y:target.y,label:target.label};base.path=target.path;
     if(goal)base.puzzle='';
-    const directions=steps(target.path);base.arrived=target.path.length<=2;
+    const directions=steps(target.path);base.arrived=Math.hypot(target.path.at(-1).x-x,target.path.at(-1).y-y)<=4;
     const waypoint=base.arrived?target:target.path[Math.min(1,target.path.length-1)];
     base.angle=Math.atan2(waypoint.y-y,waypoint.x-x);
     base.steps=[...directions,action(r,target),...(goal&&target.id!==goal.id?[`Then continue toward: ${goal.label}.`]:[])];

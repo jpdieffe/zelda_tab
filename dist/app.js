@@ -1,18 +1,20 @@
-import {TeamTank} from './tank.js';
-import {canRecoverDungeon,recoverDungeon,inLoadedRoom} from './dungeon-safety.js';
-import { ROM_SHA256, ZeldaBridge, snapshotRam } from './zelda.js?guide=20261119-3';
-import { Fairy, COOLDOWN } from './fairy.js';
-import { Unicorn } from './unicorn.js';
-import { drawGuidance } from './guidance.js?line=1';
-import { Joystick } from './joystick.js';
-import { KidLock } from './kid-lock.js';
-import { LearningRound } from './learning.js?numbers=1';
-import { LaserReward } from './lasers.js';
-import { PowerRewards } from './powers.js';
-import { powerHint } from './reward-types.js';
-import { QuestionView, speakQuestion, stopQuestionAudio } from './question-view.js?numbers=1';
-import { Connection, roomCode, normalizeCode, validCode } from './network.js';
-import * as storage from './storage.js';
+import {TeamTank} from './tank.js?v=20261124-1';
+import {canRecoverDungeon,recoverDungeon,inLoadedRoom} from './dungeon-safety.js?v=20261124-1';
+import { ROM_SHA256, ZeldaBridge, snapshotRam } from './zelda.js?v=20261124-1';
+import { Fairy, COOLDOWN } from './fairy.js?v=20261124-1';
+import { Unicorn } from './unicorn.js?v=20261124-1';
+import { drawGuidance } from './guidance.js?v=20261124-1';
+import { Joystick } from './joystick.js?v=20261124-1';
+import { ArrowPad } from './arrow-pad.js?v=20261124-1';
+import { KidLock } from './kid-lock.js?v=20261124-1';
+import { LearningRound } from './learning.js?v=20261124-1';
+import { LaserReward } from './lasers.js?v=20261124-1';
+import { PowerRewards } from './powers.js?v=20261124-1';
+import { powerHint } from './reward-types.js?v=20261124-1';
+import { QuestionView, speakQuestion, stopQuestionAudio } from './question-view.js?v=20261124-1';
+import { Connection, roomCode, normalizeCode, validCode } from './network.js?v=20261124-1';
+import * as storage from './storage.js?v=20261124-1';
+import {validateSave,canSaveAdventure,describeSave,loadVerifiedSave} from './save-policy.js?v=20261124-1';
 
 const $=id=>document.getElementById(id);
 export const game={role:null,network:null,emulator:null,bridge:null,fairy:null,paused:false,ready:false,saving:false,loading:false};
@@ -164,7 +166,8 @@ async function onGameStarted(){
   const gm=game.emulator.gameManager;
   // Let the runtime run a few frames before loading/locating RAM.
   await new Promise(resolve=>setTimeout(resolve,500));
-  try{const saved=await storage.get('save');if(saved?.rom===ROM_SHA256){snapshotRam(saved.state);gm.loadState(saved.state);toast('Welcome back! Your last save is loaded.');}}catch{toast('Could not load the last save. Starting from the title screen.');}
+  game.saveBlocked=false;
+  try{const saved=await storage.get('save');if(saved){await loadVerifiedSave(gm,saved);toast('Welcome back! Your last save is loaded.');}}catch{game.saveBlocked=true;toast('Your save could not load. It is kept safe. Open More ? Save history to recover a backup.');}
   game.bridge=new ZeldaBridge(gm,gameRom);game.fairy=new Fairy();game.unicorn=new Unicorn();game.unicorn.enabled=Boolean(game.network?.has('michelle'));
   let bridgeError;
   try{await game.bridge.connect();}catch(e){bridgeError=e;}
@@ -264,12 +267,12 @@ const joystick=new Joystick($('dpad'),press,release);
 let michelleReady=false;
 function sendUnicornMove(){
   if(game.role!=='michelle')return;
-  const {x,y}=unicornJoystick.vector;
+  const {x,y}=unicornArrows.vector;
   game.network?.send({type:'unicorn-move',x:michelleReady?x:0,y:michelleReady?y:0});
 }
-const unicornJoystick=new Joystick($('unicorn-pad'),()=>{},()=>{},()=>sendUnicornMove());
-function releaseUnicorn(){unicornJoystick.reset();}
-setInterval(()=>{if(unicornJoystick.vector.x||unicornJoystick.vector.y)sendUnicornMove();},100);
+const unicornArrows=new ArrowPad($('unicorn-pad'),()=>sendUnicornMove());
+function releaseUnicorn(){unicornArrows.reset();}
+setInterval(()=>{if(unicornArrows.vector.x||unicornArrows.vector.y)sendUnicornMove();},100);
 window.addEventListener('blur',releaseUnicorn);
 $('michelle-leave').onclick=()=>{releaseUnicorn();game.network?.close();game.network=null;michelleReady=false;show('michelle-setup');};
 for(const [id,type] of [['unicorn-fire','unicorn-fire'],['unicorn-heal','unicorn-heal'],['unicorn-bomb','unicorn-bomb'],['tank-hearts','tank-hearts']]){
@@ -294,8 +297,8 @@ $('michelle-form').onsubmit=async e=>{
         $('tank-heart-label').textContent=data.tank?.heartCooldown>0?'Recharging':'HEART MISSILES';
         $('unicorn-controller').querySelector('.unicorn-footer small').textContent=data.tank?'Heart missiles - 0.8-second recharge':'One heart - 5-second recharge';
         $('michelle-learning').hidden=!data.learning&&!data.powers&&!data.tank;
-        $('michelle-learning').textContent=data.learning?(data.learning.phase==='ready'?'Get ready for questions on the big tablet.':`${data.learning.name}'s turn. Answer on the big tablet.`):data.tank?'TEAM TANK - Joystick fires rainbow lasers. Tap HEART MISSILES to launch hearts!':data.powers?Object.entries(data.powers).map(([role,power])=>`${role==='jj'?'JJ':'Michelle'}: ${powerHint(power,role)}`).join(' | '):'';
-        $('unicorn-pad').querySelector('small').textContent=aiming?'DRAG TO AIM':data.powers?.michelle?.type==='dinosaur'?'DRAG TO STOMP':'DRAG TO GALLOP';
+        $('michelle-learning').textContent=data.learning?(data.learning.phase==='ready'?'Get ready for questions on the big tablet.':`${data.learning.name}'s turn. Answer on the big tablet.`):data.tank?'TEAM TANK - Hold arrows to aim rainbow lasers. Tap HEART MISSILES to launch hearts!':data.powers?Object.entries(data.powers).map(([role,power])=>`${role==='jj'?'JJ':'Michelle'}: ${powerHint(power,role)}`).join(' | '):'';
+        $('unicorn-pad').querySelector('small').textContent=aiming?'HOLD ARROWS TO AIM':data.powers?.michelle?.type==='dinosaur'?'HOLD ARROWS TO STOMP':'HOLD ARROWS TO MOVE';
         if(!michelleReady)releaseUnicorn();
         $('michelle-objective').textContent=data.objective||'';
         $('unicorn-fire').disabled=!michelleReady||data.cooldown>0;
@@ -370,17 +373,38 @@ $('pair-info').onclick=async()=>{
   try{await navigator.clipboard.writeText(url.href);toast('Tablet link copied. Or enter the code on JJ’s tablet.');}catch{toast('On JJ’s tablet, open this page and enter '+game.network.code);}
 };
 async function saveGame(notify=true){
-  if(!game.ready||game.saving||game.recovering)return false;game.saving=true;
+  if(!game.ready||game.saving||game.recovering)return false;
+  if(game.saveBlocked){if(notify)toast('Your previous save is protected. Use More ? Save history to restore it or keep this adventure.');return false;}
+  if(!canSaveAdventure(game.bridge?.ram)){if(notify)toast('Return to gameplay before saving. Your previous save is safe.');return false;}
+  game.saving=true;
   if(game.bridge?.ram?.[0x1b]&&game.bridge.read()?.active&&!inLoadedRoom(game.bridge.ram)){game.saving=false;if(notify)toast('This room is out of sync. Tap Unstuck before saving.');return false;}
   if(game.tank.active&&!game.bridge.read()?.active){game.saving=false;if(notify)toast('Finish crossing to the next screen before saving.');return false;}
-  try{const state=game.tank.cleanState(()=>game.emulator.gameManager.getState(),game.bridge.read());snapshotRam(state);await storage.put('save',{rom:ROM_SHA256,state,date:Date.now()});if(notify)toast('Adventure saved on this phone.');return true;}
+  try{const state=game.tank.cleanState(()=>game.emulator.gameManager.getState(),game.bridge.read());snapshotRam(state);await storage.saveAdventure({rom:ROM_SHA256,state,date:Date.now()},{force:notify});if(notify)toast('Adventure saved on this phone.');return true;}
   catch{toast('Could not save in this browser. Use More → Download save backup.');return false;}
   finally{game.saving=false;}
 }
 $('save').onclick=()=>saveGame();
-$('resume-save').onclick=async()=>{
-  try{const saved=await storage.get('save');if(!saved)throw new Error('No saved adventure yet.');snapshotRam(saved.state);game.tank.reset(game.bridge.read());game.emulator.gameManager.loadState(saved.state);game.bridge.guide.reset();game.fairy.scene=null;game.unicorn.scene=null;$('phone-options').hidden=true;toast('Last save loaded.');}catch(e){toast(e.message);}
+async function restoreAdventure(saved){
+  const state=validateSave(saved);if(game.saving||game.restoring)throw Error('Please wait for the current save to finish.');
+  game.restoring=true;game.saveBlocked=true;releaseButtons();setPaused(true);
+  try{
+    if(canSaveAdventure(game.bridge.ram))await storage.put('before-restore',{rom:ROM_SHA256,state:game.tank.cleanState(()=>game.emulator.gameManager.getState(),game.bridge.read()),date:Date.now()});
+    game.learning.skip();game.tank.reset(game.bridge.read());await loadVerifiedSave(game.emulator.gameManager,{...saved,state});
+    await storage.saveAdventure({...saved,state},{force:true});
+    game.bridge.guide.reset();game.fairy.scene=null;game.unicorn.scene=null;game.unicorn.stop();
+    game.powers=new PowerRewards(game.lasers);game.lasers.timers={};game.lasers.aim={};
+    game.saveBlocked=false;$('phone-options').hidden=$('save-history-panel').hidden=true;toast('Saved adventure restored. Your previous adventure is in Save history.');
+  }catch(error){game.saveBlocked=true;throw error;}finally{game.restoring=false;setPaused(false);}
+}
+$('resume-save').onclick=async()=>{try{const saved=await storage.get('save');if(!saved)throw Error('No saved adventure on this browser. Open Save history or restore a downloaded backup.');await restoreAdventure(saved);}catch(e){toast(e.message);}};
+let savedChoices=[];
+$('save-history').onclick=async()=>{
+  releaseButtons();setPaused(true);$('save-history-panel').hidden=false;
+  try{savedChoices=await storage.adventureBackups();const select=$('save-history-select');select.replaceChildren(...savedChoices.map((s,i)=>new Option(describeSave(s),String(i))));$('restore-history').disabled=!savedChoices.length;$('save-history-help').textContent=savedChoices.length?'Choose a backup by date and progress. Restoring keeps a copy of your current adventure.':'No backups in this browser. Saves stay on Dad?s device and browser. Use Restore backup to import a downloaded .state file.';}catch(e){toast(e.message);}
 };
+$('restore-history').onclick=async()=>{try{await restoreAdventure(savedChoices[Number($('save-history-select').value)]);}catch(e){toast(e.message);}};
+$('close-history').onclick=()=>{$('save-history-panel').hidden=true;setPaused(false);};
+$('keep-adventure').onclick=async()=>{if(!canSaveAdventure(game.bridge?.ram)){toast('Return to gameplay first.');return;}const blocked=game.saveBlocked;game.saveBlocked=false;if(await saveGame(true)){$('save-history-panel').hidden=true;setPaused(false);}else game.saveBlocked=blocked;};
 $('export-save').onclick=()=>{
   if(game.tank?.active&&!game.bridge.read()?.active){toast('Finish crossing to the next screen before saving.');return;}
   if(!game.ready)return;const state=game.tank.cleanState(()=>game.emulator.gameManager.getState(),game.bridge.read());const blob=new Blob([state]);const url=URL.createObjectURL(blob);
@@ -388,7 +412,7 @@ $('export-save').onclick=()=>{
 };
 $('import-save').onchange=async e=>{
   const file=e.target.files[0];if(!file)return;
-  try{if(file.size>2*1024*1024)throw new Error('This is not a Fairy Link save backup.');const state=new Uint8Array(await file.arrayBuffer());snapshotRam(state);if(!new TextDecoder().decode(state.slice(0,7)).startsWith('RASTATE'))throw new Error('Unsupported save format.');game.tank.reset(game.bridge.read());game.emulator.gameManager.loadState(state);game.bridge.guide.reset();game.fairy.scene=null;game.unicorn.scene=null;await saveGame(false);toast('Backup restored.');$('phone-options').hidden=true;}catch(e){toast(e.message);}
+  try{if(file.size>2*1024*1024)throw Error('This is not a Fairy Link save backup.');await restoreAdventure({rom:ROM_SHA256,state:new Uint8Array(await file.arrayBuffer()),date:Date.now()});}catch(e){toast(e.message);}finally{e.target.value='';}
 };
 $('export-recovery').onclick=async()=>{
   try{

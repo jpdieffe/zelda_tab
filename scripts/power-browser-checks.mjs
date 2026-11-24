@@ -6,7 +6,7 @@ export async function powerChecks({dad,jj,michelle,shot}){
   const original=testGame.bridge.powerHit.bind(testGame.bridge);
   testGame.bridge.powerHit=(...args)=>{const accepted=original(...args);if(accepted)powerHits.push({type:args[2],source:{x:args[1].x,y:args[1].y}});return accepted;};
  });
- for(const type of ['missiles','dinosaur','meteor']){
+ for(const type of ['missiles','dinosaur','meteor','lightning','fireballs','shockwave']){
   await dad.evaluate(type=>{
    testGame.learning.rewardBag=[type];testGame.powers.timers={};testGame.powers.missiles=[];testGame.powers.meteors=[];
    testGame.powers.syncCharacters({jj:testGame.fairy,michelle:testGame.unicorn});
@@ -21,7 +21,7 @@ export async function powerChecks({dad,jj,michelle,shot}){
    await jj.locator('.quiz-choice').nth(choice).click();await jj.locator('#quiz-next').waitFor({state:'visible'});
    if(!n)await jj.locator('#quiz-next').click();
   }
-  assert.match(await jj.locator('#quiz-feedback').textContent(),new RegExp(type==='missiles'?'missiles':type==='dinosaur'?'dinosaurs':'meteors','i'));
+  assert.match(await jj.locator('#quiz-feedback').textContent(),new RegExp(type==='missiles'?'missiles':type==='dinosaur'?'dinosaurs':type==='meteor'?'meteors':type==='fireballs'?'fireballs':type,'i'));
   await dad.evaluate(()=>{
    const r=testGame.bridge.ram,A=powerA,k=14,w=testGame.bridge.read(),x=w.cameraX+120,y=w.cameraY+136;
    r[A.xLo+k]=x&255;r[A.xHi+k]=x>>8;r[A.yLo+k]=y&255;r[A.yHi+k]=y>>8;r[A.z+k]=r[A.hit+k]=r[A.damage+k]=r[A.recoil+k]=r[A.pause+k]=0;r[A.hp+k]=64;r[0xdf0+k]=180;r[0xd40+k]=r[0xd50+k]=0;
@@ -33,8 +33,8 @@ export async function powerChecks({dad,jj,michelle,shot}){
   if(type==='dinosaur'){
    // Make a wall in the host collision model, then steer through it using the phone.
    await dad.evaluate(()=>{window.originalPowerRead=testGame.bridge.read.bind(testGame.bridge);testGame.bridge.read=()=>({...originalPowerRead(),wallAt:x=>x>=120});});
-   const pad=await michelle.locator('#unicorn-pad').boundingBox(),x=pad.x+pad.width/2,y=pad.y+pad.height/2;
-   await michelle.mouse.move(x,y);await michelle.mouse.down();await michelle.mouse.move(x+50,y);
+   const pad=await michelle.locator('#unicorn-pad [data-direction=right]').boundingBox(),x=pad.x+pad.width/2,y=pad.y+pad.height/2;
+   await michelle.mouse.move(x,y);await michelle.mouse.down();
    await dad.waitForFunction(()=>testGame.unicorn.x>145);await michelle.mouse.up();
    assert.equal(await dad.evaluate(()=>testGame.unicorn.dinosaur),true);
   }

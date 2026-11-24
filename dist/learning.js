@@ -1,4 +1,4 @@
-import {REWARD_TYPES,rewardAnnouncement} from './reward-types.js';
+import {REWARD_TYPES,rewardAnnouncement} from './reward-types.js?v=20261124-1';
 // Current deck from edu_games/weekly_agendas/heart-words.js: words introduced
 // through October 26, 2026. Keep the curriculum here; no student data is sent.
 export const SIGHT_WORDS=Object.freeze(['a','by','I','as','is','he','be','here','she','the','what','and','love','my','pretty','says','little','new','come','make','baby','father','mother']);

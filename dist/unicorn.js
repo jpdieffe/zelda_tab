@@ -1,6 +1,6 @@
-import {drawDinosaur} from './dinosaur.js';
-import {Fairy} from './fairy.js';
-import {BombLauncher} from './bombs.js';
+import {drawDinosaur} from './dinosaur.js?v=20261124-1';
+import {Fairy} from './fairy.js?v=20261124-1';
+import {BombLauncher} from './bombs.js?v=20261124-1';
 export const HEAL_COOLDOWN=5000;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const placementOffsets=[];

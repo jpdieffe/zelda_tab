@@ -1,5 +1,5 @@
-import {tileAttribute,romOffset,solidAttribute} from './collision.js';
-import {roomBounds,inLoadedRoom} from './dungeon-safety.js';
+import {tileAttribute,romOffset,solidAttribute} from './collision.js?v=20261124-1';
+import {roomBounds,inLoadedRoom} from './dungeon-safety.js?v=20261124-1';
 const word=(r,a)=>r[a]|r[a+1]<<8;
 const put=(r,a,v)=>{r[a]=v&255;r[a+1]=v>>8;};
 const SAFE=new Set([0,5,6,7,0x14,0x15,0x16,0x17,0x21,0x23,0x24,0x25,0x3a,0x3b,0x3c,0x40,0x48]);

@@ -8,14 +8,14 @@
   <title>JJ's Fairy Link</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?guide=20261119-3">
+  <link rel="stylesheet" href="./style.css?v=20261124-1">
   <link rel="stylesheet" href="./game-switch.css">
   <script defer src="./vendor/peerjs.min.js"></script>
-  <script type="module" src="./app.js?guide=20261119-3"></script>
+  <script type="module" src="./app.js?v=20261124-1"></script>
 </head>
 <body>
   <main id="home" class="view home">
-    <header class="brand"><img src="./icon.svg" alt="" width="36" height="36"><span>FAIRY LINK <small>JJ, DAD & MICHELLE</small></span><span class="edition">THREE PLAYER MAGIC</span></header>
+    <header class="brand"><img src="./icon.svg" alt="" width="36" height="36"><span>FAIRY LINK <small>JJ, DAD & MICHELLE</small></span><span class="edition">NOV 24 ? ARROWS + SAVE HISTORY</span></header>
     <div class="intro">
       <div class="intro-copy"><div class="eyebrow"><span></span> A SHARED ADVENTURE</div><h1>Every hero needs<br>a little <em>magic.</em></h1><p>Dad leads. JJ flies. Michelle gallops.<br>Explore Hyrule together, one fairy spark at a time.</p></div>
       <div class="fairy-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><span class="star s1">✧</span><span class="star s2">✦</span><span class="star s3">✧</span><img src="./icon.svg" alt=""><span class="fairy-label">SMALL WINGS. BIG ADVENTURES.</span></div>
@@ -40,7 +40,7 @@
     <div id="michelle-learning" class="learning-status" hidden></div>
     <div id="michelle-objective" class="objective phone-objective"></div>
     <div class="unicorn-controls">
-      <div class="dpad joystick" id="unicorn-pad" role="group" aria-label="Unicorn joystick: touch anywhere and drag to move"><span class="joystick-ring"></span><span class="joystick-knob"></span><small>DRAG TO GALLOP</small></div>
+      <div class="arrow-pad" id="unicorn-pad" role="group" aria-label="Unicorn direction buttons"><button data-direction="up" aria-label="Move up">&#8593;</button><button data-direction="left" aria-label="Move left">&#8592;</button><button data-direction="right" aria-label="Move right">&#8594;</button><button data-direction="down" aria-label="Move down">&#8595;</button><small>HOLD ARROWS TO MOVE</small></div>
       <div class="unicorn-middle"><img src="./unicorn.svg" alt="Michelle's unicorn" width="65" height="65"><button id="unicorn-heal" class="heal-button" disabled aria-label="Send a heart to heal Link"><span>♥</span><small id="heal-label">HEAL LINK</small></button></div>
       <div class="unicorn-weapons"><button id="tank-hearts" class="bomb-button" hidden disabled><span aria-hidden="true">&#9829;</span><strong id="tank-heart-label">HEART MISSILES</strong></button><button id="unicorn-fire" class="unicorn-attack" disabled aria-label="Shoot unicorn magic"><span>✦</span><strong>ATTACK</strong></button><button id="unicorn-bomb" class="bomb-button" disabled aria-label="Shoot a bomb"><span aria-hidden="true">●</span><strong id="bomb-label">BOMB</strong></button></div>
     </div>
@@ -72,8 +72,9 @@
       <div class="face-buttons"><button class="face x" data-key="9">X<small>MAP</small></button><button class="face y" data-key="1">Y<small>ITEM</small></button><button class="face a" data-key="8">A<small>ACTION</small></button><button class="face b" data-key="0">B<small>SWORD</small></button></div>
     </div>
     <footer class="controller-bottom"><button id="peek">Enlarge game</button><button id="pause">Pause</button><button id="start-questions" disabled aria-label="Start questions for JJ and Michelle">Questions</button><button id="tank-questions" disabled>Tank challenge</button><button id="release-tank" hidden>Release tank power</button><button id="save">Save & keep playing</button><button id="route-guide">Step-by-step guide</button><button id="unstuck" title="Reload the dungeon entrance while keeping collected items">Unstuck</button><button id="options">More ···</button></footer>
-    <aside id="phone-options" class="options" hidden><h2>Your adventure</h2><button id="toggle-guidance">Story compass: on</button><button id="resume-save">Load last save</button><button id="export-save">Download save backup</button><button id="export-recovery">Download pre-recovery backup</button><label class="button-label">Restore backup<input id="import-save" type="file" accept=".state"></label><button id="unlock-tablet">Unlock JJ's tablet</button><button id="new-pair">Reconnect tablet</button><button id="exit-game">Save & leave</button><button id="close-options" class="primary">Back to game</button></aside>
-    <aside id="route-panel" class="options route-panel" hidden><h2 id="route-title">Dungeon guide</h2><small>Desert guide v2</small><p id="route-mission"></p><p id="route-destination"></p><p id="route-tank-note" hidden>Release tank power before following the walking route. Dungeon walls, doors and stairs stop the tank.</p><ol id="route-steps"></ol><p id="route-puzzle"></p><button id="route-next">Guide to another nearby target</button><button id="close-route" class="primary">Back to game</button></aside>
+    <aside id="save-history-panel" class="options" hidden><h2>Save history</h2><p id="save-history-help"></p><select id="save-history-select" aria-label="Saved adventure backups"></select><button id="restore-history">Restore selected backup</button><button id="keep-adventure">Keep current adventure (back up previous save)</button><button id="close-history" class="primary">Back</button></aside>
+    <aside id="phone-options" class="options" hidden><h2>Your adventure</h2><button id="toggle-guidance">Story compass: on</button><button id="resume-save">Load last save</button><button id="save-history">Save history / recovery</button><button id="export-save">Download save backup</button><button id="export-recovery">Download pre-recovery backup</button><label class="button-label">Restore backup<input id="import-save" type="file" accept=".state"></label><button id="unlock-tablet">Unlock JJ's tablet</button><button id="new-pair">Reconnect tablet</button><button id="exit-game">Save & leave</button><button id="close-options" class="primary">Back to game</button></aside>
+    <aside id="route-panel" class="options route-panel" hidden><h2 id="route-title">Dungeon guide</h2><small>Dungeon guide v3 ? Nov 24</small><p id="route-mission"></p><p id="route-destination"></p><p id="route-tank-note" hidden>Release tank power before following the walking route. Dungeon walls, doors and stairs stop the tank.</p><ol id="route-steps"></ol><p id="route-puzzle"></p><button id="route-next">Guide to another nearby target</button><button id="close-route" class="primary">Back to game</button></aside>
     <div id="peek-panel" class="peek-panel" hidden><canvas id="peek-canvas" width="512" height="448"></canvas><button id="close-peek">Close preview</button></div>
   </main>
 

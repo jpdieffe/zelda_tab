@@ -9,16 +9,16 @@ import {ENEMIES} from '../dist/enemies.js';
 const world=()=>({active:true,scene:'one',cameraX:0,cameraY:0,link:{x:70,y:100},enemies:[{slot:1,type:0x41,x:140,y:100,radius:7,vulnerable:true}],wallAt:()=>true});
 const characters=()=>({jj:{active:true,x:80,y:100,aimX:1,aimY:0},michelle:{active:true,enabled:true,x:90,y:100,aimX:1,aimY:0}});
 const powers=()=>new PowerRewards(new LaserReward());
-test('question rewards shuffle all four powers without immediate repeats and announce the selected bonus',()=>{
+test('question rewards shuffle all seven powers without immediate repeats and announce the selected bonus',()=>{
  const q=new LearningRound(()=>.7),seen=[];
- for(let i=0;i<12;i++){
+ for(let i=0;i<21;i++){
   q.start({playing:true,tablet:true});const type=q.round.rewardType;seen.push(type);
   q.advance(q.token());
   for(let n=0;n<2;n++){const r=q.round,item=r.questions[r.index];q.answer(q.token(),item.choices.indexOf(item.answer));if(!n)q.advance(q.token());}
   assert.equal(q.snapshot().giant,true);assert.ok(!q.snapshot().feedback.includes('undefined'));
   const result=q.advance(q.token());assert.equal(result.type,type);assert.deepEqual(result.roles,['jj','michelle']);
  }
- for(let i=0;i<12;i+=4)assert.equal(new Set(seen.slice(i,i+4)).size,4);
+ for(let i=0;i<21;i+=7)assert.equal(new Set(seen.slice(i,i+7)).size,7);
  for(let i=1;i<seen.length;i++)assert.notEqual(seen[i],seen[i-1]);
 });
 test('missiles automatically lock on through walls for five active seconds and pause with the game',()=>{
@@ -67,4 +67,14 @@ test('superpower damage uses native enemy handling, boosts damage, preserves bos
  assert.equal(applyPowerHit(r,t,{x:140,y:100},'meteor'),true);assert.equal(r[A.damage],32);
  r[A.hit]=r[A.damage]=0;r[A.type]=0xce;assert.equal(applyPowerHit(r,{...t,type:0xce},{x:140,y:100},'dinosaur'),true);assert.equal(r[A.damage],0,'Blind uses native recoil hits');
  r[A.hit]=r[A.damage]=0;r[A.type]=0x73;assert.equal(applyPowerHit(r,{...t,type:0x73},{x:140,y:100},'meteor'),false);
+});
+
+for(const type of ['lightning','fireballs','shockwave'])test(`${type} damages real targets, pauses, clears across scenes and expires`,()=>{
+ const p=powers(),w=world(),c=characters(),hits=[];w.enemies[0].x=112;
+ p.start({type,roles:['jj'],giant:false});
+ for(let i=0;i<20;i++)p.update(.05,w,c,(enemy,source,power)=>hits.push({enemy,power}));
+ assert.ok(hits.length);assert.ok(hits.every(h=>h.power===type));assert.ok(p.effects.length);
+ const frozen=structuredClone(p.effects),left=p.timers.jj.remaining;p.update(2,w,c,()=>assert.fail(),true);assert.deepEqual(p.effects,frozen);assert.equal(p.timers.jj.remaining,left);
+ p.update(.05,{...w,scene:'other',enemies:[]},{},()=>assert.fail());assert.equal(p.effects.length,0);
+ p.update(30,w,c,()=>{});p.update(.01,w,c,()=>assert.fail());assert.equal(p.snapshot(),null);assert.equal(p.effects.length,0);
 });

@@ -1,0 +1,18 @@
+import {readFile,writeFile} from 'node:fs/promises';import {chromium} from 'playwright';import {serve} from './serve.mjs';
+const server=serve(4299),browser=await chromium.launch({channel:'chrome',headless:true,args:['--autoplay-policy=no-user-gesture-required','--disable-background-timer-throttling']});
+try{const page=await browser.newPage({viewport:{width:900,height:500}});page.on('pageerror',e=>console.log(e.message));await page.goto('http://localhost:4299');await page.evaluate(async()=>window.g=(await import(document.querySelector('script[type=module]').src)).game);await page.locator('#choose-dad').click();await page.waitForFunction(()=>g.ready&&g.bridge?.ram,null,{timeout:90000});await page.evaluate(bytes=>g.emulator.gameManager.loadState(new Uint8Array(bytes)),Array.from(await readFile(process.env.TEST_SAVE||'test-results/phone-original.state')));await page.waitForFunction(()=>g.bridge.ram[0xa0]===0xbb);await page.waitForTimeout(1000);await page.evaluate(async()=>{const r=g.bridge.ram;r[0x10e]=8;r.fill(0,0xf000,0xf280);r[0xf340]=r[0xf366]=r[0xf367]=r[0xf36f]=r[0xf374]=0;(await import('/dungeon-safety.js')).recoverDungeon(r);});await page.waitForFunction(()=>g.bridge.ram[0xa0]===0xc9&&g.bridge.read().active);let prev='',stuck=0,lastPosition='',reached=false;
+for(let tick=0;tick<1000;tick++){
+const s=await page.evaluate(tick=>{const r=g.bridge.ram,gm=g.emulator.gameManager;r[0xf36d]=r[0xf36c];r[0x37b]=90;g.bridge.guide.lastAt=0;const w=g.bridge.read(),guide=w.guidance,x=(r[0x22]|r[0x23]<<8)+8,y=(r[0x20]|r[0x21]<<8)+8;for(const key of [4,5,6,7,8])gm.simulateInput(0,key,0);
+ if(w.active&&!guide?.path.length&&/Defeat/.test(guide?.steps.join(' ')))for(const enemy of w.enemies)if(enemy.type!==0x15)g.bridge.powerHit(enemy,enemy,'meteor',true);
+ let direction=null;if(w.active&&!guide?.path.length&&/Press A once/.test(guide?.steps.join(' '))&&tick%5===0)gm.simulateInput(0,8,1);
+ if(w.active&&guide?.path.length){const point=guide.path.find(p=>Math.hypot(p.x-x,p.y-y)>7)||guide.target;let dx=point.x-x,dy=point.y-y;const text=guide.steps.at(-1)||'';
+ if(guide.arrived){dx=guide.target.x-x;dy=guide.target.y-y;if(/press A|lift/i.test(guide.steps.join(' '))){if(tick%5===0)gm.simulateInput(0,8,1);}if(Math.hypot(dx,dy)<5){const action=guide.steps.find(t=>t.startsWith('As Link')||t.startsWith('Walk '))||'';direction=action.includes('left')?6:action.includes('right')?7:action.includes('down')?5:4;}}
+ if(direction===null)direction=Math.abs(dx)>Math.abs(dy)?dx>0?7:6:dy>0?5:4;gm.simulateInput(0,direction,1);}
+ return {room:r[0xa0],layer:r[0xee],x:x&511,y:y&511,active:w.active,target:guide?.target?.label,destination:guide?.destination,arrived:guide?.arrived,steps:guide?.steps,direction};},tick);
+const scene=s.room+':'+s.layer;if(scene!==prev){prev=scene;console.log('ROOM',s);await writeFile('test-results/walk-'+s.room.toString(16)+'-'+s.layer+'.json',JSON.stringify(await page.evaluate(()=>Array.from(g.bridge.ram))));}
+if(tick%30===0)console.log('WALK',tick,s);
+const pos=s.x+':'+s.y;if(pos===lastPosition&&s.active)stuck++;else stuck=0;lastPosition=pos;if(stuck>35){console.log('STUCK',s);await page.screenshot({path:'test-results/eastern-walk-stuck.png'});await writeFile('test-results/eastern-walk-stuck.state',Buffer.from(await page.evaluate(()=>Array.from(g.emulator.gameManager.getState()))));throw Error('Compass walk got stuck: '+JSON.stringify(s));}
+if(s.room===0xaa&&s.active){console.log('PASS native walk through entrance, rolling-ball stairs, switch pot, Stalfos rooms and central bridge to east wing');reached=true;break;}await page.waitForTimeout(50);
+}
+if(!reached)throw Error('Compass did not reach the east wing within the test limit');
+}finally{await browser.close();server.close();}
